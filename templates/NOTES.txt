@@ -1,4 +1,25 @@
 =========================================
+ VMs erzeugt
+=========================================
+
+Verbinden mit VM
+
+  virtctl console vm-0 -n {{ .Release.Namespace }}
+  
+Fortschrittskontrolle der Installation
+
+  kubectl get sc,pv,pvc,dv,vm,vmi -n {{ .Release.Namespace }}
+  
+Einzelne VM löschen und wieder erstellen
+
+  kubectl delete vm vm-0 -n {{ .Release.Namespace }}
+  helm upgrade lab . -n {{ .Release.Namespace }}
+  
+Komplette Umgebung komplett löschen
+
+  helm uninstall lab -n {{ .Release.Namespace }} && kubectl delete ns {{ .Release.Namespace }} 
+
+=========================================
  WireGuard Clients erzeugt
 =========================================
 
@@ -19,3 +40,8 @@ Optional direkt speichern:
   kubectl get secret client-100 \
     -n {{ .Release.Namespace }} \
     -o jsonpath='{.data.wg0\.conf}' | base64 -d > wg0.conf
+
+Diese Informationen nochmals ausgeben
+
+    helm get notes lab -n {{ .Release.Namespace }} 
+  

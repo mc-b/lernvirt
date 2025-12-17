@@ -28,11 +28,10 @@ spec:
                 readonly: true
           interfaces:
             - name: default
-              bridge: {}
+              masquerade: {}
       networks:
         - name: default
-          multus:
-            networkName: bridge-net
+          pod: {}
       volumes:
         - name: rootdisk
           persistentVolumeClaim:

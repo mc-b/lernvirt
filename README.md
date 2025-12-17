@@ -27,23 +27,6 @@ Falls die Images gecacht werden sollen, diese nach `/data/images` downloaden, z.
     cd /data/images
     wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
     
-Falls die VMs ein eigenes Netzwerk bekommen sollen (dann sehen sie aber die Pods nicht mehr!), multus installieren
-
-  microk8s enable community
-  microk8s enable multus
-  
-Dann Problem die PV binden nicht mehr. Lösung neue Storage Class 
-  
-  kubectl apply -f - <<EOF
-  apiVersion: storage.k8s.io/v1
-  kind: StorageClass
-  metadata:
-    name: hostpath-immediate
-  provisioner: microk8s.io/hostpath
-  volumeBindingMode: Immediate
-  reclaimPolicy: Retain
-  EOF    
-    
 [values.yaml](values.yaml) anpassen.
     
     vm:
@@ -69,7 +52,6 @@ Wieviele VMs `vm.count`, welches Cloud-init Script `vm.userdata`, wieviele Clien
 Installation
 
     helm install lab . -n m346-ap21a --create-namespace
-
     
 Kontrolle
 

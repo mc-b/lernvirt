@@ -9,7 +9,6 @@ spec:
     http:
       url: {{ $vm.image.url }}
   pvc:
-    storageClassName: hostpath-immediate  
     accessModes:
       - ReadWriteOnce
     resources:
