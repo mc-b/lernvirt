@@ -1,0 +1,146 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wg-controller
+data:
+  controller.sh: |-
+    #!/bin/sh
+    set -e
+
+    echo "[WG] starting controller"
+
+    apk add --no-cache \
+      wireguard-tools \
+      kubectl \
+      jq \
+      iproute2 \
+      iptables \
+      grep \
+      sed
+
+    WG_IF="wg0"
+    WG_PORT="51820"
+    BASE_IP="10.10.0"
+    GW_IP="10.10.0.1/24"
+    SYNC_INTERVAL="15"
+    GW_PRIV="/config/privatekey"
+
+    # Alle gültigen Peer-Typen (VMs + Clients)
+    PEER_REGEX="^(vm-[0-9]+|client-[0-9]+)$"
+
+    # ------------------------------------------------------------
+    # 1) Gateway Private/Public Key
+    # ------------------------------------------------------------
+    if [ ! -f "$GW_PRIV" ]; then
+      echo "[WG] generating gateway private key"
+      umask 077
+      wg genkey > "$GW_PRIV"
+    fi
+
+    GW_PUB="$(wg pubkey < "$GW_PRIV")"
+
+    kubectl create secret generic wg-gateway-pub \
+      --from-literal=publickey="$GW_PUB" \
+      --dry-run=client -o yaml | kubectl apply -f -
+
+    # ------------------------------------------------------------
+    # 2) WireGuard Interface initialisieren
+    # ------------------------------------------------------------
+    echo "[WG] init interface"
+
+    if ! ip link show "$WG_IF" >/dev/null 2>&1; then
+      ip link add "$WG_IF" type wireguard
+      ip addr add "$GW_IP" dev "$WG_IF"
+    fi
+
+    wg set "$WG_IF" \
+      private-key "$GW_PRIV" \
+      listen-port "$WG_PORT"
+
+    ip link set up dev "$WG_IF"
+
+    # ------------------------------------------------------------
+    # 3) Routing & NAT aktivieren
+    # ------------------------------------------------------------
+    echo "[WG] enable IP forwarding"
+    sysctl -w net.ipv4.ip_forward=1
+
+    EXT_IF="$(ip route | awk '/default/ {print $5}')"
+    echo "[WG] enable NAT via $EXT_IF"
+
+    iptables -t nat -C POSTROUTING -s 10.10.0.0/24 -o "$EXT_IF" -j MASQUERADE 2>/dev/null \
+      || iptables -t nat -A POSTROUTING -s 10.10.0.0/24 -o "$EXT_IF" -j MASQUERADE
+
+    iptables -C FORWARD -i "$WG_IF" -j ACCEPT 2>/dev/null || iptables -A FORWARD -i "$WG_IF" -j ACCEPT
+    iptables -C FORWARD -o "$WG_IF" -j ACCEPT 2>/dev/null || iptables -A FORWARD -o "$WG_IF" -j ACCEPT
+
+    # ------------------------------------------------------------
+    # 4) Peer-Synchronisation (stabil, symmetrisch)
+    # ------------------------------------------------------------
+    while true; do
+      echo "[WG] syncing peers"
+
+      JSON="$(kubectl get secrets -o json 2>/dev/null || true)"
+
+      if [ -z "$JSON" ]; then
+        sleep "$SYNC_INTERVAL"
+        continue
+      fi
+
+      echo "$JSON" | jq -e . >/dev/null 2>&1 || {
+        sleep "$SYNC_INTERVAL"
+        continue
+      }
+
+      # Desired Public Keys (VMs + Clients)
+      DESIRED_KEYS="$(echo "$JSON" | jq -r --arg re "$PEER_REGEX" '
+        .items[]
+        | select(.metadata.name | test($re))
+        | .data.publickey
+        | @base64d
+      ' | sort)"
+
+      CURRENT_KEYS="$(wg show "$WG_IF" peers | sort)"
+
+      # Neue Peers hinzufügen
+      echo "$JSON" | jq -c --arg re "$PEER_REGEX" '
+        .items[]
+        | select(.metadata.name | test($re))
+        | {
+            name: .metadata.name,
+            pub: (.data.publickey | @base64d)
+          }
+      ' | while read -r line; do
+          NAME="$(echo "$line" | jq -r .name)"
+          PUB="$(echo "$line" | jq -r .pub)"
+
+          case "$NAME" in
+            vm-*)
+              IDX="$(echo "$NAME" | sed -E 's/vm-([0-9]+)/\1/')"
+              IP="$BASE_IP.$((IDX+10))/32"
+              ;;
+            client-*)
+              IDX="$(echo "$NAME" | sed -E 's/client-([0-9]+)/\1/')"
+              IP="$BASE_IP.$IDX/32"
+              ;;
+            *)
+              continue
+              ;;
+          esac
+
+          if ! echo "$CURRENT_KEYS" | grep -qx "$PUB"; then
+            echo "[WG] add peer $NAME ($IP)"
+            wg set "$WG_IF" peer "$PUB" allowed-ips "$IP"
+          fi
+        done
+
+      # Veraltete Peers entfernen
+      for PUB in $CURRENT_KEYS; do
+        if ! echo "$DESIRED_KEYS" | grep -qx "$PUB"; then
+          echo "[WG] remove stale peer $PUB"
+          wg set "$WG_IF" peer "$PUB" remove
+        fi
+      done
+
+      sleep "$SYNC_INTERVAL"
+    done

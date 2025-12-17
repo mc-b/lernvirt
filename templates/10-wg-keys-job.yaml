@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wg-keygen
+spec:
+  template:
+    spec:
+      serviceAccountName: wg-gateway
+      restartPolicy: OnFailure
+      containers:
+        - name: keygen
+          image: alpine:3.19
+          command: ["/bin/sh", "/scripts/keygen.sh"]
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+      volumes:
+        - name: scripts
+          configMap:
+            name: wg-keygen-script
+            defaultMode: 0755

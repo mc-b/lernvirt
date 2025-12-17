@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wg-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wg-gateway
+  template:
+    metadata:
+      labels:
+        app: wg-gateway
+    spec:
+      serviceAccountName: wg-gateway
+      containers:
+        - name: wg
+          image: alpine:3.19
+          securityContext:
+            privileged: true
+          ports:
+            - containerPort: 51820
+              protocol: UDP            
+          command: ["/bin/sh", "/controller/controller.sh"]
+          volumeMounts:
+            - name: controller
+              mountPath: /controller
+            - name: wg-config
+              mountPath: /config
+      volumes:
+        - name: controller
+          configMap:
+            name: wg-controller
+            defaultMode: 0755
+        - name: wg-config
+          emptyDir: {}

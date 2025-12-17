@@ -1,0 +1,74 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wg-clients
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    # "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      serviceAccountName: wg-gateway
+      restartPolicy: Never
+      containers:
+      - name: wg
+        image: alpine:3.19
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+
+          apk add --no-cache wireguard-tools kubectl
+
+          START={{ .Values.wgClients.startHostId }}
+          COUNT={{ .Values.wgClients.count }}
+          NS="{{ .Release.Namespace }}"
+          WG_NET="10.10.0.0/24"
+          ENDPOINT="{{ .Values.wgClients.endpointNode }}"
+
+          until kubectl get secret wg-gateway-pub -n "$NS" >/dev/null 2>&1; do
+            sleep 2
+          done
+
+          GW_PUB="$(kubectl get secret wg-gateway-pub -n "$NS" \
+            -o jsonpath='{.data.publickey}' | base64 -d)"
+
+          until kubectl get svc wg-gateway -n "$NS" >/dev/null 2>&1; do
+            sleep 2
+          done
+
+          WG_PORT="$(kubectl get svc wg-gateway -n "$NS" \
+            -o jsonpath='{.spec.ports[?(@.port==51820)].nodePort}')"
+
+          [ -n "$GW_PUB" ] || exit 1
+          [ -n "$WG_PORT" ] || exit 1
+
+          for i in $(seq 0 $((COUNT-1))); do
+            HOST_ID=$((START+i))
+            SECRET="client-${HOST_ID}"
+            CLIENT_IP="10.10.0.${HOST_ID}/32"
+
+            CLIENT_PRIV="$(wg genkey)"
+            CLIENT_PUB="$(echo "$CLIENT_PRIV" | wg pubkey)"
+
+            cat > /tmp/wg0.conf <<EOF
+          [Interface]
+          PrivateKey = ${CLIENT_PRIV}
+          Address = ${CLIENT_IP}
+          
+          [Peer]
+          PublicKey = ${GW_PUB}
+          Endpoint = ${ENDPOINT}:${WG_PORT}
+          AllowedIPs = ${WG_NET}
+          PersistentKeepalive = 25
+          EOF
+
+            kubectl create secret generic "$SECRET" \
+              -n "$NS" \
+              --from-literal=publickey="$CLIENT_PUB" \
+              --from-file=wg0.conf=/tmp/wg0.conf \
+              --dry-run=client -o yaml | kubectl apply -f -
+          done

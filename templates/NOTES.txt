@@ -1,0 +1,21 @@
+=========================================
+ WireGuard Clients erzeugt
+=========================================
+
+Namespace: {{ .Release.Namespace }}
+
+Clients:
+  Host IDs {{ .Values.wgClients.startHostId }} –
+  {{ add .Values.wgClients.startHostId (sub .Values.wgClients.count 1) }}
+
+Client-Konfiguration anzeigen (Beispiel):
+
+  kubectl get secret client-100 \
+    -n {{ .Release.Namespace }} \
+    -o jsonpath='{.data.wg0\.conf}' | base64 -d
+
+Optional direkt speichern:
+
+  kubectl get secret client-100 \
+    -n {{ .Release.Namespace }} \
+    -o jsonpath='{.data.wg0\.conf}' | base64 -d > wg0.conf

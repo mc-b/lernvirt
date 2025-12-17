@@ -1,0 +1,35 @@
+
+# VMs welche erstellt werden sollen. 
+vm:
+  count: 3
+  
+  # VM Default Werte - koennen ueberschrieben werden
+  cpu: 2
+  memory: 2Gi
+  storage: 8Gi
+  userdata: https://raw.githubusercontent.com/tbz-it/M100/refs/heads/master/cloud-init.yaml 
+  image:
+    name: base-image
+    #url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+    url: http://image-mirror/noble-server-cloudimg-amd64.img
+
+# Default-Werte koennen pro vm-[0-99] ueberschrieben werden
+#vm-0:
+#  memory: 1Gi
+#  storage: 4Gi
+#  userdata: https://raw.githubusercontent.com/tbz-it/M122/refs/heads/master/cloud-init.yaml
+#  image:
+#    name: base-image
+#    url: https://cloud.debian.org/images/cloud/trixie/latest/debian-13-generic-amd64.qcow2 
+
+# WireGuard Clients. WireGuard erreichbar via Host
+wgClients:
+  startHostId: 100
+  count: 5
+  endpointNode: 10.1.40.35
+  
+# Lokaler Image Cache vorhanden? - http://image-mirror/
+mirror:
+  enabled: true
+  storage:
+    size: 50Gi  

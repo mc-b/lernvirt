@@ -1,0 +1,44 @@
+{{- range $i := until (.Values.vm.count | int) }}
+{{- $vm := fromYaml (include "vm.values" (dict "index" $i "values" $.Values)) }}
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: vm-{{ $i }}
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        kubevirt.io/domain: vm-{{ $i }}
+    spec:
+      domain:
+        cpu:
+          cores: {{ $vm.cpu }}
+        resources:
+          requests:
+            memory: {{ $vm.memory }}
+        devices:
+          disks:
+            - name: rootdisk
+              disk:
+                bus: virtio
+            - name: cloudinitdisk
+              cdrom:
+                bus: sata
+                readonly: true
+          interfaces:
+            - name: default
+              masquerade: {}
+      networks:
+        - name: default
+          pod: {}
+      volumes:
+        - name: rootdisk
+          persistentVolumeClaim:
+            claimName: vm-{{ $i }}
+        - name: cloudinitdisk
+          cloudInitNoCloud:
+            secretRef:
+              name: vm-{{ $i }}
+---
+{{- end }}

@@ -1,0 +1,23 @@
+{{- range $i := until (.Values.vm.count | int) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: vm-{{ $i }}
+  labels:
+    kubevirt.io/domain: vm-{{ $i }}
+spec:
+  type: LoadBalancer
+  selector:
+    kubevirt.io/domain: vm-{{ $i }}
+  ports:
+    - name: ssh
+      port: 22
+      targetPort: 22
+    - name: http
+      port: 80
+      targetPort: 80
+    - name: https
+      port: 443
+      targetPort: 443            
+---
+{{- end }}
