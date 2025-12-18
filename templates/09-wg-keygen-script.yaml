@@ -67,6 +67,7 @@ data:
         IP="$((i+10))"
 
         cat >> /tmp/userdata.yaml <<EOF
+    
     write_files:
       - path: /etc/wireguard/vm-$i.conf
         permissions: "0600"
