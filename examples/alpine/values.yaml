@@ -1,0 +1,26 @@
+
+# VMs welche erstellt werden sollen. 
+vm:
+  count: 3
+  
+  # VM Default Werte - koennen ueberschrieben werden
+  cpu: 1
+  memory: 1Gi
+  storage: 2Gi
+  userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/alpine/cloud-init.yaml
+  image:
+    name: base-image
+    url: http://image-mirror/nocloud_alpine-3.23.0-x86_64-bios-cloudinit-metal-r0.qcow2
+
+
+# WireGuard Clients. WireGuard erreichbar via Host
+wgClients:
+  startHostId: 100
+  count: 5
+  endpointNode: 10.1.40.35
+  
+# Lokaler Image Cache vorhanden? - http://image-mirror/
+mirror:
+  enabled: true
+  storage:
+    size: 50Gi  
