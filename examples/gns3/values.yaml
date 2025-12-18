@@ -1,0 +1,26 @@
+
+# GNS3 
+vm:
+  count: 3
+  
+  # VM Default Werte - koennen ueberschrieben werden
+  cpu: 2
+  memory: 8Gi
+  storage: 48Gi
+  userdata: https://raw.githubusercontent.com/mc-b/lerngns3/refs/heads/main/cloud-init-gns3.yaml 
+  image:
+    name: base-image
+    #url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+    url: http://image-mirror/noble-server-cloudimg-amd64.img
+
+# WireGuard Clients. WireGuard erreichbar via Host
+wgClients:
+  startHostId: 100
+  count: 5
+  endpointNode: 10.1.40.35
+  
+# Lokaler Image Cache vorhanden? - http://image-mirror/
+mirror:
+  enabled: true
+  storage:
+    size: 50Gi  
