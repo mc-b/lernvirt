@@ -23,6 +23,4 @@ packages:
 runcmd:
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services.alpine/nfsshare.sh | sh -  
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services.alpine/vpn.sh | sh -  
-  - curl -sfL https://get.k3s.io | sh -
-  - sudo ln -sf /usr/local/bin/k3s /usr/local/bin/kubectl
-  - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | sh - 
+ 
