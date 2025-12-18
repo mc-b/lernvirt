@@ -18,7 +18,7 @@ vm:
 vm-0:
   cpu: 4
   memory: 12Gi
-  userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/cloud-init-control.yaml
+  userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/duk/cloud-init-control.yaml
 
 wgClients:
   startHostId: 100
