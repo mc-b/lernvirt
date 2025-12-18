@@ -1,0 +1,26 @@
+
+# GNS3 
+vm:
+  count: 1
+  
+  # VM Default Werte - koennen ueberschrieben werden
+  cpu: 2
+  memory: 8Gi
+  storage: 72Gi
+  # braucht einfach ein Eintrag
+  userdata: https://raw.githubusercontent.com/tbz-it/M100/refs/heads/master/cloud-init.yaml 
+  image:
+    name: base-image
+    url: http://image-mirror/Windows10.qcow2
+
+# WireGuard Clients. WireGuard erreichbar via Host
+wgClients:
+  startHostId: 100
+  count: 5
+  endpointNode: 10.1.40.35
+  
+# Lokaler Image Cache vorhanden? - http://image-mirror/
+mirror:
+  enabled: true
+  storage:
+    size: 50Gi  
