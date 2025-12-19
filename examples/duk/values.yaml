@@ -9,7 +9,7 @@ vm:
   cpu: 4
   memory: 8Gi
   storage: 32Gi
-  userdata: https://raw.githubusercontent.com/mc-b/duk/refs/heads/master/cloud-init-dukworker.yaml
+  userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/duk/cloud-init-worker.yaml
   image:
     name: base-image
     url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
