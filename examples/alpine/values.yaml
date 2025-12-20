@@ -1,12 +1,12 @@
 
 # VMs welche erstellt werden sollen. 
 vm:
-  count: 24
+  count: 3
   
   # VM Default Werte - koennen ueberschrieben werden
   cpu: 1
   memory: 512Mi
-  storage: 2Gi
+  storage: 1Gi
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/alpine/cloud-init.yaml
   image:
     name: base-image

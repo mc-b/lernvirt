@@ -1,4 +1,24 @@
 {{- range $i := until (.Values.vm.count | int) }}
+
+{{- if $.Values.os.windows }}
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: vm-{{ $i }}
+  labels:
+    kubevirt.io/domain: vm-{{ $i }}
+spec:
+  type: LoadBalancer
+  selector:
+    kubevirt.io/domain: vm-{{ $i }}
+  ports:
+    - name: rdp
+      port: 3389
+      targetPort: 3389
+
+{{- else }}
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -20,4 +40,5 @@ spec:
       port: 443
       targetPort: 443            
 ---
+{{- end }}
 {{- end }}
