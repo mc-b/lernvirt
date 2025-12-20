@@ -1,5 +1,50 @@
 {{- range $i := until (.Values.vm.count | int) }}
 {{- $vm := fromYaml (include "vm.values" (dict "index" $i "values" $.Values)) }}
+
+{{- if $.Values.os.windows }}
+
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: vm-{{ $i }}
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        kubevirt.io/domain: vm-{{ $i }}
+    spec:
+      domain:
+        machine:
+          type: q35
+        firmware:
+          bootloader:
+            bios: {}
+        cpu:
+          cores: {{ $vm.cpu }}
+          model: host-passthrough
+        resources:
+          requests:
+            memory: {{ $vm.memory }}
+        devices:
+          disks:
+            - name: rootdisk
+              disk:
+                bus: sata
+          interfaces:
+            - name: default
+              masquerade: {}
+              model: e1000              
+      networks:
+        - name: default
+          pod: {}
+      volumes:
+        - name: rootdisk
+          persistentVolumeClaim:
+            claimName: vm-{{ $i }}
+
+{{- else }}
+
 apiVersion: kubevirt.io/v1
 kind: VirtualMachine
 metadata:
@@ -41,4 +86,6 @@ spec:
             secretRef:
               name: vm-{{ $i }}
 ---
+{{- end }}
+
 {{- end }}

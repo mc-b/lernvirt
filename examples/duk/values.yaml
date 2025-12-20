@@ -24,3 +24,6 @@ wgClients:
   startHostId: 100
   count: 25
   endpointNode: 10.1.40.35
+
+os:
+  windows: false     

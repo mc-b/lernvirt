@@ -24,3 +24,6 @@ mirror:
   enabled: true
   storage:
     size: 50Gi  
+
+os:
+  windows: true   
