@@ -130,6 +130,8 @@ wgClients:
 ### 5.1 Installation
 
 ```bash
+git clone https://github.com/mc-b/lernvirt.git
+cd lernvirt
 helm install lab . -n m346-ap21a --create-namespace
 ```
 
