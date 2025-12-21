@@ -235,13 +235,25 @@ Auf einem Windows-Client:
 
 ---
 
-## 9 Didaktischer Mehrwert
+## 9. Examples
 
-Mit **lernvirt** lernen Teilnehmende:
+Das Verzeichnis examples/ enthält optionale, in sich geschlossene Beispiele, die typische Einsatz- und Lern­szenarien mit KubeVirt und Kubernetes demonstrieren.
 
-* Virtualisierung mit KubeVirt
-* Kubernetes Storage, Networking und CRDs
-* Infrastructure-as-Code mit Helm
-* sichere Remote-Zugriffe mit WireGuard
-* reproduzierbare Laborumgebungen
+Die Beispiele sind:
+
+* [Alpine Linux](examples/alpine/README.md)
+* [Docker, Podman und Kubernetes](examples/duk/README.md)
+* [GNS3 Labor](examples/gns3/README.md)
+* [Windows 10](examples/win10/README.md)
+* [Windows Server 2022](examples/wins2022/README.md)
+
+---
+
+
+## 10. Eigenes VM Netzwerk (multus)
+
+* [CNI Multus](multus/README.md)
+
+
+
 
