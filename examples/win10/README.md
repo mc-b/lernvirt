@@ -22,7 +22,9 @@ Löschen
     
 Testen
 
-    virtctl vnc vm-0 -n win10 
+    virtctl vnc vm-0 -n win10
+    
+User und Pasword sind `vagrant`.     
     
 **Testen**
 

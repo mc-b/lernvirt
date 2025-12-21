@@ -23,6 +23,8 @@ Löschen
 Testen
 
     virtctl vnc vm-0 -n wins2022 
+    
+User und Pasword sind `vagrant`.      
 
 **Testen**
 

@@ -1,275 +1,245 @@
-# Lernumgebung mit KubeVirt auf microk8s Kubernetes
+# Lernumgebung mit KubeVirt auf microk8s
 
-lernvirt ist eine Lernumgebung auf Basis von KubeVirt, betrieben auf microk8s Kubernetes, mit der sich virtuelle Maschinen und Kubernetes-Konzepte praxisnah, lokal und reproduzierbar erlernen lassen.
-Der Fokus liegt auf einfacher Infrastruktur, klaren Helm-Charts und transparenter Storage-Nutzung für Schulungs- und Experimentierzwecke.
+<img src="https://kubevirt.io/user-guide/assets/architecture-simple.png"
+     alt="KubeVirt Architektur"
+     style="max-width: 60%;">
 
 
-## 0. Quick Start
+Quelle: [KubeVirt Architektur – User Guide](https://kubevirt.io/user-guide/architecture/)
 
-**Kubernetes Installation**
+- - -
 
-Auf Bare Metall eine [zentrale Dateiablage](https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsshare.sh) und [microk8s](https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh) aufsetzen, z.B. mittels als root
+**lernvirt** ist eine lokale, reproduzierbare Lernumgebung auf Basis von Kubernetes und KubeVirt.
+Sie ermöglicht es, **virtuelle Maschinen als Kubernetes-Ressourcen** zu betreiben und dabei sowohl klassische Virtualisierung als auch Kubernetes-Konzepte praxisnah zu erlernen.
 
-    curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsshare.sh | bash -
-    curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -
-    
-KubeVirt aktivieren (als user ubuntu)
+Die Umgebung eignet sich besonders für:
 
-    curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -
-    
-Emulation ggf. wieder deaktivieren
+* Unterrichtsmodule und Schulungen
+* Klassen- oder Kursumgebungen
+* lokale Test- und Entwicklungsumgebungen
 
-    kubectl -n kubevirt patch kubevirt kubevirt --type=merge --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":false}}}}'     
-    
-Falls die Images gecacht werden sollen, diese nach `/data/images` downloaden, z.B. 
-
-    mkdir -p /data/images
-    cd /data/images
-    wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
-    
-[values.yaml](values.yaml) anpassen.
-    
-    vm:
-      count: 3
-      # VM Default Werte - koennen ueberschrieben werden
-      cpu: 2
-      memory: 2Gi
-      storage: 8Gi
-      userdata: https://raw.githubusercontent.com/tbz-it/M100/refs/heads/master/cloud-init.yaml 
-      image:
-        name: base-image
-        url: http://image-mirror/noble-server-cloudimg-amd64.img
-        
-    wgClients:
-      startHostId: 100
-      count: 5
-      endpointNode: 10.1.40.35        
-        
-Wieviele VMs `vm.count`, welches Cloud-init Script `vm.userdata`, wieviele Client WireGuard Konfigurationen erstellen
-
-**VMs in Kubernetes erstellen**
-
-Installation
-
-    helm install lab . -n m346-ap21a --create-namespace
-    
-Kontrolle
-
-    kubectl get sc,pv,pvc,dv,vm,vmi -n m346-ap21a
-    
-Löschen
-
-    helm uninstall lab -n m346-ap21a && kubectl delete ns m346-ap21a    
-    
-Testen
-
-    virtctl console vm-0 -n m346-ap21a 
-
-**Client Zugriff**
-
-Müssen WireGuard aktiviert haben. Anzeige der WireGuard Konfiguration siehe von `helm`, z.B.:
-
-    kubectl get secret client-100 \
-      -n m346-ap21a \
-      -o jsonpath='{.data.wg0\.conf}' | base64 -d
- 
-ssh-Zugriff 
-
-    ssh -i ~/.ssh/lerncloud debian@10.10.0.10    
-   
 ---
 
 ## 1. Zielsetzung
 
-Bereitstellung einer **isolierten, skalierbaren Lernumgebung** pro Modul/Klasse, in der:
+Ziel ist die Bereitstellung einer **isolierten, skalierbaren Lernumgebung pro Modul oder Klasse**, in der:
 
-* jede VM automatisch einen **eigenen WireGuard-Key** erhält
-* externe Clients (LE, Admins) **sicher von ausserhalb** zugreifen können
-* **keine manuellen Konfigurationsschritte** im Cluster nötig sind
+* jede VM automatisch konfiguriert wird (Cloud-Init)
+* jede VM einen **eigenen WireGuard-Schlüssel** erhält
+* externe Clients (z.B. Lehrpersonen, Admins) **sicher von ausserhalb** zugreifen können
+* **keine manuellen Konfigurationsschritte** im Kubernetes-Cluster erforderlich sind
+* VMs vollständig über **Helm und Kubernetes-Ressourcen** verwaltet werden
 
 ---
 
-## 2. Gesamtübersicht (logisch)
+## 2. Voraussetzungen
 
+* Bare-Metal Host mit:
+
+  * Linux (z.B. Ubuntu Server)
+  * aktivierter Hardware-Virtualisierung (Intel VT-x / AMD-V)
+* Root-Zugriff für die Initialinstallation
+* Internetzugang (optional: lokaler Image-Cache)
+
+---
+
+## 3. Quick Start
+
+### 3.1 Kubernetes & Infrastruktur installieren
+
+Auf dem Bare-Metal-Host werden zuerst eine zentrale Dateiablage (NFS) und microk8s installiert.
+
+Als **root** ausführen:
+
+```bash
+curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsshare.sh | bash -
+curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -
 ```
-┌───────────────────────────┐
-│        Externer Client     │
-│  (LE / Admin / Laptop)     │
-│                             │
-│  WireGuard Client           │
-│  PrivateKey (lokal)         │
-└─────────────┬─────────────┘
-              │ UDP/31820
-              ▼
-┌──────────────────────────────────────────┐
-│ Kubernetes Node                           │
-│                                          │
-│  NodePort Service (wg-gateway)            │
-│  UDP 31820 → 51820                        │
-│                                          │
-│  ┌────────────────────────────────────┐  │
-│  │ WireGuard Gateway Pod               │  │
-│  │                                    │  │
-│  │  wg0 Interface                     │  │
-│  │  PrivateKey (lokal im Pod)          │  │
-│  │                                    │  │
-│  │  controller.sh                     │  │
-│  │  - liest Secrets                   │  │
-│  │  - synchronisiert WG-Peers         │  │
-│  └───────────────┬────────────────────┘  │
-│                  │                         │
-│                  │ kubectl get secrets     │
-│                  ▼                         │
-│        Kubernetes Secrets (Namespace)      │
-│        ──────────────────────────────      │
-│        vm-0                     │
-│        vm-1                     │
-│        client-100                          │
-│        client-101                          │
-│        └─ publickey                        │
-│        └─ userData (cloud-init)            │
-└──────────────────┬────────────────────────┘
-                   │
-                   │ virtio / cloud-init
-                   ▼
-┌──────────────────────────────────────────┐
-│ KubeVirt VM (Studenten-VM)                │
-│                                          │
-│  cloud-init                               │
-│  - erzeugt /etc/wireguard/wg0.conf        │
-│  - enthält PrivateKey (nur in VM)         │
-│                                          │
-│  WireGuard wg0                            │
-│  IP: 10.10.0.x                            │
-└──────────────────────────────────────────┘
+
+### 3.2 KubeVirt aktivieren
+
+Als **normaler Benutzer** (z.B. `ubuntu`):
+
+```bash
+curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -
+```
+
+Falls zuvor CPU-Emulation aktiviert wurde, kann diese wieder deaktiviert werden:
+
+```bash
+kubectl -n kubevirt patch kubevirt kubevirt \
+  --type=merge \
+  --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":false}}}}'
+```
+
+### 3.3 VM-Images vorbereiten (optional, empfohlen)
+
+Um wiederholte Downloads zu vermeiden, können Cloud-Images lokal gecacht werden:
+
+```bash
+mkdir -p /data/images
+cd /data/images
+wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
 ```
 
 ---
 
-## 3. Zentrale Komponenten
+## 4. Konfiguration
 
-### 3.1 WireGuard Gateway
+### 4.1 `values.yaml` anpassen
 
-* läuft als **privilegierter Pod**
-* hält **keine Client-PrivateKeys**
-* kennt **nur PublicKeys**
-* synchronisiert Peers **dynamisch**
-
-**Aufgaben:**
-
-* Terminierung aller VPN-Verbindungen
-* Routing zwischen externen Clients und VMs
-* Automatisches Hinzufügen/Entfernen von Peers
-
----
-
-### 3.2 Keygen Job
-
-* läuft **einmalig pro Helm-Deployment**
-* erzeugt pro VM:
-
-  * PrivateKey (nur für VM)
-  * PublicKey (für Gateway)
-* erstellt Kubernetes Secrets:
-
-  * `vm-<n>`
-
-**Wichtig:**
-
-* PrivateKeys verlassen **nie** die VM
-* PublicKeys sind **die einzige Quelle** für Peer-Management
-
----
-
-### 3.3 Kubernetes Secrets = Desired State
-
-Jedes Secret repräsentiert **einen WireGuard-Peer**.
+Die zentrale Konfiguration erfolgt über `values.yaml`.
 
 Beispiel:
 
-```
-Secret: vm-0
-  ├─ publickey   → Gateway liest diesen
-  └─ userData    → VM nutzt diesen
-```
+```yaml
+vm:
+  count: 3
+  # Standardwerte für alle VMs (können überschrieben werden)
+  cpu: 2
+  memory: 2Gi
+  storage: 8Gi
+  userdata: https://raw.githubusercontent.com/tbz-it/M100/refs/heads/master/cloud-init.yaml
+  image:
+    name: base-image
+    url: http://image-mirror/noble-server-cloudimg-amd64.img
 
-**Regel:**
-
-> Existiert ein Secret → Peer ist erlaubt
-> Wird ein Secret gelöscht → Peer wird entfernt
-
----
-
-### 3.4 Controller (`controller.sh`)
-
-* läuft dauerhaft im Gateway-Pod
-* arbeitet **polling-basiert**
-* kein Custom Controller, kein CRD
-
-**Algorithmus (vereinfacht):**
-
-```
-loop alle 15s:
-  secrets = kubectl get secrets
-  desired_keys = secrets.publickey
-  current_keys = wg show peers
-
-  add peers, die fehlen
-  remove peers, die nicht mehr existieren
+wgClients:
+  startHostId: 100
+  count: 5
+  endpointNode: 10.1.40.35
 ```
 
----
+**Bedeutung der wichtigsten Parameter:**
 
-## 4. Netzwerkdesign
-
-| Netz           | Zweck             |
-| -------------- | ----------------- |
-| `10.10.0.0/24` | WireGuard Overlay |
-| `10.10.0.1`    | Gateway           |
-| `10.10.0.10+`  | VMs               |
-| `10.10.0.250`  | Externe Clients   |
-
----
-
-## 5. Sicherheitsprinzipien
-
-* **PrivateKeys bleiben immer beim Besitzer**
-
-* VM-Keys nur in der VM
-* Gateway sieht **ausschliesslich PublicKeys**
-* Zugriff wird **durch Secret-Existenz** gesteuert
+* `vm.count`
+  Anzahl der zu erstellenden virtuellen Maschinen
+* `vm.userdata`
+  Cloud-Init-Konfiguration (Benutzer, SSH-Key, Pakete, Netzwerke)
+* `vm.image.url`
+  Quelle des VM-Basisimages (lokaler Mirror empfohlen)
+* `wgClients.count`
+  Anzahl automatisch generierter WireGuard-Client-Konfigurationen
+* `endpointNode`
+  Öffentliche IP oder DNS des WireGuard Gateways
 
 ---
 
-## 6. Typischer Ablauf (End-to-End)
+## 5. Deployment der VMs
 
-1. Helm installiert Namespace + Ressourcen
-2. Keygen Job erzeugt Secrets
-3. VMs booten und konfigurieren WG per cloud-init
-4. Gateway-Controller liest Secrets
-5. Peers werden automatisch konfiguriert
-6. Externer Client verbindet sich per NodePort
-7. Zugriff auf VMs ist möglich
+### 5.1 Installation
+
+```bash
+helm install lab . -n m346-ap21a --create-namespace
+```
+
+### 5.2 Status & Kontrolle
+
+```bash
+kubectl get sc,pv,pvc,dv,vm,vmi -n m346-ap21a
+```
+
+Typische Ressourcen:
+
+* `DataVolume` (VM-Image)
+* `PersistentVolumeClaim` (Storage)
+* `VirtualMachine` / `VirtualMachineInstance`
+
+### 5.3 Zugriff auf VM-Konsole
+
+```bash
+virtctl console vm-0 -n m346-ap21a
+```
+
+### 5.4 Umgebung löschen
+
+    helm uninstall lab -n m346-ap21a && kubectl delete ns m346-ap21a
 
 ---
 
-## 7. Didaktische Einordnung (SEUSAG)
+## 6. Client-Zugriff via WireGuard
 
-* klare Trennung von:
+Für jeden Client wird automatisch eine WireGuard-Konfiguration erzeugt.
 
-  * **Infrastruktur**
-  * **Automatisierung**
-  * **Security**
-  
-* gut geeignet für:
+Anzeige einer Client-Konfiguration:
 
-  * M346 / M347 / M183
-  * Netzwerke, VPN, Cloud-Grundlagen
-* Architektur ist:
+```bash
+kubectl get secret client-100 \
+  -n m346-ap21a \
+  -o jsonpath='{.data.wg0\.conf}' | base64 -d
+```
 
-  * transparent
-  * reproduzierbar
-  * realitätsnah
+Die Konfiguration kann direkt in einen WireGuard-Client importiert werden (Linux, macOS, Windows, Mobile).
 
 ---
-   
+
+## 7. SSH-Zugriff auf VMs
+
+Nach erfolgreicher VPN-Verbindung ist der Zugriff per SSH möglich:
+
+```bash
+ssh -i ~/.ssh/lerncloud debian@10.10.0.10
+```
+---
+
+Hier ist eine **saubere, vollständige und didaktisch verbesserte Version** von
+**„8. Client-Zugriff via Remotedesktop (RDP) für Windows“**, passend zum Stil des restlichen README:
+
+---
+
+## 8. Client-Zugriff via Remotedesktop (RDP) für Windows
+
+Neben dem Zugriff per SSH können **Windows-VMs** auch direkt über **Remote Desktop Protocol (RDP)** genutzt werden.
+
+Dabei wird der **RDP-Port 3389** der jeweiligen VM über einen Kubernetes-Service nach aussen exponiert.
+
+⚠️ **Hinweis:**
+Ein direkt exponierter RDP-Port stellt ein erhöhtes Sicherheitsrisiko dar.
+Für produktive oder internet-exponierte Umgebungen wird dringend empfohlen, den Zugriff **über das WireGuard-VPN** durchzuführen oder den NodePort per Firewall einzuschränken.
+
+### 8.1 Service überprüfen
+
+Mit folgendem Befehl kann überprüft werden, ob der RDP-Service aktiv ist:
+
+```bash
+kubectl get service -n m346-ap21a
+```
+
+Beispielausgabe:
+
+```text
+NAME           TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)           AGE
+vm-0-rdp       NodePort   10.152.183.12  <none>        3389:31234/TCP     2m
+```
+
+In diesem Beispiel:
+
+* **Port 3389** ist der interne RDP-Port der VM
+* **Port 31234** ist der von Kubernetes vergebene NodePort
+* die VM ist über die IP-Adresse des Kubernetes-Nodes erreichbar
+
+### 8.3 RDP-Verbindung herstellen
+
+Auf einem Windows-Client:
+
+1. **Remotedesktop-Verbindung** öffnen
+   (`mstsc.exe`)
+
+2. Als Ziel angeben:
+
+    <Node-IP>:<NodePort>
+
+3. Mit dem in der VM konfigurierten Benutzer anmelden.j
+
+---
+
+## 9 Didaktischer Mehrwert
+
+Mit **lernvirt** lernen Teilnehmende:
+
+* Virtualisierung mit KubeVirt
+* Kubernetes Storage, Networking und CRDs
+* Infrastructure-as-Code mit Helm
+* sichere Remote-Zugriffe mit WireGuard
+* reproduzierbare Laborumgebungen
+
