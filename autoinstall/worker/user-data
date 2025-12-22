@@ -29,6 +29,8 @@ autoinstall:
       - default
       - name: ubuntu
         sudo: ALL=(ALL) NOPASSWD:ALL
+        groups: users, admin 
+        plain_text_passwd: 'insecure'         
     disable_root: true
     packages:
       - jq
