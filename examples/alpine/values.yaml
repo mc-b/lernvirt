@@ -10,8 +10,8 @@ vm:
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/alpine/cloud-init.yaml
   image:
     name: base-image
-    url: http://image-mirror/generic_alpine-3.23.0-x86_64-bios-cloudinit-r0.qcow2
-    # url: https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/generic_alpine-3.23.0-x86_64-bios-cloudinit-r0.qcow2
+    # url: http://image-mirror/generic_alpine-3.23.0-x86_64-bios-cloudinit-r0.qcow2
+    url: https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/generic_alpine-3.23.0-x86_64-bios-cloudinit-r0.qcow2
 
 
 # WireGuard Clients. WireGuard erreichbar via Host

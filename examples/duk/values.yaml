@@ -13,6 +13,7 @@ vm:
   image:
     name: base-image
     url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+    # url: http://image-mirror/noble-server-cloudimg-amd64.img    
 
 # Master
 vm-0:

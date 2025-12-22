@@ -45,6 +45,10 @@ Ziel ist die Bereitstellung einer **isolierten, skalierbaren Lernumgebung pro Mo
 
 ## 3. Quick Start
 
+Bei einer neu Installation auf Bare Metal [autoinstall](autoinstall/README.md) verwenden und weiter bei Punkt 4.
+
+**Alternative**:
+
 ### 3.1 Kubernetes & Infrastruktur installieren
 
 Auf dem Bare-Metal-Host werden zuerst eine zentrale Dateiablage (NFS) und microk8s installiert.
@@ -53,6 +57,7 @@ Als **root** ausführen:
 
     curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsshare.sh | bash -
     curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -
+   
 
 ### 3.2 KubeVirt aktivieren
 
@@ -84,36 +89,30 @@ Die zentrale Konfiguration erfolgt über `values.yaml`.
 
 Beispiel:
 
-```yaml
-vm:
-  count: 3
-  # Standardwerte für alle VMs (können überschrieben werden)
-  cpu: 2
-  memory: 2Gi
-  storage: 8Gi
-  userdata: https://raw.githubusercontent.com/tbz-it/M100/refs/heads/master/cloud-init.yaml
-  image:
-    name: base-image
-    url: http://image-mirror/noble-server-cloudimg-amd64.img
+    vm:
+      count: 3
+      # Standardwerte für alle VMs (können überschrieben werden)
+      cpu: 2
+      memory: 2Gi
+      storage: 8Gi
+      userdata: https://raw.githubusercontent.com/tbz-it/M100/refs/heads/master/cloud-init.yaml
+      image:
+        name: base-image
+        url: http://image-mirror/noble-server-cloudimg-amd64.img
+    
+    wgClients:
+      startHostId: 100
+      count: 5
+      endpointNode: 10.1.40.35
 
-wgClients:
-  startHostId: 100
-  count: 5
-  endpointNode: 10.1.40.35
-```
 
 **Bedeutung der wichtigsten Parameter:**
 
-* `vm.count`
-  Anzahl der zu erstellenden virtuellen Maschinen
-* `vm.userdata`
-  Cloud-Init-Konfiguration (Benutzer, SSH-Key, Pakete, Netzwerke)
-* `vm.image.url`
-  Quelle des VM-Basisimages (lokaler Mirror empfohlen)
-* `wgClients.count`
-  Anzahl automatisch generierter WireGuard-Client-Konfigurationen
-* `endpointNode`
-  Öffentliche IP oder DNS des WireGuard Gateways
+* `vm.count` -   Anzahl der zu erstellenden virtuellen Maschinen
+* `vm.userdata` - Cloud-Init-Konfiguration (Benutzer, SSH-Key, Pakete, Netzwerke)
+* `vm.image.url` - Quelle des VM-Basisimages (lokaler Mirror empfohlen)
+* `wgClients.count` - Anzahl automatisch generierter WireGuard-Client-Konfigurationen
+* `endpointNode` -  Öffentliche IP oder DNS des WireGuard Gateways
 
 ---
 
@@ -121,29 +120,24 @@ wgClients:
 
 ### 5.1 Installation
 
-```bash
-git clone https://github.com/mc-b/lernvirt.git
-cd lernvirt
-helm install lab . -n m346-ap21a --create-namespace
-```
+    git clone https://github.com/mc-b/lernvirt.git
+    cd lernvirt
+    helm install lab . -n m346-ap21a --create-namespace
+
 
 ### 5.2 Status & Kontrolle
 
-```bash
-kubectl get sc,pv,pvc,dv,vm,vmi -n m346-ap21a
-```
+    kubectl get sc,pv,pvc,dv,vm,vmi -n m346-ap21a
 
 Typische Ressourcen:
 
-* `DataVolume` (VM-Image)
-* `PersistentVolumeClaim` (Storage)
+* `DataVolume` - (VM-Image)
+* `PersistentVolumeClaim` - (Storage)
 * `VirtualMachine` / `VirtualMachineInstance`
 
 ### 5.3 Zugriff auf VM-Konsole
 
-```bash
-virtctl console vm-0 -n m346-ap21a
-```
+    virtctl console vm-0 -n m346-ap21a
 
 ### 5.4 Umgebung löschen
 
@@ -157,11 +151,9 @@ Für jeden Client wird automatisch eine WireGuard-Konfiguration erzeugt.
 
 Anzeige einer Client-Konfiguration:
 
-```bash
-kubectl get secret client-100 \
-  -n m346-ap21a \
-  -o jsonpath='{.data.wg0\.conf}' | base64 -d
-```
+    kubectl get secret client-100 \
+      -n m346-ap21a \
+      -o jsonpath='{.data.wg0\.conf}' | base64 -d
 
 Die Konfiguration kann direkt in einen WireGuard-Client importiert werden (Linux, macOS, Windows, Mobile).
 
@@ -171,13 +163,7 @@ Die Konfiguration kann direkt in einen WireGuard-Client importiert werden (Linux
 
 Nach erfolgreicher VPN-Verbindung ist der Zugriff per SSH möglich:
 
-```bash
-ssh -i ~/.ssh/lerncloud debian@10.10.0.10
-```
----
-
-Hier ist eine **saubere, vollständige und didaktisch verbesserte Version** von
-**„8. Client-Zugriff via Remotedesktop (RDP) für Windows“**, passend zum Stil des restlichen README:
+    ssh -i ~/.ssh/lerncloud debian@10.10.0.10
 
 ---
 
@@ -195,16 +181,12 @@ Für produktive oder internet-exponierte Umgebungen wird dringend empfohlen, den
 
 Mit folgendem Befehl kann überprüft werden, ob der RDP-Service aktiv ist:
 
-```bash
-kubectl get service -n m346-ap21a
-```
+    kubectl get service -n m346-ap21a
 
 Beispielausgabe:
 
-```text
-NAME           TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)           AGE
-vm-0-rdp       NodePort   10.152.183.12  <none>        3389:31234/TCP     2m
-```
+    NAME           TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)           AGE
+    vm-0-rdp       NodePort   10.152.183.12  <none>        3389:31234/TCP     2m
 
 In diesem Beispiel:
 
@@ -216,20 +198,17 @@ In diesem Beispiel:
 
 Auf einem Windows-Client:
 
-1. **Remotedesktop-Verbindung** öffnen
-   (`mstsc.exe`)
+1. **Remotedesktop-Verbindung** öffnen: (`mstsc.exe`)
 
-2. Als Ziel angeben:
+2. Als Ziel angeben: `<Node-IP>:<NodePort>`
 
-    <Node-IP>:<NodePort>
-
-3. Mit dem in der VM konfigurierten Benutzer anmelden.j
+3. Mit dem in der VM konfigurierten Benutzer und Password anmelden: z. B. `vagrant/vagrant`
 
 ---
 
 ## 9. Examples
 
-Das Verzeichnis examples/ enthält optionale, in sich geschlossene Beispiele, die typische Einsatz- und Lern­szenarien mit KubeVirt und Kubernetes demonstrieren.
+Das Verzeichnis examples/ enthält optionale, in sich geschlossene Beispiele, die typische Einsatz- und Lernszenarien mit KubeVirt und Kubernetes demonstrieren.
 
 Die Beispiele sind:
 
