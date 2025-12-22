@@ -19,7 +19,6 @@ Erstelle auf dem USB-Stick eine neue Partition mit dem Dateisystem **FAT32** und
     fdisk /dev/sda
        p
        n
-       t
        11
        w
        q
@@ -27,8 +26,8 @@ Erstelle auf dem USB-Stick eine neue Partition mit dem Dateisystem **FAT32** und
 
     sudo apt update
     sudo apt install dosfstools -y
-    sudo mkfs.vfat -F 32 /dev/sda5
-    sudo mkfs.vfat -F 32 -n cidata /dev/sda5    
+    sudo mkfs.vfat -F 32 /dev/sda11
+    sudo mkfs.vfat -F 32 -n cidata /dev/sda11    
     
     sudo mount /dev/sda5 /mnt      
 
