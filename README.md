@@ -51,36 +51,28 @@ Auf dem Bare-Metal-Host werden zuerst eine zentrale Dateiablage (NFS) und microk
 
 Als **root** ausführen:
 
-```bash
-curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsshare.sh | bash -
-curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -
-```
+    curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsshare.sh | bash -
+    curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -
 
 ### 3.2 KubeVirt aktivieren
 
 Als **normaler Benutzer** (z.B. `ubuntu`):
 
-```bash
-curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -
-```
+    curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -
 
 Falls zuvor CPU-Emulation aktiviert wurde, kann diese wieder deaktiviert werden:
 
-```bash
-kubectl -n kubevirt patch kubevirt kubevirt \
-  --type=merge \
-  --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":false}}}}'
-```
+    kubectl -n kubevirt patch kubevirt kubevirt \
+      --type=merge \
+      --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":false}}}}'
 
 ### 3.3 VM-Images vorbereiten (optional, empfohlen)
 
 Um wiederholte Downloads zu vermeiden, können Cloud-Images lokal gecacht werden:
 
-```bash
-mkdir -p /data/images
-cd /data/images
-wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
-```
+    mkdir -p /data/images
+    cd /data/images
+    wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
 
 ---
 
