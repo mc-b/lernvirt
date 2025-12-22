@@ -45,7 +45,7 @@ Ziel ist die Bereitstellung einer **isolierten, skalierbaren Lernumgebung pro Mo
 
 ## 3. Quick Start
 
-Bei einer neu Installation auf Bare Metal [autoinstall](autoinstall/README.md) verwenden und weiter bei Punkt 4.
+Bei einer neu Installation auf Bare Metal [autoinstall](autoinstall/README.md) verwenden und weiter bei Punkt 3.4.
 
 **Alternative**:
 
@@ -78,6 +78,19 @@ Um wiederholte Downloads zu vermeiden, können Cloud-Images lokal gecacht werden
     mkdir -p /data/images
     cd /data/images
     wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+    
+### 3.4 Control Plane + Worker joinen
+
+    ssh -i ~/.ssh/lerncloud ubuntu@kv-control
+    microk8s add-node | grep worker | tail -1
+    exit
+    
+    ssh -i ~/.ssh/lerncloud ubuntu@kv-worker-01
+    # Ausgabe von microk8s add-noe    
+    
+`/data` von Control Plane mounten
+
+    sudo mount -t nfs kv-control:/data /data    
 
 ---
 

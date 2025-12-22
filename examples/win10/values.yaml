@@ -17,7 +17,7 @@ vm:
 wgClients:
   startHostId: 100
   count: 5
-  endpointNode: 10.1.40.35
+  endpointNode: kv-control
   
 # Lokaler Image Cache vorhanden? - http://image-mirror/
 mirror:

@@ -7,7 +7,7 @@ vm:
   
   # Worker Nodes
   cpu: 4
-  memory: 8Gi
+  memory: 4Gi
   storage: 32Gi
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/duk/cloud-init-worker.yaml
   image:
@@ -18,13 +18,13 @@ vm:
 # Master
 vm-0:
   cpu: 4
-  memory: 12Gi
+  memory: 8Gi
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/duk/cloud-init-control.yaml
 
 wgClients:
   startHostId: 100
   count: 25
-  endpointNode: 10.1.40.35
+  endpointNode: kv-control
 
 os:
   windows: false     

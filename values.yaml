@@ -10,8 +10,8 @@ vm:
   userdata: https://raw.githubusercontent.com/tbz-it/M100/refs/heads/master/cloud-init.yaml 
   image:
     name: base-image
-    #url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
-    url: http://image-mirror/noble-server-cloudimg-amd64.img
+    url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+    # url: http://image-mirror/noble-server-cloudimg-amd64.img
 
 # Default-Werte koennen pro vm-[0-99] ueberschrieben werden
 #vm-0:
@@ -26,7 +26,7 @@ vm:
 wgClients:
   startHostId: 100
   count: 5
-  endpointNode: 10.1.40.35
+  endpointNode: kv-control
   
 # Lokaler Image Cache vorhanden? - http://image-mirror/
 mirror:
