@@ -12,7 +12,7 @@ autoinstall:
   identity:
     hostname: kv-control
     username: ubuntu
-    password: $1$3Uwhe3Bj$OjDR3VEU/FHJqfDpZ29Rx0
+    password: $6$jr7iRqqy6HZabA/3$Ix1PUMpe5IUlJ8pyNI8jp7b/4GvFFCBSFVqQUUYQEaGbElNsrCrqCHdEDKmegLQbEOMET0n.Dog4vPfuBHmQp0
 
   ssh:
     install-server: true
@@ -30,7 +30,6 @@ autoinstall:
       - name: ubuntu
         sudo: ALL=(ALL) NOPASSWD:ALL
         groups: users, admin 
-        plain_text_passwd: 'insecure'               
     disable_root: true
     packages:
       - jq
@@ -38,6 +37,7 @@ autoinstall:
       - git
       - wget
     runcmd:
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/issue-patch.sh | bash -    
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsshare.sh | bash -
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/storage-patch.sh | bash -
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/xfce4.sh | bash -     
@@ -47,7 +47,7 @@ autoinstall:
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k8stools.sh | bash -
       - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -"
       - microk8s kubectl -n kubevirt patch kubevirt kubevirt --type=merge --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":false}}}}'
-      - git clone https://github.com/mc-b/lernvirt.git   
+      - sudo su - ubuntu -c "git clone https://github.com/mc-b/lernvirt.git"   
       - mkdir -p /data/images
       - cd /data/images
       - wget https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/generic_alpine-3.23.0-x86_64-bios-cloudinit-r0.qcow2        
