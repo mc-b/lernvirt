@@ -68,8 +68,8 @@ spec:
               disk:
                 bus: virtio
             - name: cloudinitdisk
-              cdrom:
-                bus: sata
+              disk:
+                bus: virtio
                 readonly: true
           interfaces:
             - name: default

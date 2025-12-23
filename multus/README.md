@@ -20,8 +20,8 @@ Dann Problem die PV binden nicht mehr. Lösung neue Storage Class
     provisioner: microk8s.io/hostpath
     volumeBindingMode: Immediate
     reclaimPolicy: Retain
-    EOF 
-    
+    EOF
+
 Und DataSource erweitern:
 
     apiVersion: cdi.kubevirt.io/v1beta1
@@ -33,7 +33,7 @@ Und DataSource erweitern:
         http:
           url: {{ $vm.image.url }}
       pvc:
-        storageclass: hostpath-immediate
+        storageClassName: hostpath-immediate
         accessModes:
           - ReadWriteOnce 
 
