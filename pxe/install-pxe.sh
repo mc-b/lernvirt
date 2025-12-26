@@ -9,7 +9,7 @@ BOOT="$BASE/boot"
 WWW="$BASE/www/autoinstall"
 LOG="/var/log/dnsmasq-pxe.log"
 
-UBUNTU_VER="24.04"
+UBUNTU_VER="noble/ubuntu-24.04.3"
 UBUNTU_URL="https://releases.ubuntu.com/${UBUNTU_VER}"
 ISO="ubuntu-${UBUNTU_VER}-live-server-amd64.iso"
 
