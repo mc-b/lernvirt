@@ -30,8 +30,10 @@ autoinstall:
     - git
     - wget
 
-  late-commands:
-    - curtin in-target -- bash -c 'curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/issue-patch.sh | bash -'
-    - curtin in-target -- bash -c 'curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsclient.sh | bash -'
-    - curtin in-target -- bash -c 'curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -'
+  user-data:
+    runcmd:
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/set-hostname.sh | bash -        
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/issue-patch.sh | bash -        
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsclient.sh | bash -
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -       
 
