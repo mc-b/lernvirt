@@ -7,23 +7,10 @@ vm:
   cpu: 2
   memory: 8Gi
   storage: 72Gi
-  # braucht einfach ein Eintrag
-  userdata: https://raw.githubusercontent.com/tbz-it/M100/refs/heads/master/cloud-init.yaml 
-  image:
-    name: base-image
-    url: http://image-mirror/Windows10.qcow2
-
-# WireGuard Clients. WireGuard erreichbar via Host
-wgClients:
-  startHostId: 100
-  count: 5
-  endpointNode: kv-control
-  
-# Lokaler Image Cache vorhanden? - http://image-mirror/
-mirror:
-  enabled: true
-  storage:
-    size: 50Gi  
 
 os:
-  windows: true   
+  family: windows       # linux | windows
+  name: windows         # ubuntu | alpine | windows
+  variant: win10        # linux: noble, jammy | windows: win10, win11, ws2022
+  architecture: amd64   # amd64 | arm64 
+ 

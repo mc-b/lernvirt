@@ -7,8 +7,9 @@ metadata:
 spec:
   source:
     http:
-      url: {{ $vm.image.url }}
+      url: {{ include "lernvirt.imageForVM" $ }}
   pvc:
+    storageClassName: hostpath-immediate
     accessModes:
       - ReadWriteOnce
     resources:

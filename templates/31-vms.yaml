@@ -1,7 +1,7 @@
 {{- range $i := until (.Values.vm.count | int) }}
 {{- $vm := fromYaml (include "vm.values" (dict "index" $i "values" $.Values)) }}
 
-{{- if $.Values.os.windows }}
+{{- if eq $.Values.os.family "windows" }}
 
 apiVersion: kubevirt.io/v1
 kind: VirtualMachine

@@ -60,7 +60,8 @@ log-facility=/var/log/dnsmasq-pxe.log
 EOF
 
 echo "==> Ubuntu ISO laden"
-wget -O ${WWW}/${ISO} ${UBUNTU_URL}"/"${ISO}
+mkdir ${WWW}/linux/ubuntu/noble/amd64/
+wget -O ${WWW}/linux/ubuntu/noble/amd64/${ISO} ${UBUNTU_URL}"/"${ISO}
 
 echo "==> Kernel & Initrd extrahieren"
 
@@ -86,7 +87,7 @@ set default=0
 menuentry "Ubuntu Server 24.04 Autoinstall (PXE)" {
         linux /vmlinuz \
           ip=dhcp \
-          url=http://192.168.1.56/ubuntu-24.04-live-server-amd64.iso \
+          url=http://192.168.1.56/linux/ubuntu/noble/amd64/ubuntu-24.04.3-live-server-amd64.iso \
           autoinstall debug \
           cloud-config-url=http://192.168.1.56/autoinstall/user-data \
       ---

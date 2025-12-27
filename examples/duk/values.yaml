@@ -10,21 +10,10 @@ vm:
   memory: 4Gi
   storage: 32Gi
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/duk/cloud-init-worker.yaml
-  image:
-    name: base-image
-    url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
-    # url: http://image-mirror/noble-server-cloudimg-amd64.img    
 
 # Master
 vm-0:
   cpu: 4
   memory: 8Gi
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/duk/cloud-init-control.yaml
-
-wgClients:
-  startHostId: 100
-  count: 25
-  endpointNode: kv-control
-
-os:
-  windows: false     
+   

@@ -45,7 +45,7 @@ Ziel ist die Bereitstellung einer **isolierten, skalierbaren Lernumgebung pro Mo
 
 ## 3. Quick Start
 
-Bei einer neu Installation auf Bare Metal [autoinstall](autoinstall/README.md) verwenden und weiter bei Punkt 3.4.
+Bei einer neu Installation auf Bare Metal [autoinstall](autoinstall/README.md) verwenden und weiter bei Punkt 3.3.
 
 **Alternative**:
 
@@ -73,11 +73,30 @@ Falls zuvor CPU-Emulation aktiviert wurde, kann diese wieder deaktiviert werden:
 
 ### 3.3 VM-Images vorbereiten (optional, empfohlen)
 
-Um wiederholte Downloads zu vermeiden, können Cloud-Images lokal gecacht werden:
+Dazu brauchen wir zuerst nginx
 
-    mkdir -p /data/images
-    cd /data/images
-    wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+    sudo apt-get install nginx -y
+
+dann Images nach `/var/www/html` herunterladen
+
+    mkdir -p /var/www/html/linux
+    cd /var/www/html/linux
+
+Ubuntu 24.04 (noble)
+
+    mkdir -p ubuntu/noble/{amd64,arm64}
+    wget -P ubuntu/noble/amd64 https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+    wget -P ubuntu/noble/arm64 https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-arm64.img
+
+Alpine Linux (edge)
+
+    mkdir -p alpine/edge/{amd64,arm64}
+    wget -P alpine/edge/amd64 https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/generic_alpine-3.23.0-x86_64-bios-cloudinit-r0.qcow2
+    wget -P alpine/edge/arm64 https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/generic_alpine-3.23.2-aarch64-uefi-cloudinit-r0.qcow2
+
+Alle Images liegen danach unter:
+
+    /var/www/html/linux/…
     
 ### 3.4 Control Plane + Worker joinen
 

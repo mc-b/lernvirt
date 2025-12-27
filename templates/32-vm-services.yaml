@@ -1,6 +1,6 @@
 {{- range $i := until (.Values.vm.count | int) }}
 
-{{- if $.Values.os.windows }}
+{{- if eq $.Values.os.family "windows" }}
 
 apiVersion: v1
 kind: Service

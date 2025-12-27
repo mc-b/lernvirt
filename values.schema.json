@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "required": ["os", "images", "vm"],
+  "properties": {
+    "os": {
+      "type": "object",
+      "required": ["family", "name", "variant", "architecture"],
+      "properties": {
+        "family": {
+          "type": "string",
+          "enum": ["linux", "windows"]
+        },
+        "name": {
+          "type": "string",
+          "enum": ["ubuntu", "alpine", "windows"]
+        },
+        "variant": {
+          "type": "string",
+          "description": "Linux distro version or Windows edition",
+          "enum": [
+            "noble",
+            "jammy",
+            "edge",
+            "win10",
+            "win11",
+            "ws2022"
+          ]
+        },
+        "architecture": {
+          "type": "string",
+          "enum": ["amd64", "arm64"]
+        }
+      }
+    },
+
+    "vm": {
+      "type": "object",
+      "required": ["count", "cpu", "memory", "storage"],
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cpu": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "memory": {
+          "type": "string",
+          "pattern": "^[0-9]+(Mi|Gi)$"
+        },
+        "storage": {
+          "type": "string",
+          "pattern": "^[0-9]+Gi$"
+        },
+        "userdata": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+
+    "images": {
+      "type": "object",
+      "description": "OS image matrix: images[family][name][variant][arch]",
+      "additionalProperties": {
+        "additionalProperties": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        }
+      }
+    }
+  }
+}

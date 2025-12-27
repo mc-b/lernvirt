@@ -8,23 +8,7 @@ vm:
   memory: 512Mi
   storage: 1Gi
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/alpine/cloud-init.yaml
-  image:
-    name: base-image
-    # url: http://image-mirror/generic_alpine-3.23.0-x86_64-bios-cloudinit-r0.qcow2
-    url: https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/generic_alpine-3.23.0-x86_64-bios-cloudinit-r0.qcow2
-
-
-# WireGuard Clients. WireGuard erreichbar via Host
-wgClients:
-  startHostId: 100
-  count: 72
-  endpointNode: kv-control
-  
-# Lokaler Image Cache vorhanden? - http://image-mirror/
-mirror:
-  enabled: false
-  storage:
-    size: 50Gi  
 
 os:
-  windows: false    
+  name: alpine         # ubuntu | alpine | windows
+  variant: edge       # linux: noble, jammy | windows: win10, win11, ws2022

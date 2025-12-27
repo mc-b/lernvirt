@@ -1,4 +1,3 @@
-
 # VMs welche erstellt werden sollen. 
 vm:
   count: 3
@@ -8,19 +7,12 @@ vm:
   memory: 2Gi
   storage: 8Gi
   userdata: https://raw.githubusercontent.com/tbz-it/M100/refs/heads/master/cloud-init.yaml 
-  image:
-    name: base-image
-    url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
-    # url: http://image-mirror/noble-server-cloudimg-amd64.img
 
 # Default-Werte koennen pro vm-[0-99] ueberschrieben werden
 #vm-0:
 #  memory: 1Gi
 #  storage: 4Gi
 #  userdata: https://raw.githubusercontent.com/tbz-it/M122/refs/heads/master/cloud-init.yaml
-#  image:
-#    name: base-image
-#    url: https://cloud.debian.org/images/cloud/trixie/latest/debian-13-generic-amd64.qcow2 
 
 # WireGuard Clients. WireGuard erreichbar via Host
 wgClients:
@@ -28,11 +20,40 @@ wgClients:
   count: 5
   endpointNode: kv-control
   
-# Lokaler Image Cache vorhanden? - http://image-mirror/
+# Lokaler Image Cache vorhanden? 
 mirror:
-  enabled: true
+  enabled: false
   storage:
     size: 50Gi  
-
+  mirrorBaseUrl: http://image-mirror
+    
+# Bestimmung OS, Version und CPU Architektur  
 os:
-  windows: false   
+  family: linux        # linux | windows
+  name: ubuntu         # ubuntu | alpine | windows
+  variant: noble       # linux: noble, jammy | windows: win10, win11, ws2022
+  architecture: arm64  # amd64 | arm64    
+
+images:
+  linux:
+    ubuntu:
+      noble:
+        amd64: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+        arm64: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-arm64.img
+
+    alpine:
+      edge:
+        amd64: https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/generic_alpine-3.23.0-x86_64-bios-cloudinit-r0.qcow2
+        arm64: https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/generic_alpine-3.23.2-aarch64-uefi-cloudinit-r0.qcow2
+
+  windows:
+    windows:
+      win10:
+        amd64: https://image-mirror/windows-10-amd64.qcow2
+      win11:
+        amd64: https://image-mirror/windows-11-amd64.qcow2
+      ws2022:
+        amd64: https://image-mirror/windows-server-2022-amd64.qcow2
+    
+
+  
