@@ -112,7 +112,7 @@ Deshalb erstellen wir eine eigene StorageClass mit **sofortigem Binding**:
       name: hostpath-immediate
     provisioner: microk8s.io/hostpath
     volumeBindingMode: Immediate
-    reclaimPolicy: Retain
+    reclaimPolicy: Delete
     EOF
     
 ### 3.5 Control Plane + Worker joinen
