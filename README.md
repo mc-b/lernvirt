@@ -98,7 +98,24 @@ Alle Images liegen danach unter:
 
     /var/www/html/linux/…
     
-### 3.4 Control Plane + Worker joinen
+### 3.4  MicroK8s-Standard-StorageClass
+
+Nach Änderungen binden **PVs nicht mehr**, weil die MicroK8s-Standard-StorageClass `WaitForFirstConsumer` verwendet.
+Bei **KubeVirt / DataVolumes** führt das zu einem Deadlock: PVC wartet auf VM → VM wartet auf PVC.
+
+Deshalb erstellen wir eine eigene StorageClass mit **sofortigem Binding**:
+
+    kubectl apply -f - <<EOF
+    apiVersion: storage.k8s.io/v1
+    kind: StorageClass
+    metadata:
+      name: hostpath-immediate
+    provisioner: microk8s.io/hostpath
+    volumeBindingMode: Immediate
+    reclaimPolicy: Retain
+    EOF
+    
+### 3.5 Control Plane + Worker joinen
 
     ssh -i ~/.ssh/lerncloud ubuntu@kv-control
     microk8s add-node | grep worker | tail -1
