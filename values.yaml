@@ -18,14 +18,14 @@ vm:
 wgClients:
   startHostId: 100
   count: 5
-  endpointNode: kv-control
+  endpointNode: 192.168.1.56
   
 # Lokaler Image Cache vorhanden? 
 mirror:
-  enabled: false
+  enabled: true
   storage:
     size: 50Gi  
-  mirrorBaseUrl: http://image-mirror
+  mirrorBaseUrl: http://192.168.1.56
     
 # Bestimmung OS, Version und CPU Architektur  
 os:
