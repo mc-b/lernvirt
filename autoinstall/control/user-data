@@ -12,7 +12,7 @@ autoinstall:
   identity:
     hostname: kv-control
     username: ubuntu
-    password: '$6$jr7iRqqy6HZabA/3$Ix1PUMpe5IUlJ8pyNI8jp7b/4GvFFCBSFVqQUUYQEaGbElNsrCrqCHdEDKmegLQbEOMET0n.Dog4vPfuBHmQp0'
+    password: "$6$jr7iRqqy6HZabA/3$Ix1PUMpe5IUlJ8pyNI8jp7b/4GvFFCBSFVqQUUYQEaGbElNsrCrqCHdEDKmegLQbEOMET0n.Dog4vPfuBHmQp0"
 
   ssh:
     install-server: true

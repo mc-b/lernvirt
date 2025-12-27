@@ -2,15 +2,14 @@
 set -euo pipefail
 
 ### KONFIGURATION ###
-PXE_IP="10.1.0.10"
-IFACE="eth0"
-BASE="/opt/lernvirt/pxe"
-BOOT="$BASE/boot"
-WWW="$BASE/www/autoinstall"
+PXE_IP="192.168.1.61"
+IFACE="enp2s0"
+BASE="/srv/tftp"
+WWW="/var/www/html"
 LOG="/var/log/dnsmasq-pxe.log"
 
-UBUNTU_VER="noble/ubuntu-24.04.3"
-UBUNTU_URL="https://releases.ubuntu.com/${UBUNTU_VER}"
+UBUNTU_VER="24.04.3"
+UBUNTU_URL="https://releases.ubuntu.com/noble"
 ISO="ubuntu-${UBUNTU_VER}-live-server-amd64.iso"
 
 ### ROOT CHECK ###
@@ -21,70 +20,79 @@ fi
 
 echo "==> Pakete installieren"
 apt update
-apt install -y dnsmasq nginx wget unzip syslinux-common
+apt install -y dnsmasq nginx wget unzip syslinux-common grub-common grub-efi-amd64-bin
 
 echo "==> Verzeichnisse anlegen"
-mkdir -p "$BOOT" "$WWW"
+mkdir -p "${BASE}/grub/x86_64-efi" "${WWW}/autoinstall"
 
 echo "==> dnsmasq stoppen (falls aktiv)"
 systemctl stop dnsmasq || true
 
 echo "==> dnsmasq ProxyDHCP konfigurieren"
+
 cat > /etc/dnsmasq.d/pxe.conf <<EOF
+# DNS aus
 port=0
-dhcp-range=::,proxy
+
+# ProxyDHCP für dein Netz
+dhcp-range=192.168.1.0,proxy,255.255.255.0
+
+# Interface
 interface=${IFACE}
 bind-interfaces
 
-domain-needed
-bogus-priv
-stop-dns-rebind
+# PXE-Clients erkennen
+dhcp-match=set:pxe,option:vendor-class,PXEClient
 
-dhcp-match=set:efi64,option:client-arch,7
-dhcp-boot=tag:efi64,grubx64.efi
+# PXE-Service
+pxe-service=tag:pxe,X86-64_EFI,"UEFI PXE Boot",grubx64.efi
 
+# Next-Server
+dhcp-option-force=tag:pxe,66,${PXE_IP}
+
+# TFTP
 enable-tftp
-tftp-root=${BOOT}
-tftp-secure
+tftp-root=/srv/tftp
 
+# Logging
 log-dhcp
-log-queries
-log-facility=${LOG}
-
-dhcp-authoritative
-dhcp-no-override
-dhcp-ignore-names
+log-facility=/var/log/dnsmasq-pxe.log
 EOF
 
 echo "==> Ubuntu ISO laden"
-wget -O /tmp/${ISO} ${UBUNTU_URL}/${ISO}
+wget -O ${WWW}/${ISO} ${UBUNTU_URL}"/"${ISO}
 
 echo "==> Kernel & Initrd extrahieren"
+
 mkdir -p /tmp/iso
 mount -o loop /tmp/${ISO} /tmp/iso
-cp /tmp/iso/casper/vmlinuz ${BOOT}/vmlinuz
-cp /tmp/iso/casper/initrd ${BOOT}/initrd
+cp /tmp/iso/casper/vmlinuz ${BASE}/vmlinuz
+cp /tmp/iso/casper/initrd ${BASE}/initrd
 umount /tmp/iso
 
 echo "==> GRUB EFI Bootloader kopieren"
+
+mkdir -p ${BASE}/grub/x86_64-efi/
+cp /usr/lib/grub/x86_64-efi/* ${BASE}/grub/x86_64-efi/
+
 cp /usr/lib/grub/x86_64-efi-signed/grubnetx64.efi.signed \
-   ${BOOT}/grubx64.efi
+   ${BASE}/grubx64.efi
 
 echo "==> GRUB PXE Menü erstellen"
-cat > ${BOOT}/grub.cfg <<EOF
-set timeout=5
+cat > ${BASE}/grub/grub.cfg <<EOF
+set timeout=3
 set default=0
 
-menuentry "Ubuntu Server 24.04 Autoinstall (lernvirt)" {
-  linux /vmlinuz ip=dhcp autoinstall \
-    ds=nocloud-net;s=http://${PXE_IP}/autoinstall/
-  initrd /initrd
+menuentry "Ubuntu Server 24.04 Autoinstall (PXE)" {
+        linux /vmlinuz \
+          ip=dhcp \
+          url=http://192.168.1.61/ubuntu-24.04-live-server-amd64.iso \
+          autoinstall debug \
+          cloud-config-url=http://192.168.1.61/autoinstall/user-data \
+      ---
+    initrd /initrd
 }
 EOF
-
-echo "==> nginx Autoinstall-Pfad aktivieren"
-ln -sf ${BASE}/www /var/www/html/autoinstall
-systemctl restart nginx
 
 echo "==> dnsmasq starten"
 systemctl enable dnsmasq

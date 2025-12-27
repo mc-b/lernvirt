@@ -1,18 +1,22 @@
 #cloud-config
 autoinstall:
   version: 1
+
   locale: de_CH.UTF-8
+
   keyboard:
     layout: ch
+
   timezone: Europe/Zurich
 
   identity:
-    hostname: lernvirt-node
+    hostname: kv-worker-02
     username: ubuntu
+    password: "$6$jr7iRqqy6HZabA/3$Ix1PUMpe5IUlJ8pyNI8jp7b/4GvFFCBSFVqQUUYQEaGbElNsrCrqCHdEDKmegLQbEOMET0n.Dog4vPfuBHmQp0"
 
   ssh:
     install-server: true
-    allow-pw: false
+    allow-pw: true
     authorized-keys:
       - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDUHol1mBvP5Nwe3Bzbpq4GsHTSw96phXLZ27aPiRdrzhnQ2jMu4kSgv9xFsnpZgBsQa84EhdJQMZz8EOeuhvYuJtmhAVzAvNjjRak+bpxLPdWlox1pLJTuhcIqfTTSfBYJYB68VRAXJ29ocQB7qn7aDj6Cuw3s9IyXoaKhyb4n7I8yI3r0U30NAcMjyvV3LYOXx/JQbX+PjVsJMzp2NlrC7snz8gcSKxUtL/eF0g+WnC75iuhBbKbNPr7QP/ItHaAh9Tv5a3myBLNZQ56SgnSCgmS0EUVeMNsO8XaaKr2H2x5592IIoz7YRyL4wlOmj35bQocwdahdOCFI7nT9fr6f insecure@lerncloud
 
@@ -20,6 +24,14 @@ autoinstall:
     layout:
       name: direct
 
+  packages:
+    - jq
+    - curl
+    - git
+    - wget
+
   late-commands:
-    - curtin in-target -- systemctl disable snapd
-    - curtin in-target -- apt install -y curl git
+    - curtin in-target -- bash -c 'curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/issue-patch.sh | bash -'
+    - curtin in-target -- bash -c 'curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsclient.sh | bash -'
+    - curtin in-target -- bash -c 'curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -'
+
