@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ### KONFIGURATION ###
-PXE_IP="192.168.1.61"
-IFACE="enp2s0"
+PXE_IP="192.168.1.56"
+IFACE="enP7s7"
 BASE="/srv/tftp"
 WWW="/var/www/html"
 LOG="/var/log/dnsmasq-pxe.log"
@@ -86,9 +86,9 @@ set default=0
 menuentry "Ubuntu Server 24.04 Autoinstall (PXE)" {
         linux /vmlinuz \
           ip=dhcp \
-          url=http://192.168.1.61/ubuntu-24.04-live-server-amd64.iso \
+          url=http://192.168.1.56/ubuntu-24.04-live-server-amd64.iso \
           autoinstall debug \
-          cloud-config-url=http://192.168.1.61/autoinstall/user-data \
+          cloud-config-url=http://192.168.1.56/autoinstall/user-data \
       ---
     initrd /initrd
 }
