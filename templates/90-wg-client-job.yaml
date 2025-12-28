@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: wg-clients
+  name: {{ include "lernvirt.fullname" $ }}-clients
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
@@ -10,7 +10,7 @@ spec:
   backoffLimit: 1
   template:
     spec:
-      serviceAccountName: wg-gateway
+      serviceAccountName: {{ include "lernvirt.fullname" $ }}-gateway
       restartPolicy: Never
       containers:
       - name: wg
@@ -29,18 +29,18 @@ spec:
           WG_NET="10.10.0.0/24"
           ENDPOINT="{{ .Values.wgClients.endpointNode }}"
 
-          until kubectl get secret wg-gateway-pub -n "$NS" >/dev/null 2>&1; do
+          until kubectl get secret {{ include "lernvirt.fullname" $ }}-gateway-pub -n "$NS" >/dev/null 2>&1; do
             sleep 2
           done
 
-          GW_PUB="$(kubectl get secret wg-gateway-pub -n "$NS" \
+          GW_PUB="$(kubectl get secret {{ include "lernvirt.fullname" $ }}-gateway-pub -n "$NS" \
             -o jsonpath='{.data.publickey}' | base64 -d)"
 
-          until kubectl get svc wg-gateway -n "$NS" >/dev/null 2>&1; do
+          until kubectl get svc {{ include "lernvirt.fullname" $ }}-gateway -n "$NS" >/dev/null 2>&1; do
             sleep 2
           done
 
-          WG_PORT="$(kubectl get svc wg-gateway -n "$NS" \
+          WG_PORT="$(kubectl get svc {{ include "lernvirt.fullname" $ }}-gateway -n "$NS" \
             -o jsonpath='{.spec.ports[?(@.port==51820)].nodePort}')"
 
           [ -n "$GW_PUB" ] || exit 1
@@ -48,7 +48,7 @@ spec:
 
           for i in $(seq 0 $((COUNT-1))); do
             HOST_ID=$((START+i))
-            SECRET="client-${HOST_ID}"
+            SECRET="{{ include "lernvirt.fullname" $ }}-client-${HOST_ID}"
             CLIENT_IP="10.10.0.${HOST_ID}/32"
 
             CLIENT_PRIV="$(wg genkey)"

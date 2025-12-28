@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: wg-controller
+  name: {{ include "lernvirt.fullname" $ }}-controller
 data:
   controller.sh: |-
     #!/bin/sh
@@ -26,7 +26,7 @@ data:
     GW_PRIV="/config/privatekey"
 
     # Alle gültigen Peer-Typen (VMs + Clients)
-    PEER_REGEX="^(vm-[0-9]+|client-[0-9]+)$"
+    PEER_REGEX="^({{ include "lernvirt.fullname" $ }}-vm-[0-9]+|{{ include "lernvirt.fullname" $ }}-client-[0-9]+)$"
 
     # ------------------------------------------------------------
     # 1) Gateway Private/Public Key
@@ -39,7 +39,7 @@ data:
 
     GW_PUB="$(wg pubkey < "$GW_PRIV")"
 
-    kubectl create secret generic wg-gateway-pub \
+    kubectl create secret generic {{ include "lernvirt.fullname" $ }}-gateway-pub \
       --from-literal=publickey="$GW_PUB" \
       --dry-run=client -o yaml | kubectl apply -f -
 
@@ -115,12 +115,12 @@ data:
           PUB="$(echo "$line" | jq -r .pub)"
 
           case "$NAME" in
-            vm-*)
-              IDX="$(echo "$NAME" | sed -E 's/vm-([0-9]+)/\1/')"
+            {{ include "lernvirt.fullname" $ }}-vm-*)
+              IDX="$(echo "$NAME" | sed -E 's/{{ include "lernvirt.fullname" $ }}-vm-([0-9]+)/\1/')"
               IP="$BASE_IP.$((IDX+10))/32"
               ;;
-            client-*)
-              IDX="$(echo "$NAME" | sed -E 's/client-([0-9]+)/\1/')"
+            {{ include "lernvirt.fullname" $ }}-client-*)
+              IDX="$(echo "$NAME" | sed -E 's/{{ include "lernvirt.fullname" $ }}-client-([0-9]+)/\1/')"
               IP="$BASE_IP.$IDX/32"
               ;;
             *)

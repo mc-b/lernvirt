@@ -5,13 +5,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: vm-{{ $i }}
+  name: {{ include "lernvirt.fullname" $ }}-vm-{{ $i }}
   labels:
-    kubevirt.io/domain: vm-{{ $i }}
+    kubevirt.io/domain: {{ include "lernvirt.fullname" $ }}-vm-{{ $i }}
+    {{- include "lernvirt.labels" $ | nindent 4 }}
 spec:
   type: LoadBalancer
   selector:
-    kubevirt.io/domain: vm-{{ $i }}
+    kubevirt.io/domain: {{ include "lernvirt.fullname" $ }}-vm-{{ $i }}
   ports:
     - name: rdp
       port: 3389
@@ -22,13 +23,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: vm-{{ $i }}
+  name: {{ include "lernvirt.fullname" $ }}-vm-{{ $i }}
   labels:
-    kubevirt.io/domain: vm-{{ $i }}
+    kubevirt.io/domain: {{ include "lernvirt.fullname" $ }}-vm-{{ $i }}
+    {{- include "lernvirt.labels" $ | nindent 4 }}    
 spec:
   type: LoadBalancer
   selector:
-    kubevirt.io/domain: vm-{{ $i }}
+    kubevirt.io/domain: {{ include "lernvirt.fullname" $ }}-vm-{{ $i }}
   ports:
     - name: ssh
       port: 22

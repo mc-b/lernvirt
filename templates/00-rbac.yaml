@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: wg-gateway
+  name: {{ include "lernvirt.fullname" $ }}-gateway
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: wg-secret-manager
+  name: {{ include "lernvirt.fullname" $ }}-secret-manager
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -15,11 +15,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: wg-secret-manager
+  name: {{ include "lernvirt.fullname" $ }}-secret-manager
 subjects:
   - kind: ServiceAccount
-    name: wg-gateway
+    name: {{ include "lernvirt.fullname" $ }}-gateway
 roleRef:
   kind: Role
-  name: wg-secret-manager
+  name: {{ include "lernvirt.fullname" $ }}-secret-manager
   apiGroup: rbac.authorization.k8s.io

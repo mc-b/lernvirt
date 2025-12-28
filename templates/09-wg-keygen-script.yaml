@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: wg-keygen-script
+  name: {{ include "lernvirt.fullname" $ }}-keygen-script
 data:
   keygen.sh: |-
     #!/bin/sh
@@ -37,11 +37,11 @@ data:
     set -- $USERDATA_LIST
 
     echo "[KEYGEN] waiting for gateway public key"
-    until kubectl get secret wg-gateway-pub >/dev/null 2>&1; do
+    until kubectl get secret {{ include "lernvirt.fullname" $ }}-gateway-pub >/dev/null 2>&1; do
       sleep 2
     done
 
-    GW_PUB="$(kubectl get secret wg-gateway-pub -o json | jq -r '.data.publickey | @base64d')"
+    GW_PUB="$(kubectl get secret {{ include "lernvirt.fullname" $ }}-gateway-pub -o json | jq -r '.data.publickey | @base64d')"
 
     i=0
     while [ "$i" -lt "$COUNT" ]; do
@@ -69,8 +69,8 @@ data:
         cat >> /tmp/userdata.yaml <<EOF
     
     write_files:
-      - path: /etc/wireguard/vm-$i.conf
-        permissions: "0600"
+      - path: /etc/wireguard/{{ include "lernvirt.fullname" $ }}-vm-$i.conf
+        permissions: "0644"
         owner: root:root
         content: |
           [Interface]
@@ -79,12 +79,12 @@ data:
     
           [Peer]
           PublicKey = $GW_PUB
-          Endpoint = wg-gateway:51820
+          Endpoint = {{ include "lernvirt.fullname" $ }}-gateway:51820
           AllowedIPs = 10.10.0.0/24
           PersistentKeepalive = 25
     EOF
 
-        kubectl create secret generic "vm-$i" \
+        kubectl create secret generic "{{ include "lernvirt.fullname" $ }}-vm-$i" \
           --from-file=userData=/tmp/userdata.yaml \
           --from-literal=publickey="$PUB" \
           --dry-run=client -o yaml | kubectl apply -f -

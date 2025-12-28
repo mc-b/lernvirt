@@ -1,11 +1,11 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: wg-keygen
+  name: {{ include "lernvirt.fullname" $ }}-keygen
 spec:
   template:
     spec:
-      serviceAccountName: wg-gateway
+      serviceAccountName: {{ include "lernvirt.fullname" $ }}-gateway
       restartPolicy: OnFailure
       containers:
         - name: keygen
@@ -17,5 +17,5 @@ spec:
       volumes:
         - name: scripts
           configMap:
-            name: wg-keygen-script
+            name: {{ include "lernvirt.fullname" $ }}-keygen-script
             defaultMode: 0755

@@ -138,22 +138,32 @@ Die zentrale Konfiguration erfolgt über `values.yaml`.
 
 Beispiel:
 
+    # VMs welche erstellt werden sollen. 
     vm:
       count: 3
-      # Standardwerte für alle VMs (können überschrieben werden)
-      cpu: 2
-      memory: 2Gi
-      storage: 8Gi
-      userdata: https://raw.githubusercontent.com/tbz-it/M100/refs/heads/master/cloud-init.yaml
-      image:
-        name: base-image
-        url: http://image-mirror/noble-server-cloudimg-amd64.img
+      
+      # VM Default Werte - koennen ueberschrieben werden
+      cpu: 1
+      memory: 512Mi
+      storage: 1Gi
+      userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/alpine/cloud-init.yaml
     
+    os:
+      name: alpine         # ubuntu | alpine | windows
+      variant: edge       # linux: noble, jammy | windows: win10, win11, ws2022
+
+    # WireGuard Clients. WireGuard erreichbar via Host
     wgClients:
       startHostId: 100
-      count: 5
-      endpointNode: 10.1.40.35
-
+      count: 30
+      endpointNode: cloud.tbz.ch
+      
+    # Lokaler Image Cache vorhanden? (lokaler nginx Server von oben)
+    mirror:
+      enabled: true
+      storage:
+        size: 50Gi  
+      mirrorBaseUrl: http://image-mirror
 
 **Bedeutung der wichtigsten Parameter:**
 
@@ -171,12 +181,12 @@ Beispiel:
 
     git clone https://github.com/mc-b/lernvirt.git
     cd lernvirt
-    helm install lab . -n m346-ap21a --create-namespace
+    helm install m122 . -n ap21a --create-namespace
 
 
 ### 5.2 Status & Kontrolle
 
-    kubectl get sc,pv,pvc,dv,vm,vmi -n m346-ap21a
+    kubectl get sc,pv,pvc,dv,vm,vmi -n ap21a
 
 Typische Ressourcen:
 
@@ -186,11 +196,11 @@ Typische Ressourcen:
 
 ### 5.3 Zugriff auf VM-Konsole
 
-    virtctl console vm-0 -n m346-ap21a
+    virtctl console m122-lernvirt-vm-0 -n ap21a
 
 ### 5.4 Umgebung löschen
 
-    helm uninstall lab -n m346-ap21a && kubectl delete ns m346-ap21a
+    helm uninstall m122 -n ap21a && kubectl delete ns ap21a
 
 ---
 
@@ -198,11 +208,9 @@ Typische Ressourcen:
 
 Für jeden Client wird automatisch eine WireGuard-Konfiguration erzeugt.
 
-Anzeige einer Client-Konfiguration:
+Anzeige wie darauf zugegriffen werden kann:
 
-    kubectl get secret client-100 \
-      -n m346-ap21a \
-      -o jsonpath='{.data.wg0\.conf}' | base64 -d
+    helm get notes m122 -n ap21a
 
 Die Konfiguration kann direkt in einen WireGuard-Client importiert werden (Linux, macOS, Windows, Mobile).
 

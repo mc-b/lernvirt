@@ -6,6 +6,21 @@
 {{- mergeOverwrite $base $override | toYaml -}}
 {{- end -}}
 
+{{/*
+Release name
+*/}}
+{{- define "lernvirt.name" -}}
+{{ .Chart.Name }}
+{{- end }}
+
+{{- define "lernvirt.fullname" -}}
+{{ printf "%s-%s" .Release.Name (include "lernvirt.name" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "lernvirt.labels" -}}
+app.kubernetes.io/name: {{ include "lernvirt.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
 
 {{/*
 Merge global OS config with optional per-VM override

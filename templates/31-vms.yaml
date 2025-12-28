@@ -6,13 +6,14 @@
 apiVersion: kubevirt.io/v1
 kind: VirtualMachine
 metadata:
-  name: vm-{{ $i }}
+  name: {{ include "lernvirt.fullname" $ }}-vm-{{ $i }}
 spec:
   running: true
   template:
     metadata:
       labels:
-        kubevirt.io/domain: vm-{{ $i }}
+        kubevirt.io/domain: {{ include "lernvirt.fullname" $ }}-vm-{{ $i }}
+        {{- include "lernvirt.labels" $ | nindent 8 }}        
     spec:
       domain:
         machine:
@@ -41,20 +42,21 @@ spec:
       volumes:
         - name: rootdisk
           persistentVolumeClaim:
-            claimName: vm-{{ $i }}
+            claimName: {{ include "lernvirt.fullname" $ }}-vm-{{ $i }}
 
 {{- else }}
 
 apiVersion: kubevirt.io/v1
 kind: VirtualMachine
 metadata:
-  name: vm-{{ $i }}
+  name: {{ include "lernvirt.fullname" $ }}-vm-{{ $i }}
 spec:
   running: true
   template:
     metadata:
       labels:
-        kubevirt.io/domain: vm-{{ $i }}
+        kubevirt.io/domain: {{ include "lernvirt.fullname" $ }}-vm-{{ $i }}
+        {{- include "lernvirt.labels" $ | nindent 8 }}        
     spec:
       domain:
         cpu:
@@ -80,11 +82,11 @@ spec:
       volumes:
         - name: rootdisk
           persistentVolumeClaim:
-            claimName: vm-{{ $i }}
+            claimName: {{ include "lernvirt.fullname" $ }}-vm-{{ $i }}
         - name: cloudinitdisk
           cloudInitNoCloud:
             secretRef:
-              name: vm-{{ $i }}
+              name: {{ include "lernvirt.fullname" $ }}-vm-{{ $i }}
 ---
 {{- end }}
 

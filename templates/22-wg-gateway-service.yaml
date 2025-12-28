@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: wg-gateway
+  name: {{ include "lernvirt.fullname" $ }}-gateway
 spec:
   type: NodePort
   selector:
-    app: wg-gateway
+    app: {{ include "lernvirt.fullname" $ }}-gateway
   ports:
     - name: wireguard
       protocol: UDP

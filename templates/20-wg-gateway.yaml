@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: wg-gateway
+  name: {{ include "lernvirt.fullname" $ }}-gateway
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: wg-gateway
+      app: {{ include "lernvirt.fullname" $ }}-gateway
   template:
     metadata:
       labels:
-        app: wg-gateway
+        app: {{ include "lernvirt.fullname" $ }}-gateway
     spec:
-      serviceAccountName: wg-gateway
+      serviceAccountName: {{ include "lernvirt.fullname" $ }}-gateway
       containers:
         - name: wg
           image: alpine:3.19
@@ -25,12 +25,12 @@ spec:
           volumeMounts:
             - name: controller
               mountPath: /controller
-            - name: wg-config
+            - name: {{ include "lernvirt.fullname" $ }}-config
               mountPath: /config
       volumes:
         - name: controller
           configMap:
-            name: wg-controller
+            name: {{ include "lernvirt.fullname" $ }}-controller
             defaultMode: 0755
-        - name: wg-config
+        - name: {{ include "lernvirt.fullname" $ }}-config
           emptyDir: {}

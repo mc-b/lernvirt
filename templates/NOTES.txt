@@ -4,7 +4,7 @@
 
 Verbinden mit VM
 
-  virtctl console vm-0 -n {{ .Release.Namespace }}
+  virtctl console {{ include "lernvirt.fullname" $ }}-vm-0 -n {{ .Release.Namespace }}
   
 Fortschrittskontrolle der Installation
 
@@ -12,7 +12,7 @@ Fortschrittskontrolle der Installation
   
 Einzelne VM löschen und wieder erstellen
 
-  kubectl delete vm vm-0 -n {{ .Release.Namespace }}
+  kubectl delete vm {{ include "lernvirt.fullname" $ }}-vm-0 -n {{ .Release.Namespace }}
   helm upgrade lab . -n {{ .Release.Namespace }}
   
 Komplette Umgebung komplett löschen
@@ -31,13 +31,13 @@ Clients:
 
 Client-Konfiguration anzeigen (Beispiel):
 
-  kubectl get secret client-100 \
+  kubectl get secret {{ include "lernvirt.fullname" $ }}-client-100 \
     -n {{ .Release.Namespace }} \
     -o jsonpath='{.data.wg0\.conf}' | base64 -d
 
 Optional direkt speichern:
 
-  kubectl get secret client-100 \
+  kubectl get secret {{ include "lernvirt.fullname" $ }}-client-100 \
     -n {{ .Release.Namespace }} \
     -o jsonpath='{.data.wg0\.conf}' | base64 -d > wg0.conf
 
