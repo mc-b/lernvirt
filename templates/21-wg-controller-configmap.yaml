@@ -1,4 +1,18 @@
 apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "lernvirt.fullname" $ }}-gateway-priv
+type: Opaque
+data: {}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "lernvirt.fullname" $ }}-gateway-pub
+type: Opaque
+data: {}
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ include "lernvirt.fullname" $ }}-controller
@@ -16,7 +30,8 @@ data:
       iproute2 \
       iptables \
       grep \
-      sed
+      sed \
+      coreutils
 
     WG_IF="wg0"
     WG_PORT="51820"
@@ -25,23 +40,39 @@ data:
     SYNC_INTERVAL="15"
     GW_PRIV="/config/privatekey"
 
-    # Alle gültigen Peer-Typen (VMs + Clients)
-    PEER_REGEX="^({{ include "lernvirt.fullname" $ }}-vm-[0-9]+|{{ include "lernvirt.fullname" $ }}-client-[0-9]+)$"
+    FULLNAME="{{ include "lernvirt.fullname" $ }}"
+    GW_SECRET="${FULLNAME}-gateway-priv"
+    GW_PUB_SECRET="${FULLNAME}-gateway-pub"
+
+    NS="${POD_NAMESPACE:-$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace 2>/dev/null || echo default)}"
+
+    PEER_REGEX="^(${FULLNAME}-vm-[0-9]+|${FULLNAME}-client-[0-9]+)$"
 
     # ------------------------------------------------------------
-    # 1) Gateway Private/Public Key
+    # 1) Gateway Private/Public Key (Secret = Source of Truth)
     # ------------------------------------------------------------
-    if [ ! -f "$GW_PRIV" ]; then
-      echo "[WG] generating gateway private key"
+    PRIV_B64="$(kubectl get secret "$GW_SECRET" -n "$NS" -o jsonpath='{.data.privatekey}' 2>/dev/null || true)"
+
+    if [ -z "$PRIV_B64" ]; then
+      echo "[WG] generating gateway private key (persisted in secret)"
       umask 077
-      wg genkey > "$GW_PRIV"
+      PRIV="$(wg genkey)"
+      PRIV_B64="$(printf "%s" "$PRIV" | base64 -w0)"
+
+      kubectl patch secret "$GW_SECRET" -n "$NS" --type merge \
+        -p "{\"data\":{\"privatekey\":\"$PRIV_B64\"}}"
+    else
+      PRIV="$(printf "%s" "$PRIV_B64" | base64 -d)"
     fi
 
-    GW_PUB="$(wg pubkey < "$GW_PRIV")"
+    umask 077
+    printf "%s" "$PRIV" > "$GW_PRIV"
 
-    kubectl create secret generic {{ include "lernvirt.fullname" $ }}-gateway-pub \
-      --from-literal=publickey="$GW_PUB" \
-      --dry-run=client -o yaml | kubectl apply -f -
+    GW_PUB="$(printf "%s" "$PRIV" | wg pubkey)"
+    PUB_B64="$(printf "%s" "$GW_PUB" | base64 -w0)"
+
+    kubectl patch secret "$GW_PUB_SECRET" -n "$NS" --type merge \
+      -p "{\"data\":{\"publickey\":\"$PUB_B64\"}}"
 
     # ------------------------------------------------------------
     # 2) WireGuard Interface initialisieren
@@ -75,52 +106,48 @@ data:
     iptables -C FORWARD -o "$WG_IF" -j ACCEPT 2>/dev/null || iptables -A FORWARD -o "$WG_IF" -j ACCEPT
 
     # ------------------------------------------------------------
-    # 4) Peer-Synchronisation (stabil, symmetrisch)
+    # 4) Peer-Synchronisation (korrektes Base64-Handling)
     # ------------------------------------------------------------
     while true; do
       echo "[WG] syncing peers"
 
-      JSON="$(kubectl get secrets -o json 2>/dev/null || true)"
-
-      if [ -z "$JSON" ]; then
-        sleep "$SYNC_INTERVAL"
-        continue
-      fi
+      JSON="$(kubectl get secrets -n "$NS" -o json 2>/dev/null || true)"
+      [ -z "$JSON" ] && sleep "$SYNC_INTERVAL" && continue
 
       echo "$JSON" | jq -e . >/dev/null 2>&1 || {
         sleep "$SYNC_INTERVAL"
         continue
       }
 
-      # Desired Public Keys (VMs + Clients)
       DESIRED_KEYS="$(echo "$JSON" | jq -r --arg re "$PEER_REGEX" '
         .items[]
         | select(.metadata.name | test($re))
         | .data.publickey
-        | @base64d
-      ' | sort)"
+      ' | while read -r B64; do
+            printf "%s\n" "$(printf "%s" "$B64" | base64 -d)"
+          done | sort)"
 
       CURRENT_KEYS="$(wg show "$WG_IF" peers | sort)"
 
-      # Neue Peers hinzufügen
       echo "$JSON" | jq -c --arg re "$PEER_REGEX" '
         .items[]
         | select(.metadata.name | test($re))
         | {
             name: .metadata.name,
-            pub: (.data.publickey | @base64d)
+            pub_b64: .data.publickey
           }
       ' | while read -r line; do
           NAME="$(echo "$line" | jq -r .name)"
-          PUB="$(echo "$line" | jq -r .pub)"
+          PUB="$(echo "$line" | jq -r .pub_b64 | base64 -d)"
+          [ "${#PUB}" -eq 44 ] || continue
 
           case "$NAME" in
-            {{ include "lernvirt.fullname" $ }}-vm-*)
-              IDX="$(echo "$NAME" | sed -E 's/{{ include "lernvirt.fullname" $ }}-vm-([0-9]+)/\1/')"
+            ${FULLNAME}-vm-*)
+              IDX="$(echo "$NAME" | sed -E "s/${FULLNAME}-vm-([0-9]+)/\1/")"
               IP="$BASE_IP.$((IDX+10))/32"
               ;;
-            {{ include "lernvirt.fullname" $ }}-client-*)
-              IDX="$(echo "$NAME" | sed -E 's/{{ include "lernvirt.fullname" $ }}-client-([0-9]+)/\1/')"
+            ${FULLNAME}-client-*)
+              IDX="$(echo "$NAME" | sed -E "s/${FULLNAME}-client-([0-9]+)/\1/")"
               IP="$BASE_IP.$IDX/32"
               ;;
             *)
@@ -134,7 +161,6 @@ data:
           fi
         done
 
-      # Veraltete Peers entfernen
       for PUB in $CURRENT_KEYS; do
         if ! echo "$DESIRED_KEYS" | grep -qx "$PUB"; then
           echo "[WG] remove stale peer $PUB"

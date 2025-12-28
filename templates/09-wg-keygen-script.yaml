@@ -1,3 +1,13 @@
+{{- range $i := until (.Values.vm.count | int) }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "lernvirt.fullname" $ }}-vm-{{ $i }}
+type: Opaque
+data: {}
+---
+{{- end }}
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -8,10 +18,13 @@ data:
     set -e
 
     echo "[KEYGEN] starting"
-    apk add --no-cache wireguard-tools kubectl jq curl
+    apk add --no-cache wireguard-tools kubectl jq curl coreutils
 
     COUNT="{{ .Values.vm.count }}"
     DEFAULT_USERDATA="{{ .Values.vm.userdata }}"
+    NS="${POD_NAMESPACE:-$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace 2>/dev/null || echo default)}"
+    FULLNAME="{{ include "lernvirt.fullname" $ }}"
+    GW_PUB_SECRET="${FULLNAME}-gateway-pub"
 
     # -------- userdata array vorbereiten (per Helm gerendert) --------
     USERDATA_LIST=""
@@ -34,14 +47,20 @@ data:
       i=$((i+1))
     done
 
+    # shell positional params = userdata entries
     set -- $USERDATA_LIST
 
     echo "[KEYGEN] waiting for gateway public key"
-    until kubectl get secret {{ include "lernvirt.fullname" $ }}-gateway-pub >/dev/null 2>&1; do
+    until kubectl get secret "$GW_PUB_SECRET" -n "$NS" >/dev/null 2>&1; do
       sleep 2
     done
 
-    GW_PUB="$(kubectl get secret {{ include "lernvirt.fullname" $ }}-gateway-pub -o json | jq -r '.data.publickey | @base64d')"
+    # IMPORTANT: Kubernetes stores secret .data.* as base64. Decode ONCE.
+    GW_PUB=""
+    until [ "${#GW_PUB}" -eq 44 ]; do
+      GW_PUB="$(kubectl get secret "$GW_PUB_SECRET" -n "$NS" -o jsonpath='{.data.publickey}' | base64 -d || true)"    
+      sleep 2
+    done    
 
     i=0
     while [ "$i" -lt "$COUNT" ]; do
@@ -53,44 +72,89 @@ data:
         USERDATA_URL="$UD"
       fi
 
-      echo "[KEYGEN] processing vm-$i (userdata=$USERDATA_URL)"
+      VM_SECRET="${FULLNAME}-vm-$i"
+      echo "[KEYGEN] processing $VM_SECRET (userdata=$USERDATA_URL)"
 
-      HTTP_CODE="$(curl -sSL -w '%{http_code}' -o /tmp/userdata.yaml "$USERDATA_URL" || echo 000)"
+      # If secret already has a publickey, keep it (idempotent).
+      EXISTING_PUB_B64="$(kubectl get secret "$VM_SECRET" -n "$NS" -o jsonpath='{.data.publickey}' 2>/dev/null || true)"
 
-      if [ "$HTTP_CODE" != "200" ]; then
-        echo "[KEYGEN][WARN] cloud-init download failed (HTTP $HTTP_CODE)"
-        rm -f /tmp/userdata.yaml
+      if [ -n "$EXISTING_PUB_B64" ]; then
+        echo "[KEYGEN] vm-$i already initialized -> updating userData only"
+        PRIV=""
+        PUB="$(printf "%s" "$EXISTING_PUB_B64" | base64 -d)"
       else
         umask 077
         PRIV="$(wg genkey)"
         PUB="$(printf "%s" "$PRIV" | wg pubkey)"
-        IP="$((i+10))"
+      fi
 
+      HTTP_CODE="$(curl -sSL -w '%{http_code}' -o /tmp/userdata.yaml "$USERDATA_URL" || echo 000)"
+      if [ "$HTTP_CODE" != "200" ]; then
+        echo "[KEYGEN][WARN] cloud-init download failed (HTTP $HTTP_CODE)"
+        rm -f /tmp/userdata.yaml
+        i=$((i+1))
+        continue
+      fi
+
+      IP="$((i+10))"
+
+      # Append a write_files entry safely:
+      # - If write_files exists already, append another "- path" item with 2-space indent.
+      # - Otherwise create write_files and then the item.
+      if grep -qE '^[[:space:]]*write_files:[[:space:]]*$' /tmp/userdata.yaml; then
         cat >> /tmp/userdata.yaml <<EOF
-    
-    write_files:
-      - path: /etc/wireguard/{{ include "lernvirt.fullname" $ }}-vm-$i.conf
+
+      - path: /etc/wireguard/${FULLNAME}-vm-$i.conf
         permissions: "0644"
         owner: root:root
         content: |
           [Interface]
-          PrivateKey = $PRIV
-          Address = 10.10.0.$IP/32
-    
+          PrivateKey = ${PRIV:-__KEEP_EXISTING_PRIVATEKEY__}
+          Address = 10.10.0.${IP}/32
+
           [Peer]
-          PublicKey = $GW_PUB
-          Endpoint = {{ include "lernvirt.fullname" $ }}-gateway:51820
+          PublicKey = ${GW_PUB}
+          Endpoint = ${FULLNAME}-gateway:51820
           AllowedIPs = 10.10.0.0/24
           PersistentKeepalive = 25
     EOF
+      else
+        cat >> /tmp/userdata.yaml <<EOF
 
-        kubectl create secret generic "{{ include "lernvirt.fullname" $ }}-vm-$i" \
-          --from-file=userData=/tmp/userdata.yaml \
-          --from-literal=publickey="$PUB" \
-          --dry-run=client -o yaml | kubectl apply -f -
+    write_files:
+      - path: /etc/wireguard/${FULLNAME}-vm-$i.conf
+        permissions: "0644"
+        owner: root:root
+        content: |
+          [Interface]
+          PrivateKey = ${PRIV:-__KEEP_EXISTING_PRIVATEKEY__}
+          Address = 10.10.0.${IP}/32
+
+          [Peer]
+          PublicKey = ${GW_PUB}
+          Endpoint = ${FULLNAME}-gateway:51820
+          AllowedIPs = 10.10.0.0/24
+          PersistentKeepalive = 25
+    EOF
       fi
+
+      # If we kept an existing key, don't inject a bogus placeholder.
+      # In that case, we do NOT touch the file's PrivateKey line (we remove it entirely).
+      if [ -z "$PRIV" ]; then
+        # Remove the whole "PrivateKey = ..." line we just added.
+        # (Cloud-init will still write the file; private key must already exist on the VM if you rely on this path.)
+        sed -i 's/^ *PrivateKey = __KEEP_EXISTING_PRIVATEKEY__$/# PrivateKey kept on VM/' /tmp/userdata.yaml
+      fi
+
+      USERDATA_B64="$(base64 -w0 /tmp/userdata.yaml)"
+      PUB_B64="$(printf "%s" "$PUB" | base64 -w0)"
+
+      kubectl patch secret "$VM_SECRET" -n "$NS" \
+        --type merge \
+        -p "{\"data\":{\"userData\":\"$USERDATA_B64\",\"publickey\":\"$PUB_B64\"}}"
 
       i=$((i+1))
     done
 
     echo "[KEYGEN] done"
+    exit 0
