@@ -84,7 +84,7 @@ spec:
 
             cat > /tmp/wg0.conf <<EOF
           [Interface]
-          PrivateKey = ${CLIENT_PRIV:-__KEEP_EXISTING_PRIVATEKEY__}
+          PrivateKey = ${CLIENT_PRIV}
           Address = ${CLIENT_IP}
 
           [Peer]
@@ -93,11 +93,6 @@ spec:
           AllowedIPs = ${WG_NET}
           PersistentKeepalive = 25
           EOF
-
-            # remove placeholder if key already existed
-            if [ -z "$CLIENT_PRIV" ]; then
-              sed -i 's/^PrivateKey = __KEEP_EXISTING_PRIVATEKEY__$/# PrivateKey kept/' /tmp/wg0.conf
-            fi
 
             CONF_B64="$(base64 -w0 /tmp/wg0.conf)"
             PUB_B64="$(printf "%s" "$CLIENT_PUB" | base64 -w0)"

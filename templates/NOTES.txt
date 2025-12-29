@@ -37,7 +37,14 @@ Umgebung wieder löschen
 
 Clients: IP-Adressen 10.10.0.{{ add .Values.wgClients.startHostId 1 }} – 10.10.0.{{ add .Values.wgClients.startHostId (sub .Values.wgClients.count 1) }}
 
-Client-Konfiguration anzeigen (Beispiel):
+Client-Konfigurationen als einzelne Dateien ablegen
 
-  kubectl get secret {{ include "lernvirt.fullname" $ }}-client-100 -n {{ .Release.Namespace }} -o jsonpath='{.data.wg0\.conf}' | base64 -d
+    for i in $(seq {{ add .Values.wgClients.startHostId 1 }} {{ add .Values.wgClients.startHostId (sub .Values.wgClients.count 1) }})
+    do
+        echo "create {{ include "lernvirt.fullname" $ }}-client-$i.conf"
+        kubectl get secret {{ include "lernvirt.fullname" $ }}-client-$i -n {{ .Release.Namespace }} -o jsonpath='{.data.wg0\.conf}' | base64 -d \
+        >{{ include "lernvirt.fullname" $ }}-client-$i.conf 
+    done
+
+
   
