@@ -99,7 +99,7 @@ autoinstall:
 
 * PXE / Network Boot im BIOS aktivieren
 * Client starten
-* **„Ubuntu Server 24.04 Autoinstall (PXE)“** auswählen
+* **„Ubuntu Server 24.04 Autoinstall (lernvirt)“** auswählen
 * Installation läuft vollständig automatisch
 
 ---
