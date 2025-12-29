@@ -97,8 +97,36 @@ Alpine Linux (edge)
 Alle Images liegen danach unter:
 
     /var/www/html/linux/…
+
+### 3.4 Storage einrichten
+
+    sudo mkdir -p /data /data/storage /data/config /data/templates /data/config/ssh 
+    sudo chown -R ubuntu:ubuntu /data
+    sudo chmod 777 /data/storage   
     
-### 3.4  MicroK8s-Standard-StorageClass
+    cat <<%EOF% | sudo tee /etc/exports
+    # /etc/exports: the access control list for filesystems which may be exported
+    #               to NFS clients.  See exports(5).
+    # Storage RW
+    #/data *(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
+    /data/storage *(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
+    # Templates RO
+    /data/templates *(ro,sync,no_subtree_check)
+    # Config RO
+    /data/config *(ro,sync,no_subtree_check)
+    # microk8s Hostpath
+    /var/snap/microk8s/common/default-storage *(rw,sync,no_subtree_check,no_root_squash)
+    %EOF%
+
+    sudo exportfs -a
+    sudo systemctl restart nfs-kernel-server 
+    
+Eintrag in `values.yaml` eintragen, bzw. ändern
+
+    datasource:
+      serverIP: <IP mein NFS Server>   
+    
+### 3.5  MicroK8s-Standard-StorageClass
 
 Nach Änderungen binden **PVs nicht mehr**, weil die MicroK8s-Standard-StorageClass `WaitForFirstConsumer` verwendet.
 Bei **KubeVirt / DataVolumes** führt das zu einem Deadlock: PVC wartet auf VM → VM wartet auf PVC.
@@ -115,7 +143,7 @@ Deshalb erstellen wir eine eigene StorageClass mit **sofortigem Binding**:
     reclaimPolicy: Delete
     EOF
     
-### 3.5 Control Plane + Worker joinen
+### 3.6 Control Plane + Worker joinen
 
     ssh -i ~/.ssh/lerncloud ubuntu@kv-control
     microk8s add-node | grep worker | tail -1

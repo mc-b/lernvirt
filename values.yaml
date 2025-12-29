@@ -27,6 +27,10 @@ mirror:
   storage:
     size: 50Gi  
   mirrorBaseUrl: http://192.168.1.56
+  
+# Cloud-init Datasource - fuer nfsclient.sh, mounted /data etc.  
+datasource:
+  serverIP: 192.168.1.56   
     
 # Bestimmung OS, Version und CPU Architektur  
 os:

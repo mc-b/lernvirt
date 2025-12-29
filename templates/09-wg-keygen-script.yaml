@@ -123,6 +123,12 @@ data:
           Endpoint = ${FULLNAME}-gateway:51820
           AllowedIPs = 10.10.0.0/24
           PersistentKeepalive = 25
+          
+      - path: /etc/datasource.conf
+        permissions: "0644"
+        owner: root:root
+        content: |
+           DataSourceLernVirt: DataSourceLernVirt [http://{{ .Values.datasource.serverIP }}/]         
     EOF
       else
         cat >> /tmp/userdata.yaml <<EOF
@@ -141,6 +147,11 @@ data:
           Endpoint = ${FULLNAME}-gateway:51820
           AllowedIPs = 10.10.0.0/24
           PersistentKeepalive = 25
+      - path: /etc/datasource.conf
+        permissions: "0644"
+        owner: root:root
+        content: |
+           DataSourceLernVirt: DataSourceLernVirt [http://{{ .Values.datasource.serverIP }}/]        
     EOF
       fi
 

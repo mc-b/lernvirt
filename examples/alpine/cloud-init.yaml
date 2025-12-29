@@ -21,6 +21,6 @@ packages:
   - openssl
   
 runcmd:
-  - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services.alpine/nfsshare.sh | sh -  
+  - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services.alpine/nfsclient.sh | sh -  
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services.alpine/vpn.sh | sh -  
  
