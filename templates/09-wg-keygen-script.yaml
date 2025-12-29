@@ -58,9 +58,15 @@ data:
     # IMPORTANT: Kubernetes stores secret .data.* as base64. Decode ONCE.
     GW_PUB=""
     until [ "${#GW_PUB}" -eq 44 ]; do
-      GW_PUB="$(kubectl get secret "$GW_PUB_SECRET" -n "$NS" -o jsonpath='{.data.publickey}' | base64 -d || true)"    
+      GW_PUB_B64="$(kubectl get secret "$GW_PUB_SECRET" -n "$NS" \
+        -o jsonpath='{.data.publickey}' 2>/dev/null || true)"
+    
+      if [ -n "$GW_PUB_B64" ]; then
+        GW_PUB="$(printf "%s" "$GW_PUB_B64" | base64 -d || true)"
+      fi
+    
       sleep 2
-    done    
+    done     
 
     i=0
     while [ "$i" -lt "$COUNT" ]; do
