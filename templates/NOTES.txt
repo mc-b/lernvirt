@@ -1,47 +1,43 @@
+{{- $vmStart := .Values.vm.startHostId | int }}
+{{- $vmCount := .Values.vm.count | int }}
+{{- $ipBase := 10 }}
+{{- $ipStart := add $vmStart $ipBase }}
+{{- $ipEnd := add $ipStart (sub $vmCount 1) }}
+
 =========================================
- VMs erzeugt
+ VMs
 =========================================
 
-Verbinden mit VM
+VMs: IP-Adressen 10.10.0.{{ $ipStart }} – 10.10.0.{{ $ipEnd }}
+
+Verbinden mit VM (Beispiel)
 
   virtctl console {{ include "lernvirt.fullname" $ }}-vm-0 -n {{ .Release.Namespace }}
+  
+ oder (wenn WireGuard aktiv)
+ 
+  ssh -i ~/.ssh/lerncloud ubuntu@10.10.0.10
   
 Fortschrittskontrolle der Installation
 
   kubectl get sc,pv,pvc,dv,vm,vmi -n {{ .Release.Namespace }}
   
-Einzelne VM löschen und wieder erstellen
+Einzelne VM löschen und wieder erstellen (Beispiel)
 
   kubectl delete vm {{ include "lernvirt.fullname" $ }}-vm-0 -n {{ .Release.Namespace }}
-  helm upgrade lab . -n {{ .Release.Namespace }}
+  helm upgrade {{ .Release.Name }} . -n {{ .Release.Namespace }}
   
-Komplette Umgebung komplett löschen
+Umgebung wieder löschen
 
-  helm uninstall lab -n {{ .Release.Namespace }} && kubectl delete ns {{ .Release.Namespace }} 
+  helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }} && kubectl delete ns {{ .Release.Namespace }} 
 
 =========================================
- WireGuard Clients erzeugt
+ WireGuard Clients 
 =========================================
 
-Namespace: {{ .Release.Namespace }}
-
-Clients:
-  Host IDs {{ .Values.wgClients.startHostId }} –
-  {{ add .Values.wgClients.startHostId (sub .Values.wgClients.count 1) }}
+Clients: IP-Adressen 10.10.0.{{ add .Values.wgClients.startHostId 1 }} – 10.10.0.{{ add .Values.wgClients.startHostId (sub .Values.wgClients.count 1) }}
 
 Client-Konfiguration anzeigen (Beispiel):
 
-  kubectl get secret {{ include "lernvirt.fullname" $ }}-client-100 \
-    -n {{ .Release.Namespace }} \
-    -o jsonpath='{.data.wg0\.conf}' | base64 -d
-
-Optional direkt speichern:
-
-  kubectl get secret {{ include "lernvirt.fullname" $ }}-client-100 \
-    -n {{ .Release.Namespace }} \
-    -o jsonpath='{.data.wg0\.conf}' | base64 -d > wg0.conf
-
-Diese Informationen nochmals ausgeben
-
-    helm get notes lab -n {{ .Release.Namespace }} 
+  kubectl get secret {{ include "lernvirt.fullname" $ }}-client-100 -n {{ .Release.Namespace }} -o jsonpath='{.data.wg0\.conf}' | base64 -d
   
