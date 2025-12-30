@@ -1,0 +1,21 @@
+# VMs welche erstellt werden sollen. 
+vm:
+  count: 3
+  
+# WireGuard Clients. WireGuard erreichbar via Host
+wgClients:
+  count: 3
+  endpointNode: 192.168.1.61
+  
+# Lokaler Image Cache vorhanden? 
+mirror:
+  mirrorBaseUrl: http://192.168.1.61
+  
+# Cloud-init Datasource - fuer nfsclient.sh, mounted /data etc.  
+datasource:
+  serverIP: 192.168.1.61   
+    
+# Bestimmung OS, Version und CPU Architektur  
+os:
+  architecture: amd64  # amd64 | arm64    
+

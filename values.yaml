@@ -1,6 +1,6 @@
 # VMs welche erstellt werden sollen. 
 vm:
-  count: 3
+  count: 24
   
   # VM Default Werte - koennen ueberschrieben werden
   cpu: 2
@@ -18,26 +18,26 @@ vm:
 # WireGuard Clients. WireGuard erreichbar via Host
 wgClients:
   startHostId: 100
-  count: 5
-  endpointNode: 192.168.1.56
+  count: 48
+  endpointNode: cloud.tbz.ch
   
 # Lokaler Image Cache vorhanden? 
 mirror:
-  enabled: true
+  enabled: false
   storage:
     size: 50Gi  
-  mirrorBaseUrl: http://192.168.1.56
+  mirrorBaseUrl: http://10.10.0.2
   
 # Cloud-init Datasource - fuer nfsclient.sh, mounted /data etc.  
 datasource:
-  serverIP: 192.168.1.56   
+  serverIP: 10.10.0.2 
     
 # Bestimmung OS, Version und CPU Architektur  
 os:
   family: linux        # linux | windows
   name: ubuntu         # ubuntu | alpine | windows
   variant: noble       # linux: noble, jammy | windows: win10, win11, ws2022
-  architecture: arm64  # amd64 | arm64    
+  architecture: amd64  # amd64 | arm64    
 
 images:
   linux:
