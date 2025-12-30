@@ -9,6 +9,7 @@ wgClients:
   
 # Lokaler Image Cache vorhanden? 
 mirror:
+  enabled: true
   mirrorBaseUrl: http://192.168.1.56
   
 # Cloud-init Datasource - fuer nfsclient.sh, mounted /data etc.  
