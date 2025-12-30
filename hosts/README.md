@@ -26,15 +26,24 @@ Sie beschreiben damit **was der Host kann**, nicht **wie oder wann etwas deploye
 
 ## Typische Inhalte
 
-```yaml
     vm:
       count: 3
     
+    # WireGuard Clients. WireGuard erreichbar via Host
     wgClients:
       count: 3
-      endpointNode: 192.168.1.61
-    
+      endpointNode: 192.168.1.56
+      
+    # Lokaler Image Cache vorhanden? 
+    mirror:
+      enabled: true
+      mirrorBaseUrl: http://192.168.1.56
+      
+    # Cloud-init Datasource - fuer nfsclient.sh, mounted /data etc.  
+    datasource:
+      serverIP: 192.168.1.56   
+        
+    # Bestimmung OS, Version und CPU Architektur  
     os:
-      architecture: amd64
-```
+      architecture: arm64  # amd64 | arm64    
 
