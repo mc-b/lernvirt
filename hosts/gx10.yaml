@@ -20,3 +20,7 @@ datasource:
 os:
   architecture: arm64  # amd64 | arm64    
 
+# StorageClass fuer DataVolume fuer Single Node, ARM64  
+storage:
+  enabled: true
+  className: "hostpath-immediate"   # z.B. hostpath-immediate | microk8s-hostpath | ""

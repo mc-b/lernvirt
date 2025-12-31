@@ -20,197 +20,27 @@ Die Umgebung eignet sich besonders für:
 
 ---
 
-## 1. Zielsetzung
+## 2. + 3. Voraussetzungen und Installation
 
-Ziel ist die Bereitstellung einer **isolierten, skalierbaren Lernumgebung pro Modul oder Klasse**, in der:
-
-* jede VM automatisch konfiguriert wird (Cloud-Init)
-* jede VM einen **eigenen WireGuard-Schlüssel** erhält
-* externe Clients (z.B. Lehrpersonen, Admins) **sicher von ausserhalb** zugreifen können
-* **keine manuellen Konfigurationsschritte** im Kubernetes-Cluster erforderlich sind
-* VMs vollständig über **Helm und Kubernetes-Ressourcen** verwaltet werden
-
----
-
-## 2. Voraussetzungen
-
-* Bare-Metal Host mit:
-
-  * Linux (z.B. Ubuntu Server)
-  * aktivierter Hardware-Virtualisierung (Intel VT-x / AMD-V)
-* Root-Zugriff für die Initialinstallation
-* Internetzugang (optional: lokaler Image-Cache)
-
----
-
-## 3. Quick Start
-
-Bei einer neu Installation auf Bare Metal [autoinstall](autoinstall/README.md) verwenden und weiter bei Punkt 3.3.
-
-**Alternative**:
-
-### 3.1 Kubernetes & Infrastruktur installieren
-
-Auf dem Bare-Metal-Host werden zuerst eine zentrale Dateiablage (NFS) und microk8s installiert.
-
-Als **root** ausführen:
-
-    curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsshare.sh | bash -
-    curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -
-   
-
-### 3.2 KubeVirt aktivieren
-
-Als **normaler Benutzer** (z.B. `ubuntu`):
-
-    curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -
-
-Falls zuvor CPU-Emulation aktiviert wurde, kann diese wieder deaktiviert werden:
-
-    kubectl -n kubevirt patch kubevirt kubevirt \
-      --type=merge \
-      --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":false}}}}'
-
-### 3.3 VM-Images vorbereiten (optional, empfohlen)
-
-Dazu brauchen wir zuerst nginx
-
-    sudo apt-get install nginx -y
-
-dann Images nach `/var/www/html` herunterladen
-
-    mkdir -p /var/www/html/linux
-    cd /var/www/html/linux
-
-Ubuntu 24.04 (noble)
-
-    mkdir -p ubuntu/noble/{amd64,arm64}
-    wget -P ubuntu/noble/amd64 https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
-    wget -P ubuntu/noble/arm64 https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-arm64.img
-
-Alpine Linux (edge)
-
-    mkdir -p alpine/edge/{amd64,arm64}
-    wget -P alpine/edge/amd64 https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/generic_alpine-3.23.0-x86_64-bios-cloudinit-r0.qcow2
-    wget -P alpine/edge/arm64 https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/generic_alpine-3.23.2-aarch64-uefi-cloudinit-r0.qcow2
-
-Alle Images liegen danach unter:
-
-    /var/www/html/linux/…
-
-### 3.4 Storage einrichten
-
-    sudo mkdir -p /data /data/storage /data/config /data/templates /data/config/ssh 
-    sudo chown -R ubuntu:ubuntu /data
-    sudo chmod 777 /data/storage   
-    
-    cat <<%EOF% | sudo tee /etc/exports
-    # /etc/exports: the access control list for filesystems which may be exported
-    #               to NFS clients.  See exports(5).
-    # Storage RW
-    #/data *(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
-    /data/storage *(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
-    # Templates RO
-    /data/templates *(ro,sync,no_subtree_check)
-    # Config RO
-    /data/config *(ro,sync,no_subtree_check)
-    # microk8s Hostpath
-    /var/snap/microk8s/common/default-storage *(rw,sync,no_subtree_check,no_root_squash)
-    %EOF%
-
-    sudo exportfs -a
-    sudo systemctl restart nfs-kernel-server 
-    
-Eintrag in `values.yaml` eintragen, bzw. ändern
-
-    datasource:
-      serverIP: <IP mein NFS Server>   
-    
-### 3.5  MicroK8s-Standard-StorageClass
-
-Nach Änderungen binden **PVs nicht mehr**, weil die MicroK8s-Standard-StorageClass `WaitForFirstConsumer` verwendet.
-Bei **KubeVirt / DataVolumes** führt das zu einem Deadlock: PVC wartet auf VM → VM wartet auf PVC.
-
-Deshalb erstellen wir eine eigene StorageClass mit **sofortigem Binding**:
-
-    kubectl apply -f - <<EOF
-    apiVersion: storage.k8s.io/v1
-    kind: StorageClass
-    metadata:
-      name: hostpath-immediate
-    provisioner: microk8s.io/hostpath
-    volumeBindingMode: Immediate
-    reclaimPolicy: Delete
-    EOF
-    
-### 3.6 Control Plane + Worker joinen
-
-    ssh -i ~/.ssh/lerncloud ubuntu@kv-control
-    microk8s add-node | grep worker | tail -1
-    exit
-    
-    ssh -i ~/.ssh/lerncloud ubuntu@kv-worker-01
-    # Ausgabe von microk8s add-noe    
-    
-`/data` von Control Plane mounten
-
-    sudo mount -t nfs kv-control:/data /data    
+* [Installation](INSTALL.md)
 
 ---
 
 ## 4. Konfiguration
 
-### 4.1 `values.yaml` anpassen
-
-Die zentrale Konfiguration erfolgt über `values.yaml`.
-
-Beispiel:
-
-    # VMs welche erstellt werden sollen. 
-    vm:
-      count: 3
-      
-      # VM Default Werte - koennen ueberschrieben werden
-      cpu: 1
-      memory: 512Mi
-      storage: 1Gi
-      userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/alpine/cloud-init.yaml
-    
-    os:
-      name: alpine         # ubuntu | alpine | windows
-      variant: edge       # linux: noble, jammy | windows: win10, win11, ws2022
-
-    # WireGuard Clients. WireGuard erreichbar via Host
-    wgClients:
-      startHostId: 100
-      count: 30
-      endpointNode: cloud.tbz.ch
-      
-    # Lokaler Image Cache vorhanden? (lokaler nginx Server von oben)
-    mirror:
-      enabled: true
-      storage:
-        size: 50Gi  
-      mirrorBaseUrl: http://image-mirror
-
-**Bedeutung der wichtigsten Parameter:**
-
-* `vm.count` -   Anzahl der zu erstellenden virtuellen Maschinen
-* `vm.userdata` - Cloud-Init-Konfiguration (Benutzer, SSH-Key, Pakete, Netzwerke)
-* `vm.image.url` - Quelle des VM-Basisimages (lokaler Mirror empfohlen)
-* `wgClients.count` - Anzahl automatisch generierter WireGuard-Client-Konfigurationen
-* `endpointNode` -  Öffentliche IP oder DNS des WireGuard Gateways
+* [Konfiguration](CONFIG.md)
 
 ---
 
 ## 5. Deployment der VMs
 
-### 5.1 Installation
+### 5.1 Erstellen einer Modulumgebung für eine Klasse
 
-    git clone https://github.com/mc-b/lernvirt.git
-    cd lernvirt
-    helm install m122 . -n ap21a --create-namespace
+    helm install m122 oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace
+    
+Für nicht auf [lernmaas](https://github.com/mc-b/lernmaas) basierende Module siehe [Konfiguration und Beispiele](CONFIG.md).
 
+Für Hosts spezifische Anpassungen wie Image Mirror, ARM64 etc. siehe [hosts](hosts/README.md)
 
 ### 5.2 Status & Kontrolle
 
@@ -266,12 +96,12 @@ Für produktive oder internet-exponierte Umgebungen wird dringend empfohlen, den
 
 Mit folgendem Befehl kann überprüft werden, ob der RDP-Service aktiv ist:
 
-    kubectl get service -n m346-ap21a
+    kubectl get service -n ap21a
 
 Beispielausgabe:
 
     NAME           TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)           AGE
-    vm-0-rdp       NodePort   10.152.183.12  <none>        3389:31234/TCP     2m
+    vm-0           NodePort   10.152.183.12  <none>        3389:31234/TCP     2m
 
 In diesem Beispiel:
 
@@ -291,102 +121,10 @@ Auf einem Windows-Client:
 
 ---
 
-## 9. Examples
+## 9. - 11. Erweiterungen
 
-Das Verzeichnis examples/ enthält optionale, in sich geschlossene Beispiele, die typische Einsatz- und Lernszenarien mit KubeVirt und Kubernetes demonstrieren.
-
-Die Beispiele sind:
-
-* [Alpine Linux](examples/alpine/README.md)
-* [Docker, Podman und Kubernetes](examples/duk/README.md)
-* [GNS3 Labor](examples/gns3/README.md)
-* [Windows 10](examples/win10/README.md)
-* [Windows Server 2022](examples/wins2022/README.md)
-
----
-
-## 10. PXE Boot
-
-* [PXE Boot einrichten](pxe/README.md)
-
----
-
-## 11. Eigenes VM Netzwerk (multus)
-
-* [CNI Multus](multus/README.md)
-
----
+* [Autoinstall, PXE Boot, eigenes Netzwerk](CONFIG.md)
 
 ## 12. FAQ
 
-### 12.1 Kubeconfig
-
-> **Wie kann ich mehrere Kubernetes-Cluster in einer einzigen `kubeconfig` bündeln und effizient zwischen Clustern, Contexts und Namespaces wechseln, ohne Konfigurationen manuell anzupassen?**
-
-Mehrere kubeconfigs mergen
-
-    export KUBECONFIG=~/.kube/config:~/.kube/config-lab:~/.kube/config-prod
-    kubectl config view --merge --flatten > ~/.kube/config
-    chmod 600 ~/.kube/config
-
-Contexts anzeigen & wechseln
-
-    kubectl config get-contexts
-    kubectl config use-context <context-name>
-
-Namespaces anzeigen
-
-    kubectl get ns
-
-Namespace temporär nutzen
-
-    kubectl get pods -n alpine
-
-Namespace dauerhaft im Context setzen
-
-    kubectl config set-context --current --namespace=alpine
-
-Best Practice
-
-* **Ein Context = Cluster + Namespace**
-* Klare Namen: `alpine`, `m122`
-* Kein Arbeiten im `default` Namespace
-
-### 12.2 OpenVPN
-
-> **Wie stelle ich unter Linux eine OpenVPN-Verbindung her, wenn mir nur eine `.ovpn`-Konfigurationsdatei vorliegt?**
-
-    sudo openvpn --config myconfig.ovpn
-    sudo dhclient tap0
-  
-Der zweite Befehl holt eine IP-Adresse vom Server und wird nur gebraucht, wenn das nicht automatisch erfolgt.
-
-### 12.3 Multi Arch Container Images
-
-> **ARM-basierende Hardware wird immer attraktiver – wie erstelle ich ein Multiarch-Container-Image, das sowohl auf x86_64 als auch auf ARM läuft?**
-
-QEMU & Buildx aktivieren (einmalig)
-
-    docker run --privileged --rm tonistiigi/binfmt --install all
-    docker buildx create --use --name multiarch
-    docker buildx inspect --bootstrap
-
-Neu builden
-
-    export IMAGE=registry.gitlab.com/ch-mc-b/autoshop-ms/app/shop/order
-    export TAG=1.0.0
-    
-    docker login registry.gitlab.com
-    
-    docker buildx build \
-      --platform linux/amd64,linux/arm64 \
-      -t $IMAGE:$TAG \
-      -t $IMAGE:latest \
-      --push .
-
-Testen
-
-    docker manifest inspect $IMAGE:$TAG
-
-  
-
+* [Fragen und Antworten](FAQ.md)

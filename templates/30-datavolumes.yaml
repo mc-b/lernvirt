@@ -1,4 +1,4 @@
-{{- range $i := until (.Values.vm.count | int) }}
+{{- range $i := until ($.Values.vm.count | int) }}
 {{- $vm := fromYaml (include "vm.values" (dict "index" $i "values" $.Values)) }}
 apiVersion: cdi.kubevirt.io/v1beta1
 kind: DataVolume
@@ -9,7 +9,9 @@ spec:
     http:
       url: {{ include "lernvirt.imageForVM" $ }}
   pvc:
-    storageClassName: hostpath-immediate
+    {{- if and $.Values.storage.enabled $.Values.storage.className }}
+    storageClassName: {{ $.Values.storage.className }}
+    {{- end }}
     accessModes:
       - ReadWriteOnce
     resources:
