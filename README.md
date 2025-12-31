@@ -38,6 +38,9 @@ Die Umgebung eignet sich besonders für:
 
     helm install m122 oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace
     
+Es werden alle Module von [lernmaas](https://github.com/mc-b/lernmaas), siehe `config.yaml` unterstützt. Weil `microk8s` 
+innerhalb von `kubevirt` nicht funktioniert, gibt es für bestimmte Module, z.B. m169, eine m169k3s Variante.
+    
 Für nicht auf [lernmaas](https://github.com/mc-b/lernmaas) basierende Module siehe [Konfiguration und Beispiele](CONFIG.md).
 
 Für Hosts spezifische Anpassungen wie Image Mirror, ARM64 etc. siehe [hosts](hosts/README.md)
