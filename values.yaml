@@ -1,6 +1,6 @@
 # VMs welche erstellt werden sollen. 
 vm:
-  count: 24
+  count: 22
   
   # VM Default Werte - koennen ueberschrieben werden
   cpu: 2
