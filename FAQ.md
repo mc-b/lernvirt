@@ -1,6 +1,6 @@
 ## 12. FAQ
 
-### 12.1 Kubeconfig
+### Kubeconfig
 
 > **Wie kann ich mehrere Kubernetes-Cluster in einer einzigen `kubeconfig` bündeln und effizient zwischen Clustern, Contexts und Namespaces wechseln, ohne Konfigurationen manuell anzupassen?**
 
@@ -33,7 +33,33 @@ Best Practice
 * Klare Namen: `alpine`, `m122`
 * Kein Arbeiten im `default` Namespace
 
-### 12.2 OpenVPN
+### Kubernetes Server Zertifikate
+
+> **Wie kann ich weitere Server oder IP für den Kubernetes Cluster zulassen, z.B. für Zugriff via WireGuard?**
+
+Öffne die Datei:
+
+    sudo vi /var/snap/microk8s/current/certs/csr.conf.template
+    
+Suche den Abschnitt [ alt_names ]
+
+    [ alt_names ]
+    DNS.1 = cloud.tbz.ch
+    DNS.2 = mycluster.local
+    DNS.3 = api.internal.domain
+    DNS.4 = kubeapi.lernvirt.local
+    IP.1 = 127.0.0.1
+    IP.2 = 10.1.45.8   
+    
+Zertifikat neu erstellen
+
+    sudo microk8s refresh-certs --cert server.crt  
+    
+`~/.kube/config` neu erstellen
+
+    microk8s config >~/.kube/config
+
+### OpenVPN
 
 > **Wie stelle ich unter Linux eine OpenVPN-Verbindung her, wenn mir nur eine `.ovpn`-Konfigurationsdatei vorliegt?**
 
@@ -42,7 +68,7 @@ Best Practice
   
 Der zweite Befehl holt eine IP-Adresse vom Server und wird nur gebraucht, wenn das nicht automatisch erfolgt.
 
-### 12.3 Multi Arch Container Images
+### Multi Arch Container Images
 
 > **ARM-basierende Hardware wird immer attraktiver – wie erstelle ich ein Multiarch-Container-Image, das sowohl auf x86_64 als auch auf ARM läuft?**
 
