@@ -133,3 +133,28 @@ Eintrag in `values.yaml` eintragen, bzw. ändern
 `/data` von Control Plane mounten
 
     sudo mount -t nfs kv-control:/data /data    
+    
+💡 **Tipp**: Richte mehrere Control Plane Nodes ein (High Availability Setup), damit der Cluster auch bei Ausfall eines Nodes weiterhin über die verbleibenden Control Plane Nodes erreichbar bleibt.
+
+### 3.7 Kubernetes Port-Mapping eingrenzen
+
+Standardmässig erlaubt MicroK8s (wie Kubernetes allgemein) NodePorts im Bereich `30000–32767`. Um das aus Sicherheits- oder Administrationsgründen einzugrenzen (z. B. auf `31000–31500`), musst du eine Einstellung am API-Server anpassen.
+
+**API-Server-Konfiguration bearbeiten**
+
+Öffne die Datei mit den Kubernetes API-Server-Argumenten:
+
+    sudo vi /var/snap/microk8s/current/args/kube-apiserver
+
+**Argument ergänzen oder anpassen**
+
+Füge folgende Zeile hinzu **(oder passe sie an, wenn sie schon existiert)**:
+
+    --service-node-port-range=31000-31500
+
+**MicroK8s neu starten**
+
+Damit die Änderungen wirksam werden, muss MicroK8s neu gestartet werden:
+
+    sudo microk8s stop
+    sudo microk8s start
