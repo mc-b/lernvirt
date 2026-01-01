@@ -158,3 +158,17 @@ Damit die Änderungen wirksam werden, muss MicroK8s neu gestartet werden:
 
     sudo microk8s stop
     sudo microk8s start
+
+### 3.8 Load Balancer aktivieren
+
+MetalLB ist eine Load-Balancer-Implementierung für Bare-Metal -Kubernetes- Cluster, die Standard-Routingprotokolle verwendet.
+
+MetalLB kann wie folgt in microk8s aktiviert werden:
+
+    microk8s enable "metallb:10.0.24.XXX-10.0.24.XXX"
+    
+XXX ist durch den eigenen IP-Range zu ersetzen.
+
+**Tipp**: siehe auch [LoadBalancer mit IPv6 Range](advanced/metallb-IPv6.md) 
+
+    
