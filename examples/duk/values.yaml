@@ -4,6 +4,8 @@
 
 vm:
   count: 3
+  ports:
+    - 16443
   
   # Worker Nodes
   cpu: 4
@@ -16,4 +18,8 @@ vm-0:
   cpu: 4
   memory: 8Gi
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/duk/cloud-init-control.yaml
+  ports:
+    - 16443
+    - 32188
+    - 30443
    
