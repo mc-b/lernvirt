@@ -16,7 +16,15 @@ Verbinden mit VM (Beispiel)
   
  oder (wenn WireGuard aktiv)
  
-  ssh -i {{ include "lernvirt.fullname" $ }}-ssh ubuntu@10.10.0.10
+{{- if or (not .Values.auth) (and .Values.auth (or (not (hasKey .Values.auth "manageSshKey")) .Values.auth.manageSshKey)) }} 
+
+  ssh -i ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh ubuntu@10.10.0.10
+  
+{{- else }}
+
+  ssh -i ~/.ssh/lerncloud ubuntu@10.10.0.10  
+  
+{{- end }}
   
 Fortschrittskontrolle der Installation
 
@@ -34,23 +42,31 @@ Umgebung wieder löschen
 =========================================
  SSH Zugriff / Port Weiterleitungen
 =========================================  
-  
+
 Ausgabe der SSH Ports, z.B. für Port Weiterleitungen
 
   kubectl get service -l app.kubernetes.io/instance={{ .Release.Name }} -n {{ .Release.Namespace }} 
 
+{{- if or (not .Values.auth) (and .Values.auth (or (not (hasKey .Values.auth "manageSshKey")) .Values.auth.manageSshKey)) }}
+
 SSH-Private-Key aus Secret holen und lokal abstellen
 
-  kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} -o jsonpath='{.data.ssh-privatekey}' | base64 -d >~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh
+  kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} \
+    -o jsonpath='{.data.ssh-privatekey}' | base64 -d >~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh
   chmod 600 ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh  
-  
-Port Weiterleitung
+
+Port Weiterleitung (Beispiel: VM-Port 80 → lokal 8080)
 
   ssh -i ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh -p <gemappter SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}  
-  
-Ubuntu-Passwort aus Secret auslesen
 
-  kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d; echo  
+{{- else }}
+
+Port Weiterleitung (Beispiel: VM-Port 80 → lokal 8080)
+
+  ssh -i ~/.ssh/lerncloud -p <gemappter SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}  
+
+{{- end }}
+
 
 =========================================
  WireGuard Clients 

@@ -36,6 +36,13 @@ datasource:
 storage:
   enabled: false
   className: ""   # z.B. hostpath-immediate | microk8s-hostpath | ""
+  
+auth:
+  # steuert das Erzeugen/Einspeisen des gemeinsamen SSH-Keys
+  manageSshKey: true
+
+  # steuert das Ersetzen von 'insecure' durch ein generiertes Passwort
+  managePassword: true
     
 # Bestimmung OS, Version und CPU Architektur  
 os:

@@ -24,3 +24,10 @@ os:
 storage:
   enabled: true
   className: "hostpath-immediate"   # z.B. hostpath-immediate | microk8s-hostpath | ""
+  
+auth:
+  # steuert das Erzeugen/Einspeisen des gemeinsamen SSH-Keys
+  manageSshKey: false
+
+  # steuert das Ersetzen von 'insecure' durch ein generiertes Passwort
+  managePassword: false  
