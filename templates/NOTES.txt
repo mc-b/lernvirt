@@ -16,7 +16,7 @@ Verbinden mit VM (Beispiel)
   
  oder (wenn WireGuard aktiv)
  
-  ssh -i ~/.ssh/lerncloud ubuntu@10.10.0.10
+  ssh -i {{ include "lernvirt.fullname" $ }}-ssh ubuntu@10.10.0.10
   
 Fortschrittskontrolle der Installation
 
@@ -30,14 +30,23 @@ Einzelne VM löschen und wieder erstellen (Beispiel)
 Umgebung wieder löschen
 
   helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }} && kubectl delete ns {{ .Release.Namespace }}
+
+=========================================
+ SSH Zugriff / Port Weiterleitungen
+=========================================  
   
 Ausgabe der SSH Ports, z.B. für Port Weiterleitungen
 
   kubectl get service -l app.kubernetes.io/instance={{ .Release.Name }} -n {{ .Release.Namespace }} 
+
+SSH-Private-Key aus Secret holen und lokal abstellen
+
+  kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} -o jsonpath='{.data.ssh-privatekey}' | base64 -d >{{ include "lernvirt.fullname" $ }}-ssh
+  chmod 600 {{ include "lernvirt.fullname" $ }}-ssh  
   
 Port Weiterleitung
 
-  ssh -i ~/.ssh/lerncloud -p <gemappter SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}  
+  ssh -i {{ include "lernvirt.fullname" $ }}-ssh -p <gemappter SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}  
 
 =========================================
  WireGuard Clients 
@@ -53,6 +62,3 @@ Client-Konfigurationen als einzelne Dateien ablegen
         kubectl get secret {{ include "lernvirt.fullname" $ }}-client-$i -n {{ .Release.Namespace }} -o jsonpath='{.data.wg0\.conf}' | base64 -d \
         >{{ include "lernvirt.fullname" $ }}-client-$i.conf 
     done
-
-
-  

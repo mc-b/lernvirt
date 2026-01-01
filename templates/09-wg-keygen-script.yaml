@@ -7,6 +7,12 @@ type: Opaque
 data: {}
 ---
 {{- end }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "lernvirt.fullname" $ }}-ssh
+type: Opaque
+data: {}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -18,13 +24,14 @@ data:
     set -e
 
     echo "[KEYGEN] starting"
-    apk add --no-cache wireguard-tools kubectl jq curl coreutils
+    apk add --no-cache wireguard-tools kubectl jq curl coreutils openssh-keygen
 
     COUNT="{{ .Values.vm.count }}"
     DEFAULT_USERDATA="{{ .Values.vm.userdata }}"
     NS="${POD_NAMESPACE:-$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace 2>/dev/null || echo default)}"
     FULLNAME="{{ include "lernvirt.fullname" $ }}"
     GW_PUB_SECRET="${FULLNAME}-gateway-pub"
+    SSH_SECRET="${FULLNAME}-ssh"
 
     # -------- userdata array vorbereiten (per Helm gerendert) --------
     USERDATA_LIST=""
@@ -60,13 +67,38 @@ data:
     until [ "${#GW_PUB}" -eq 44 ]; do
       GW_PUB_B64="$(kubectl get secret "$GW_PUB_SECRET" -n "$NS" \
         -o jsonpath='{.data.publickey}' 2>/dev/null || true)"
-    
+
       if [ -n "$GW_PUB_B64" ]; then
         GW_PUB="$(printf "%s" "$GW_PUB_B64" | base64 -d || true)"
       fi
-    
+
       sleep 2
-    done     
+    done
+
+    echo "[KEYGEN] ensuring shared SSH key in secret $SSH_SECRET"
+    SSH_PUB_LINE=""
+    EXISTING_SSH_PUB_B64="$(kubectl get secret "$SSH_SECRET" -n "$NS" \
+      -o jsonpath='{.data.ssh-publickey}' 2>/dev/null || true)"
+
+    if [ -n "$EXISTING_SSH_PUB_B64" ]; then
+      SSH_PUB_LINE="$(printf "%s" "$EXISTING_SSH_PUB_B64" | base64 -d || true)"
+    fi
+
+    if [ -z "$SSH_PUB_LINE" ]; then
+      echo "[KEYGEN] generating new shared SSH key"
+      umask 077
+      ssh-keygen -q -t ed25519 -N "" -C "lernvirt@${FULLNAME}" -f /tmp/sshkey
+
+      SSH_PRIV_B64="$(base64 -w0 /tmp/sshkey)"
+      SSH_PUB_LINE="$(cat /tmp/sshkey.pub)"
+      SSH_PUB_B64="$(printf "%s" "$SSH_PUB_LINE" | base64 -w0)"
+
+      kubectl patch secret "$SSH_SECRET" -n "$NS" \
+        --type merge \
+        -p "{\"data\":{\"ssh-privatekey\":\"$SSH_PRIV_B64\",\"ssh-publickey\":\"$SSH_PUB_B64\"}}"
+    else
+      echo "[KEYGEN] reusing existing shared SSH key from secret $SSH_SECRET"
+    fi
 
     i=0
     while [ "$i" -lt "$COUNT" ]; do
@@ -100,6 +132,14 @@ data:
         rm -f /tmp/userdata.yaml
         i=$((i+1))
         continue
+      fi
+
+      # lerncloud SSH-Key in cloud-init ersetzen (ein Key für alle VMs)
+      if [ -n "$SSH_PUB_LINE" ]; then
+        if grep -q 'lerncloud' /tmp/userdata.yaml; then
+          ESC_PUB_LINE="$(printf '%s\n' "$SSH_PUB_LINE" | sed 's/[&/\]/\\&/g')"
+          sed -i "s#^      - .*lerncloud.*#      - ${ESC_PUB_LINE}#" /tmp/userdata.yaml
+        fi
       fi
 
       IP="$((i+10))"
@@ -153,14 +193,6 @@ data:
         content: |
            DataSourceLernVirt: DataSourceLernVirt [http://{{ .Values.datasource.serverIP }}/]        
     EOF
-      fi
-
-      # If we kept an existing key, don't inject a bogus placeholder.
-      # In that case, we do NOT touch the file's PrivateKey line (we remove it entirely).
-      if [ -z "$PRIV" ]; then
-        # Remove the whole "PrivateKey = ..." line we just added.
-        # (Cloud-init will still write the file; private key must already exist on the VM if you rely on this path.)
-        sed -i 's/^ *PrivateKey = __KEEP_EXISTING_PRIVATEKEY__$/# PrivateKey kept on VM/' /tmp/userdata.yaml
       fi
 
       USERDATA_B64="$(base64 -w0 /tmp/userdata.yaml)"
