@@ -120,6 +120,7 @@ data:
       else
         USERDATA_URL="$UD"
       fi
+      USERDATA_URL="${USERDATA_URL//\{\{RELEASE\}\}/{{ .Release.Name }}}"
 
       VM_SECRET="${FULLNAME}-vm-$i"
       echo "[KEYGEN] processing $VM_SECRET (userdata=$USERDATA_URL)"

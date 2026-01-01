@@ -1,0 +1,17 @@
+.git
+.gitignore
+*.bak
+*.old
+*.orig
+*.tmp
+*.log
+advanced/*
+autoinstall/*
+examples/*
+hosts/*
+multus/*
+pxe/*
+scripts/*
+.project
+*.md
+*.tgz
