@@ -209,3 +209,4 @@ __marimo__/
 /*.conf
 /lernvirt-*.tgz
 /ca-lerncluster.crt
+/*-ssh
