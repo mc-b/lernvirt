@@ -58,6 +58,10 @@ SSH-Private-Key aus Secret holen und lokal abstellen
 Port Weiterleitung (Beispiel: VM-Port 80 → lokal 8080)
 
   ssh -i ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh -p <gemappter SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}  
+  
+Ubuntu-Passwort aus Secret auslesen für Zugriff ohne SSH-Key
+
+  kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d; echo  
 
 {{- else }}
 
@@ -66,7 +70,6 @@ Port Weiterleitung (Beispiel: VM-Port 80 → lokal 8080)
   ssh -i ~/.ssh/lerncloud -p <gemappter SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}  
 
 {{- end }}
-
 
 =========================================
  WireGuard Clients 

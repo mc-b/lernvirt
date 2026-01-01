@@ -17,10 +17,3 @@ Das cloud-init-File liegt dabei immer unter:
 
 Dadurch ist das cloud-init eindeutig dem Modul zugeordnet und kann unabhängig gepflegt und versioniert werden.
 
-## SSH-Keys pro Installation
-
-Bei jeder Helm-Installation wird automatisch ein SSH-Schlüsselpaar (Private Key und Public Key) erzeugt.
-
-Der private und der öffentliche Schlüssel werden in einem Kubernetes Secret abgelegt und anschliessend im cloud-init-Script hinterlegt, sodass der
-Zugriff auf die VM direkt nach dem Start möglich ist.
-
