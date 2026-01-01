@@ -149,6 +149,39 @@ Zertifikat neu erstellen
 
     microk8s config >~/.kube/config
 
+Perfekt – auf dieser Basis habe ich dir den Text entsprechend angepasst und etwas verfeinert:
+
+---
+
+### 🔀 Port Weiterleitung
+
+> **Wie kann ich einen Port meiner VM (z. B. Port 80) auf meinen lokalen Rechner weiterleiten?**
+
+Der **SSH- (22)** und **HTTPS-Port (443)** jeder VM werden automatisch über einen **Kubernetes LoadBalancer-Service** nach aussen gemappt.
+
+Über den gemappten **SSH-Port** kannst du beliebige weitere Ports aus der VM (z. B. Webserver auf Port 80) per **SSH-Portforwarding** auf deinen lokalen Rechner weiterleiten.
+
+**Gemappten SSH-Port finden**
+
+    kubectl get services -n ap21a
+
+Beispielausgabe:
+
+    NAME                        TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)       
+    m169k3s-lernvirt-vm-0       LoadBalancer   10.152.183.75    <pending>     22:32434/TCP   
+
+Hier wurde der **SSH-Port 22 der VM auf NodePort 32434** gemappt.
+
+**Weiterleitung einrichten**
+
+Du kannst jetzt z. B. den **Port 80** der VM (z. B. Webserver) auf deinem lokalen Rechner über Port **8080** zugänglich machen:
+
+    ssh -i ~/.ssh/lerncloud -p 32434 -L 8080:localhost:80 ubuntu@cloud.tbz.ch
+
+Jetzt erreichst du den Webserver der VM ganz einfach im Browser oder per `curl` über:
+
+    http://localhost:8080
+
 ### OpenVPN
 
 > **Wie stelle ich unter Linux eine OpenVPN-Verbindung her, wenn mir nur eine `.ovpn`-Konfigurationsdatei vorliegt?**

@@ -29,7 +29,15 @@ Einzelne VM löschen und wieder erstellen (Beispiel)
   
 Umgebung wieder löschen
 
-  helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }} && kubectl delete ns {{ .Release.Namespace }} 
+  helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }} && kubectl delete ns {{ .Release.Namespace }}
+  
+Ausgabe der SSH Ports, z.B. für Port Weiterleitungen
+
+  kubectl get service -l app.kubernetes.io/instance={{ .Release.Name }} -n {{ .Release.Namespace }} 
+  
+Port Weiterleitung
+
+  ssh -i ~/.ssh/lerncloud -p <gemappter SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}  
 
 =========================================
  WireGuard Clients 
