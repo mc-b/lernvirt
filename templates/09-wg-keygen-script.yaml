@@ -134,6 +134,32 @@ data:
         continue
       fi
 
+      # -------- Passwort aus 'insecure' ableiten und überall ersetzen --------
+      PW=""
+      if grep -q "plain_text_passwd: 'insecure'" /tmp/userdata.yaml; then
+        EXISTING_PW_B64="$(kubectl get secret "$SSH_SECRET" -n "$NS" \
+          -o jsonpath='{.data.password}' 2>/dev/null || true)"
+
+        if [ -n "$EXISTING_PW_B64" ]; then
+          PW="$(printf "%s" "$EXISTING_PW_B64" | base64 -d || true)"
+        else
+          echo "[KEYGEN] generating password for ubuntu user"
+          PW="$(head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 16)"
+          PW_B64="$(printf "%s" "$PW" | base64 -w0)"
+
+          kubectl patch secret "$SSH_SECRET" -n "$NS" \
+            --type merge \
+            -p "{\"data\":{\"password\":\"$PW_B64\"}}"
+        fi
+
+        # alle Vorkommen von 'insecure' durch das generierte Passwort ersetzen:
+        #  - plain_text_passwd: 'insecure'
+        #  - echo insecure | tee ~/data/.ssh/passwd
+        #  - echo "ubuntu:insecure" | chpasswd
+        ESC_PW="$(printf '%s\n' "$PW" | sed 's/[&/\]/\\&/g')"
+        sed -i "s/insecure/${ESC_PW}/g" /tmp/userdata.yaml
+      fi
+
       # lerncloud SSH-Key in cloud-init ersetzen (ein Key für alle VMs)
       if [ -n "$SSH_PUB_LINE" ]; then
         if grep -q 'lerncloud' /tmp/userdata.yaml; then

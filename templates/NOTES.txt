@@ -41,12 +41,16 @@ Ausgabe der SSH Ports, z.B. für Port Weiterleitungen
 
 SSH-Private-Key aus Secret holen und lokal abstellen
 
-  kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} -o jsonpath='{.data.ssh-privatekey}' | base64 -d >{{ include "lernvirt.fullname" $ }}-ssh
-  chmod 600 {{ include "lernvirt.fullname" $ }}-ssh  
+  kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} -o jsonpath='{.data.ssh-privatekey}' | base64 -d >~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh
+  chmod 600 ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh  
   
 Port Weiterleitung
 
-  ssh -i {{ include "lernvirt.fullname" $ }}-ssh -p <gemappter SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}  
+  ssh -i ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh -p <gemappter SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}  
+  
+Ubuntu-Passwort aus Secret auslesen
+
+  kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d; echo  
 
 =========================================
  WireGuard Clients 
