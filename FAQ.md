@@ -1,6 +1,6 @@
 ## 12. FAQ
 
-### Kubeconfig
+### Kubeconfig (merge)
 
 > **Wie kann ich mehrere Kubernetes-Cluster in einer einzigen `kubeconfig` bündeln und effizient zwischen Clustern, Contexts und Namespaces wechseln, ohne Konfigurationen manuell anzupassen?**
 
@@ -32,6 +32,96 @@ Best Practice
 * **Ein Context = Cluster + Namespace**
 * Klare Namen: `alpine`, `m122`
 * Kein Arbeiten im `default` Namespace
+
+### Kubeconfig (Context Switch)
+
+> **Wie kann ich effizient zwischen Clustern, Contexts und Namespaces wechseln, ohne Konfigurationen manuell anzupassen?**
+
+Die klassische Variante funktioniert nicht zuverlässig, wenn alle Cluster denselben Benutzernamen verwenden. Deshalb hier eine alternative Lösung per Shell-Script mit Context-Switch.
+
+Zunächst speicherst du pro Cluster die jeweilige `~/.kube/config` lokal unter `.kube/<host>` ab.
+
+Dann erweiterst du deine `.bashrc` (unter Git Bash auf Windows oder auch unter Linux/macOS) wie folgt:
+
+    function cts() {
+      case "$1" in
+        kvc)
+          export KUBECONFIG=~/.kube/kvc
+          export HELM_VALUES_HOST="hosts/kvc.yaml"
+          export CTX_NAME="kvc"
+          ;;
+        gx10)
+          export KUBECONFIG=~/.kube/gx10
+          export HELM_VALUES_HOST="hosts/gx10.yaml"
+          export CTX_NAME="gx10"
+          ;;
+        *)
+          echo "❌ Unbekannter Kontext: $1"
+          return 1
+          ;;
+      esac
+    
+      echo "🔀 Kontext gewechselt → $CTX_NAME"
+    }
+    
+    __update_ps1() {
+      local kube=""
+      if [[ -n "$CTX_NAME" ]]; then
+        kube=" \[\e[35m\][${CTX_NAME}]\[\e[0m\]"
+      fi
+    
+      PS1="\[\e[32m\]\u@\h:\w\[\e[0m\]${kube}\$ "
+    }
+    
+    PROMPT_COMMAND="__update_ps1"
+
+### Änderungen im Überblick:
+
+* **Verbesserte Lesbarkeit**: Klarere Struktur und Formulierungen im erklärenden Text.
+* **Statt `__short_pwd`**: Jetzt wird `\w` verwendet, was im Prompt den vollständigen Pfad (`$PWD`) anzeigt.
+* **Prompt-Anzeige**: Zeigt zusätzlich den aktiven Kubernetes-Context in lila `[CTX_NAME]`.
+* **Unicode-Icons**: Kleine Icons zur besseren Lesbarkeit bei Kontextwechsel und Fehlermeldungen.
+
+---
+
+Wenn du möchtest, kann ich dir auch eine Zsh-kompatible Version oder Unterstützung für Autovervollständigung des `cts`-Befehls geben.
+
+
+Zuerst sind pro Cluster die `~/.kube/config` Dateien lokal als `.kube/<host>` zu speichern.
+
+Anschliessend `.bashrc` (Git/Bash auf Windows) wie folgt erweitern:
+
+    function cts() {
+      case "$1" in
+        kvc)
+          export KUBECONFIG=~/.kube/kvc
+          export HELM_VALUES_HOST="hosts/kvc.yaml"
+          export CTX_NAME="kvc"
+          ;;
+        gx10)
+          export KUBECONFIG=~/.kube/gx10
+          export HELM_VALUES_HOST="hosts/gx10.yaml"
+          export CTX_NAME="gx10"
+          ;;
+        *)
+          echo "Unknown context: $1"
+          return 1
+          ;;
+      esac
+    
+      echo "🔀 Switched context → $CTX_NAME"
+    }
+    __update_ps1() {
+      local kube=""
+      if [[ -n "$CTX_NAME" ]]; then
+        kube=" \[\e[35m\][$(basename "$CTX_NAME")]\[\e[0m\]"
+      fi
+    
+      PS1="\[\e[32m\]\u@\h:\w\[\e[0m\]${kube}\$ "
+    }
+    
+    PROMPT_COMMAND="__update_ps1"
+    
 
 ### Kubernetes Server Zertifikate
 
