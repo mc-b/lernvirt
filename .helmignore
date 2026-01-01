@@ -12,6 +12,8 @@ hosts/*
 multus/*
 pxe/*
 scripts/*
+env/*
+build/*
 .project
 *.md
 *.tgz

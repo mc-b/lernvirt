@@ -9,7 +9,7 @@ Quelle: [KubeVirt Architektur – User Guide](https://kubevirt.io/user-guide/arc
 
 - - -
 
-**lernvirt** ist eine lokale, reproduzierbare Lernumgebung auf Basis von Kubernetes und KubeVirt.
+**lernmaas** ist eine lokale, reproduzierbare Lernumgebung auf Basis von Kubernetes und KubeVirt.
 Sie ermöglicht es, **virtuelle Maschinen als Kubernetes-Ressourcen** zu betreiben und dabei sowohl klassische Virtualisierung als auch Kubernetes-Konzepte praxisnah zu erlernen.
 
 Die Umgebung eignet sich besonders für:
@@ -36,18 +36,20 @@ Die Umgebung eignet sich besonders für:
 
 ### 5.1 Erstellen einer Modulumgebung für eine Klasse
 
-    helm install m122 oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace
+    helm install m122 oci://ghcr.io/mc-b/lernmaas -n ap21a --create-namespace
     
 Es werden alle Module von [lernmaas](https://github.com/mc-b/lernmaas), siehe `config.yaml` unterstützt. Weil `microk8s` 
 innerhalb von `kubevirt` nicht funktioniert, gibt es für bestimmte Module, z.B. m169, eine m169k3s Variante.
 
 Die VMs verwenden 2 Cores und 2 GB an Memory. Dieses kann mittels `--set vm.memory` oder `vm.cpu` überschrieben werden:
 
-    helm install m169k3s oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace -f hosts/gx10.yaml --set vm.memory=4Gi
+    helm install m169k3s oci://ghcr.io/mc-b/lernmaas -n ap21a --create-namespace -f hosts/gx10.yaml --set vm.memory=4Gi
     
 Für nicht auf [lernmaas](https://github.com/mc-b/lernmaas) basierende Module siehe [Konfiguration und Beispiele](CONFIG.md).
 
 Für Hosts spezifische Anpassungen wie Image Mirror, ARM64 etc. siehe [hosts](hosts/README.md)
+
+Für andere, nicht auf [lernmaas](https://github.com/mc-b/lernmaas) basierende Umgebungen siehe [env](env/README.md)
 
 ### 5.2 Status & Kontrolle
 
@@ -61,7 +63,7 @@ Typische Ressourcen:
 
 ### 5.3 Zugriff auf VM-Konsole
 
-    virtctl console m122-lernvirt-vm-0 -n ap21a
+    virtctl console m122-lernmaas-vm-0 -n ap21a
 
 ### 5.4 Umgebung löschen
 

@@ -8,8 +8,6 @@ vm:
   storage: 8Gi
   # lernmaas cloud-init - verwendet https://github.com/mc-b/lernmaas Logik (= Hostname) zum bestimmen des Scripts
   userdata: https://raw.githubusercontent.com/mc-b/lernmaas/master/gns3/cloud-init.yaml
-  # ohne lernmaas Script kommt aus Repositories unter https://github.com/tbz-it
-  # userdata: https://raw.githubusercontent.com/tbz-it/{{RELEASE}}/refs/heads/master/cloud-init.yaml
 
 # Default-Werte koennen pro vm-[0-99] ueberschrieben werden
 #vm-0:
@@ -73,6 +71,6 @@ images:
         amd64: https://image-mirror/windows-11-amd64.qcow2
       ws2022:
         amd64: https://image-mirror/windows-server-2022-amd64.qcow2
-    
+
 
   
