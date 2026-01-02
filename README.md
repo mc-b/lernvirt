@@ -36,20 +36,27 @@ Die Umgebung eignet sich besonders für:
 
 ### 5.1 Erstellen einer Modulumgebung für eine Klasse
 
-    helm install m122 oci://ghcr.io/mc-b/lernmaas -n ap21a --create-namespace
+    helm install m122 oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace
     
-Es werden alle Module von [lernmaas](https://github.com/mc-b/lernmaas), siehe `config.yaml` unterstützt. Weil `microk8s` 
-innerhalb von `kubevirt` nicht funktioniert, gibt es für bestimmte Module, z.B. m169, eine m169k3s Variante.
+ Dieses Chart stellt die KubeVirt-Umgebung bereit und liest das passende cloud-init-Script über `vm.userdata` ein (siehe [CONFIG.md](CONFIG.md)). Dabei kann `vm.userdata` entweder eine einzelne URL oder eine Liste von Fallback-URLs sein; es wird jeweils die erste erreichbare (HTTP 200) verwendet.
+ 
+Per Default werden folgende Fallback-URLs verwendet:
+
+    vm:
+      userdata:
+        - https://raw.githubusercontent.com/tbz-it/{{RELEASE}}/refs/heads/master/cloud-init.yaml
+        - https://raw.githubusercontent.com/tbz-it/{{RELEASE}}/refs/heads/main/cloud-init.yaml
+        - https://raw.githubusercontent.com/mc-b/lernmaas/master/gns3/cloud-init.yaml 
+ 
+d.h. für m122, siehe zuerst nach `https://raw.githubusercontent.com/tbz-it/m122/refs/heads/master/cloud-init.yaml`, dann im `main`-Branch und verwende dann die [lernmaas](https://github.com/mc-b/lernmaas) Logik über dessen [config.yaml](https://github.com/mc-b/lernmaas/blob/master/config.yaml).
 
 Die VMs verwenden 2 Cores und 2 GB an Memory. Dieses kann mittels `--set vm.memory` oder `vm.cpu` überschrieben werden:
 
     helm install m169k3s oci://ghcr.io/mc-b/lernmaas -n ap21a --create-namespace -f hosts/gx10.yaml --set vm.memory=4Gi
     
-Für nicht auf [lernmaas](https://github.com/mc-b/lernmaas) basierende Module siehe [Konfiguration und Beispiele](CONFIG.md).
-
 Für Hosts spezifische Anpassungen wie Image Mirror, ARM64 etc. siehe [hosts](hosts/README.md)
 
-Für andere, nicht auf [lernmaas](https://github.com/mc-b/lernmaas) basierende Umgebungen siehe [env](env/README.md)
+**Hinweis**: Weil `microk8s` innerhalb von `kubevirt` nicht funktioniert, gibt es für bestimmte Module, z.B. m169, eine m169k3s Variante.
 
 ### 5.2 Status & Kontrolle
 

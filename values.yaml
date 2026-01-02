@@ -1,13 +1,17 @@
 # VMs welche erstellt werden sollen. 
 vm:
-  count: 22
+  count: 24
   
   # VM Default Werte - koennen ueberschrieben werden
   cpu: 2
   memory: 2Gi
   storage: 8Gi
-  # lernmaas cloud-init - verwendet https://github.com/mc-b/lernmaas Logik (= Hostname) zum bestimmen des Scripts
-  userdata: https://raw.githubusercontent.com/mc-b/lernmaas/master/gns3/cloud-init.yaml
+  # userdata eine Liste von Fallback-URLs, die der Reihe nach probiert werden.
+  # der letzte Eintrag verwendet https://github.com/mc-b/lernmaas Logik (= Hostname) zum bestimmen des Scripts
+  userdata:
+    - https://raw.githubusercontent.com/tbz-it/{{RELEASE}}/refs/heads/master/cloud-init.yaml
+    - https://raw.githubusercontent.com/tbz-it/{{RELEASE}}/refs/heads/main/cloud-init.yaml
+    - https://raw.githubusercontent.com/mc-b/lernmaas/master/gns3/cloud-init.yaml
 
 # Default-Werte koennen pro vm-[0-99] ueberschrieben werden
 #vm-0:

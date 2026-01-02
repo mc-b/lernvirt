@@ -27,7 +27,7 @@ data:
     apk add --no-cache wireguard-tools kubectl jq curl coreutils openssh-keygen
 
     COUNT="{{ .Values.vm.count }}"
-    DEFAULT_USERDATA="{{ .Values.vm.userdata }}"
+    DEFAULT_USERDATA="{{- if kindIs `slice` .Values.vm.userdata -}}{{ join ` ` .Values.vm.userdata }}{{- else -}}{{ .Values.vm.userdata }}{{- end -}}"
     NS="${POD_NAMESPACE:-$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace 2>/dev/null || echo default)}"
     FULLNAME="{{ include "lernvirt.fullname" $ }}"
     GW_PUB_SECRET="${FULLNAME}-gateway-pub"
@@ -46,7 +46,7 @@ data:
       case "$i" in
 {{- range $k, $v := .Values }}
 {{- if hasPrefix "vm-" $k }}
-{{- if hasKey $v "userdata" }}
+{{- if and (hasKey $v "userdata") (ne $v.userdata "") }}
         {{ trimPrefix "vm-" $k }})
           USERDATA_LIST="$USERDATA_LIST {{ $v.userdata }}"
           ;;
@@ -115,15 +115,14 @@ data:
     while [ "$i" -lt "$COUNT" ]; do
       eval "UD=\${$((i+1))}"
 
-      if [ "$UD" = "__DEFAULT__" ]; then
-        USERDATA_URL="$DEFAULT_USERDATA"
+      if [ "$UD" = "__DEFAULT__" ] || [ -z "$UD" ]; then
+        CANDIDATES="$DEFAULT_USERDATA"
       else
-        USERDATA_URL="$UD"
+        CANDIDATES="$UD"
       fi
-      USERDATA_URL="${USERDATA_URL//\{\{RELEASE\}\}/{{ .Release.Name }}}"
+      CANDIDATES="${CANDIDATES//\{\{RELEASE\}\}/{{ .Release.Name }}}"
 
       VM_SECRET="${FULLNAME}-vm-$i"
-      echo "[KEYGEN] processing $VM_SECRET (userdata=$USERDATA_URL)"
 
       # If secret already has a publickey, keep it (idempotent).
       EXISTING_PUB_B64="$(kubectl get secret "$VM_SECRET" -n "$NS" -o jsonpath='{.data.publickey}' 2>/dev/null || true)"
@@ -138,13 +137,24 @@ data:
         PUB="$(printf "%s" "$PRIV" | wg pubkey)"
       fi
 
-      HTTP_CODE="$(curl -sSL -w '%{http_code}' -o /tmp/userdata.yaml "$USERDATA_URL" || echo 000)"
-      if [ "$HTTP_CODE" != "200" ]; then
-        echo "[KEYGEN][WARN] cloud-init download failed (HTTP $HTTP_CODE)"
+      USERDATA_URL=""
+      for candidate in $CANDIDATES; do
+        HTTP_CODE="$(curl -sSL -w '%{http_code}' -o /tmp/userdata.yaml "$candidate" || echo 000)"
+        if [ "$HTTP_CODE" = "200" ]; then
+          USERDATA_URL="$candidate"
+          break
+        fi
+        echo "[KEYGEN][WARN] cloud-init download failed from $candidate (HTTP $HTTP_CODE)"
         rm -f /tmp/userdata.yaml
+      done
+
+      if [ -z "$USERDATA_URL" ]; then
+        echo "[KEYGEN][ERROR] no working cloud-init URL for $VM_SECRET, skipping"
         i=$((i+1))
         continue
       fi
+
+      echo "[KEYGEN] processing $VM_SECRET (userdata=$USERDATA_URL)"
 
       # -------- Passwort-Handling (optional) --------
       if [ "$MANAGE_PW" = "true" ]; then

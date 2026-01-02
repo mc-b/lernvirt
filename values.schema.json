@@ -55,8 +55,13 @@
           "pattern": "^[0-9]+Gi$"
         },
         "userdata": {
-          "type": "string",
-          "format": "uri"
+          "oneOf": [
+            { "type": "string", "format": "uri" },
+            {
+              "type": "array",
+              "items": { "type": "string", "format": "uri" }
+            }
+          ]
         }
       }
     },
