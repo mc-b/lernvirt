@@ -10,7 +10,7 @@ autoinstall:
   timezone: Europe/Zurich
 
   identity:
-    hostname: kv-worker-01
+    hostname: kvworker-01
     username: ubuntu
     password: "$6$jr7iRqqy6HZabA/3$Ix1PUMpe5IUlJ8pyNI8jp7b/4GvFFCBSFVqQUUYQEaGbElNsrCrqCHdEDKmegLQbEOMET0n.Dog4vPfuBHmQp0"
 
