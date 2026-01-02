@@ -7,9 +7,8 @@
 *.log
 advanced/*
 autoinstall/*
-examples/*
-hosts/*
 multus/*
+hosts/tbz*.yaml
 pxe/*
 scripts/*
 env/*
@@ -17,3 +16,4 @@ build/*
 .project
 *.md
 *.tgz
+.helmignore
