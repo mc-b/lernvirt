@@ -24,9 +24,9 @@ module "vms" {
   machines = local.machines
 
   description = "Kubernetes Nodes"
-  memory      = 6
-  cores       = 4
-  storage     = 48
+  memory      = 2
+  cores       = 2
+  storage     = 16
 
   ports = [22, 80, 443, 16443]
 
