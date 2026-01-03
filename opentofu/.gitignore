@@ -1,0 +1,6 @@
+/.terraform/
+/terraform.tfstate.d/
+/terraform.tfstate
+/terraform.tfstate.backup
+/.generated-*-build.yaml
+/.terraform.lock.hcl
