@@ -1,9 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+### AKTIVES NETZWERK-INTERFACE & IP ERMITTELN ###
+
+# Aktives Interface ueber Default-Route bestimmen
+IFACE=$(ip -4 route show default | awk '{print $5; exit}' || true)
+if [[ -z "${IFACE}" ]]; then
+  # Fallback: erstes nicht-lo Interface nehmen
+  IFACE=$(ip -o link show | awk -F': ' '$2 !~ /lo/ {print $2; exit}' || true)
+fi
+
+if [[ -z "${IFACE}" ]]; then
+  echo "Konnte aktives Netzwerkinterface nicht ermitteln." >&2
+  exit 1
+fi
+
+# IPv4-Adresse des Interfaces holen
+PXE_IP=$(ip -4 addr show dev "${IFACE}" | awk '/inet / {print $2}' | cut -d/ -f1 | head -n1 || true)
+if [[ -z "${PXE_IP}" ]]; then
+  echo "Konnte keine IPv4-Adresse fuer ${IFACE} finden." >&2
+  exit 1
+fi
+
 ### KONFIGURATION ###
-PXE_IP="192.168.1.56"
-IFACE="enP7s7"
 BASE="/srv/tftp"
 WWW="/var/www/html"
 LOG="/var/log/dnsmasq-pxe.log"
@@ -11,12 +30,15 @@ LOG="/var/log/dnsmasq-pxe.log"
 UBUNTU_VER="24.04.3"
 UBUNTU_URL="https://releases.ubuntu.com/noble"
 ISO="ubuntu-${UBUNTU_VER}-live-server-amd64.iso"
+ISO_DIR="${WWW}/linux/ubuntu/noble/amd64"
 
 ### ROOT CHECK ###
 if [[ $EUID -ne 0 ]]; then
-  echo "Bitte als root ausführen"
+  echo "Bitte als root ausfuehren"
   exit 1
 fi
+
+echo "==> Verwende Interface: ${IFACE}, IP: ${PXE_IP}"
 
 echo "==> Pakete installieren"
 apt update
@@ -34,7 +56,7 @@ cat > /etc/dnsmasq.d/pxe.conf <<EOF
 # DNS aus
 port=0
 
-# ProxyDHCP für dein Netz
+# ProxyDHCP fuer dein Netz (evtl. an eigenes Netz anpassen)
 dhcp-range=192.168.1.0,proxy,255.255.255.0
 
 # Interface
@@ -52,46 +74,49 @@ dhcp-option-force=tag:pxe,66,${PXE_IP}
 
 # TFTP
 enable-tftp
-tftp-root=/srv/tftp
+tftp-root=${BASE}
 
 # Logging
 log-dhcp
-log-facility=/var/log/dnsmasq-pxe.log
+log-facility=${LOG}
 EOF
 
 echo "==> Ubuntu ISO laden"
-mkdir ${WWW}/linux/ubuntu/noble/amd64/
-wget -O ${WWW}/linux/ubuntu/noble/amd64/${ISO} ${UBUNTU_URL}"/"${ISO}
+mkdir -p "${ISO_DIR}"
+if [[ ! -f "${ISO_DIR}/${ISO}" ]]; then
+  wget -O "${ISO_DIR}/${ISO}" "${UBUNTU_URL}/${ISO}"
+else
+  echo "ISO bereits vorhanden: ${ISO_DIR}/${ISO}"
+fi
 
 echo "==> Kernel & Initrd extrahieren"
-
 mkdir -p /tmp/iso
-mount -o loop /tmp/${ISO} /tmp/iso
-cp /tmp/iso/casper/vmlinuz ${BASE}/vmlinuz
-cp /tmp/iso/casper/initrd ${BASE}/initrd
+mount -o loop "${ISO_DIR}/${ISO}" /tmp/iso
+cp /tmp/iso/casper/vmlinuz "${BASE}/vmlinuz"
+cp /tmp/iso/casper/initrd "${BASE}/initrd"
 umount /tmp/iso
+rmdir /tmp/iso
 
 echo "==> GRUB EFI Bootloader kopieren"
-
-mkdir -p ${BASE}/grub/x86_64-efi/
-cp /usr/lib/grub/x86_64-efi/* ${BASE}/grub/x86_64-efi/
+mkdir -p "${BASE}/grub/x86_64-efi/"
+cp /usr/lib/grub/x86_64-efi/* "${BASE}/grub/x86_64-efi/"
 
 cp /usr/lib/grub/x86_64-efi-signed/grubnetx64.efi.signed \
-   ${BASE}/grubx64.efi
+   "${BASE}/grubx64.efi"
 
-echo "==> GRUB PXE Menü erstellen"
-cat > ${BASE}/grub/grub.cfg <<EOF
+echo "==> GRUB PXE Menue erstellen"
+cat > "${BASE}/grub/grub.cfg" <<EOF
 set timeout=3
 set default=0
 
 menuentry "Ubuntu Server 24.04 Autoinstall (PXE)" {
-        linux /vmlinuz \
-          ip=dhcp \
-          url=http://192.168.1.56/linux/ubuntu/noble/amd64/ubuntu-24.04.3-live-server-amd64.iso \
-          autoinstall debug \
-          cloud-config-url=http://192.168.1.56/autoinstall/user-data \
-      ---
-    initrd /initrd
+        linux /vmlinuz \\
+          ip=dhcp \\
+          url=http://${PXE_IP}/linux/ubuntu/noble/amd64/${ISO} \\
+          autoinstall debug \\
+          cloud-config-url=http://${PXE_IP}/autoinstall/user-data \\
+          ---
+        initrd /initrd
 }
 EOF
 
@@ -99,10 +124,10 @@ echo "==> dnsmasq starten"
 systemctl enable dnsmasq
 systemctl restart dnsmasq
 
-echo "==> Status prüfen"
+echo "==> Status pruefen"
 systemctl status dnsmasq --no-pager
-ss -lun | grep :69 || echo "⚠️ TFTP Port 69 nicht offen"
+ss -lun | grep :69 || echo "WARNUNG: TFTP Port 69 nicht offen"
 
 echo "==> Fertig!"
-echo "PXE Server aktiv unter IP ${PXE_IP}"
+echo "PXE Server aktiv unter IP ${PXE_IP} (Interface: ${IFACE})"
 echo "Logs: ${LOG}"
