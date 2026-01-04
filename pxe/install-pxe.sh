@@ -101,7 +101,7 @@ rmdir /tmp/iso
 
 echo "==> GRUB EFI Bootloader kopieren"
 mkdir -p "${BASE}/grub/x86_64-efi/"
-cp /usr/lib/grub/x86_64-efi/* "${BASE}/grub/x86_64-efi/"
+cp -r /usr/lib/grub/x86_64-efi/* "${BASE}/grub/x86_64-efi/"
 
 # grubx64.efi nach /srv/tftp kopieren
 cp /usr/lib/grub/x86_64-efi-signed/grubnetx64.efi.signed \
