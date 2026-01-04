@@ -64,6 +64,6 @@ Es gibt zwei Verwendungsarten für `userdata`:
      2. `https://raw.githubusercontent.com/tbz-it/<modul>/refs/heads/main/cloud-init.yaml`
      3. `https://raw.githubusercontent.com/mc-b/lernmaas/master/gns3/cloud-init.yaml`
 
-   * Die gefundene Cloud-Init wird in eine lokale Datei geschrieben und als `userdata`-Template verwendet.
+   * Die gefundene Cloud-Init wird in als `userdata`-Template verwendet.
 
 

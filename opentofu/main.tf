@@ -1,18 +1,19 @@
 
 
-# 1) Rohdefinition der Maschinen (wie vorher im module-Block)
+# Rohdefinition der Maschinen (wie vorher im module-Block)
 locals {
   machines_raw = {
     # Podman Umgebung als Test
     dev = {
       hostname = "dev"
-      userdata = "cloud-init-test.yaml"
+      userdata = "cloud-init-test.yaml" # lokale Datei im Projekt
     }
 
     # VM anhand Terraform Workspace, z.B. "m122"
     vm = {
       hostname = local.modul
       userdata = local.modul # bei Workspace "aws-m122" → "m122"
+      # userdata = templatefile("${path.root}/${local.modul}", {})
     }
   }
 }
