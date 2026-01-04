@@ -126,14 +126,11 @@ menuentry "Ubuntu Server 24.04 Autoinstall (lernvirt)" {
 }
 EOF
 
-echo "==> dnsmasq starten"
-systemctl enable dnsmasq
-systemctl restart dnsmasq
+echo "==> dnsmasq muss manuell gestartet werden"
+systemctl disable dnsmasq
+systemctl stop dnsmasq
 
-echo "==> Status pruefen"
-systemctl status dnsmasq --no-pager
-ss -lun | grep :69 || echo "WARNUNG: TFTP Port 69 nicht offen"
 
 echo "==> Fertig!"
-echo "PXE Server aktiv unter IP ${PXE_IP} (Interface: ${IFACE})"
+echo "PXE Server starten mittels: sudo systemctl start dnsmasq"
 echo "Logs: ${LOG}"
