@@ -10,7 +10,7 @@ autoinstall:
   timezone: Europe/Zurich
 
   identity:
-    hostname: kvcontrol
+    hostname: ubuntu-server
     username: ubuntu
     password: "$6$jr7iRqqy6HZabA/3$Ix1PUMpe5IUlJ8pyNI8jp7b/4GvFFCBSFVqQUUYQEaGbElNsrCrqCHdEDKmegLQbEOMET0n.Dog4vPfuBHmQp0"
 
@@ -38,7 +38,5 @@ autoinstall:
       - wget
     runcmd:
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/issue-patch.sh | bash -    
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsshare.sh | bash -
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -
       - echo "ubuntu:insecure" | chpasswd
       
