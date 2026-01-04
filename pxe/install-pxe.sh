@@ -32,6 +32,8 @@ UBUNTU_URL="https://releases.ubuntu.com/noble"
 ISO="ubuntu-${UBUNTU_VER}-live-server-amd64.iso"
 ISO_DIR="${WWW}/linux/ubuntu/noble/amd64"
 
+USERDATA_URL="https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/pxe/user-data"
+
 ### ROOT CHECK ###
 if [[ $EUID -ne 0 ]]; then
   echo "Bitte als root ausfuehren"
@@ -101,15 +103,19 @@ echo "==> GRUB EFI Bootloader kopieren"
 mkdir -p "${BASE}/grub/x86_64-efi/"
 cp /usr/lib/grub/x86_64-efi/* "${BASE}/grub/x86_64-efi/"
 
+# grubx64.efi nach /srv/tftp kopieren
 cp /usr/lib/grub/x86_64-efi-signed/grubnetx64.efi.signed \
    "${BASE}/grubx64.efi"
 
+echo "==> user-data von lernvirt holen"
+wget -O "${WWW}/autoinstall/user-data" "${USERDATA_URL}"
+
 echo "==> GRUB PXE Menue erstellen"
 cat > "${BASE}/grub/grub.cfg" <<EOF
-set timeout=3
+set timeout=-1
 set default=0
 
-menuentry "Ubuntu Server 24.04 Autoinstall (PXE)" {
+menuentry "Ubuntu Server 24.04 Autoinstall (lernvirt)" {
         linux /vmlinuz \\
           ip=dhcp \\
           url=http://${PXE_IP}/linux/ubuntu/noble/amd64/${ISO} \\
