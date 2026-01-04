@@ -112,7 +112,7 @@ wget -nv -O "${WWW}/autoinstall/user-data" "${USERDATA_URL}"
 
 echo "==> GRUB PXE Menue erstellen"
 cat > "${BASE}/grub/grub.cfg" <<EOF
-set timeout=-1
+set timeout=60
 set default=0
 
 menuentry "Ubuntu Server 24.04 Autoinstall (lernvirt)" {
