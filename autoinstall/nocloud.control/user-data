@@ -10,7 +10,7 @@ autoinstall:
   timezone: Europe/Zurich
 
   identity:
-    hostname: kvworker-01
+    hostname: kvcontrol
     username: ubuntu
     password: "$6$jr7iRqqy6HZabA/3$Ix1PUMpe5IUlJ8pyNI8jp7b/4GvFFCBSFVqQUUYQEaGbElNsrCrqCHdEDKmegLQbEOMET0n.Dog4vPfuBHmQp0"
 
@@ -37,6 +37,12 @@ autoinstall:
       - git
       - wget
     runcmd:
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/issue-patch.sh | bash -        
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsclient.sh | bash -
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -      
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/issue-patch.sh | bash -    
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsshare.sh | bash -
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/storage-patch.sh | bash -
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -
+      - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -"
+      - microk8s kubectl -n kubevirt patch kubevirt kubevirt --type=merge --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":false}}}}'
+      - sudo su - ubuntu -c "git clone https://github.com/mc-b/lernvirt.git"   
+      - echo "ubuntu:insecure" | chpasswd
+
