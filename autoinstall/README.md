@@ -51,7 +51,6 @@ auf so etwas ändern:
       -indev ~/ISO/ubuntu-24.04.3-live-server-amd64.iso \
       -outdev ubuntu-autoinstall.iso \
       -map nocloud.control /nocloud.control \
-      -map nocloud.pxe /nocloud.pxe \
       -map nocloud.min /nocloud.min \
       -map nocloud.gui /nocloud.gui \
       -map nocloud.worker /nocloud.worker \

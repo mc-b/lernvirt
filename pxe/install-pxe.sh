@@ -86,7 +86,7 @@ EOF
 echo "==> Ubuntu ISO laden"
 mkdir -p "${ISO_DIR}"
 if [[ ! -f "${ISO_DIR}/${ISO}" ]]; then
-  wget -O "${ISO_DIR}/${ISO}" "${UBUNTU_URL}/${ISO}"
+  wget -nv -O "${ISO_DIR}/${ISO}" "${UBUNTU_URL}/${ISO}"
 else
   echo "ISO bereits vorhanden: ${ISO_DIR}/${ISO}"
 fi
@@ -108,7 +108,7 @@ cp /usr/lib/grub/x86_64-efi-signed/grubnetx64.efi.signed \
    "${BASE}/grubx64.efi"
 
 echo "==> user-data von lernvirt holen"
-wget -O "${WWW}/autoinstall/user-data" "${USERDATA_URL}"
+wget -nv -O "${WWW}/autoinstall/user-data" "${USERDATA_URL}"
 
 echo "==> GRUB PXE Menue erstellen"
 cat > "${BASE}/grub/grub.cfg" <<EOF
