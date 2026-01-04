@@ -51,11 +51,11 @@ auf so etwas ändern:
       -indev ~/ISO/ubuntu-24.04.3-live-server-amd64.iso \
       -outdev ubuntu-autoinstall.iso \
       -map nocloud.control /nocloud.control \
-      -map nocloud.control /nocloud.pxe \
+      -map nocloud.pxe /nocloud.pxe \
       -map nocloud.min /nocloud.min \
       -map nocloud.gui /nocloud.gui \
       -map nocloud.worker /nocloud.worker \
-      -map nocloud.worker /nocloud.maas \
+      -map nocloud.maas /nocloud.maas \
       -map boot/grub/grub.cfg /boot/grub/grub.cfg \
       -boot_image any replay
 
