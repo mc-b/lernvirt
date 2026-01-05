@@ -1,25 +1,32 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -o pipefail
+
+log()  { echo "[$(date -Iseconds)] INFO:  $*" >&2; }
+warn() { echo "[$(date -Iseconds)] WARN:  $*" >&2; }
+fail() { echo "[$(date -Iseconds)] FEHLER: $*" >&2; exit 1; }
+
+### ROOT CHECK ###
+if [ "${EUID:-$(id -u)}" -ne 0 ]; then
+  fail "Bitte als root/sudo ausfuehren."
+fi
 
 ### AKTIVES NETZWERK-INTERFACE & IP ERMITTELN ###
 
 # Aktives Interface ueber Default-Route bestimmen
-IFACE=$(ip -4 route show default | awk '{print $5; exit}' || true)
-if [[ -z "${IFACE}" ]]; then
+IFACE="$(ip -4 route show default 2>/dev/null | awk '{print $5; exit}')"
+if [ -z "${IFACE}" ]; then
   # Fallback: erstes nicht-lo Interface nehmen
-  IFACE=$(ip -o link show | awk -F': ' '$2 !~ /lo/ {print $2; exit}' || true)
+  IFACE="$(ip -o link show 2>/dev/null | awk -F': ' '$2 !~ /lo/ {print $2; exit}')"
 fi
 
-if [[ -z "${IFACE}" ]]; then
-  echo "Konnte aktives Netzwerkinterface nicht ermitteln." >&2
-  exit 1
+if [ -z "${IFACE}" ]; then
+  fail "Konnte aktives Netzwerkinterface nicht ermitteln."
 fi
 
 # IPv4-Adresse des Interfaces holen
-PXE_IP=$(ip -4 addr show dev "${IFACE}" | awk '/inet / {print $2}' | cut -d/ -f1 | head -n1 || true)
-if [[ -z "${PXE_IP}" ]]; then
-  echo "Konnte keine IPv4-Adresse fuer ${IFACE} finden." >&2
-  exit 1
+PXE_IP="$(ip -4 addr show dev "${IFACE}" 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1 | head -n1)"
+if [ -z "${PXE_IP}" ]; then
+  fail "Konnte keine IPv4-Adresse fuer ${IFACE} finden."
 fi
 
 ### KONFIGURATION ###
@@ -34,27 +41,34 @@ ISO_DIR="${WWW}/linux/ubuntu/noble/amd64"
 
 USERDATA_URL="https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/pxe/user-data"
 
-### ROOT CHECK ###
-if [[ $EUID -ne 0 ]]; then
-  echo "Bitte als root ausfuehren"
-  exit 1
+log "Verwende Interface: ${IFACE}, IP: ${PXE_IP}"
+
+log "APT Index aktualisieren"
+if ! apt-get update -y; then
+  fail "apt-get update fehlgeschlagen."
 fi
 
-echo "==> Verwende Interface: ${IFACE}, IP: ${PXE_IP}"
+log "Pakete installieren"
+for pkg in dnsmasq nginx wget unzip syslinux-common grub-common grub-efi-amd64-bin; do
+  if dpkg -s "$pkg" >/dev/null 2>&1; then
+    log "Paket bereits installiert: $pkg"
+  else
+    log "Installiere Paket: $pkg"
+    if ! apt-get install -y "$pkg"; then
+      warn "Konnte Paket nicht installieren: $pkg"
+    fi
+  fi
+done
 
-echo "==> Pakete installieren"
-apt update
-apt install -y dnsmasq nginx wget unzip syslinux-common grub-common grub-efi-amd64-bin
+log "Verzeichnisse anlegen"
+mkdir -p "${BASE}/grub/x86_64-efi" "${WWW}/autoinstall" "${ISO_DIR}"
+mkdir -p "$(dirname "${LOG}")" 2>/dev/null || true
 
-echo "==> Verzeichnisse anlegen"
-mkdir -p "${BASE}/grub/x86_64-efi" "${WWW}/autoinstall"
+log "dnsmasq stoppen (falls aktiv)"
+systemctl stop dnsmasq >/dev/null 2>&1 || true
 
-echo "==> dnsmasq stoppen (falls aktiv)"
-systemctl stop dnsmasq || true
-
-echo "==> dnsmasq ProxyDHCP konfigurieren"
-
-cat > /etc/dnsmasq.d/pxe.conf <<EOF
+log "dnsmasq ProxyDHCP konfigurieren"
+if ! cat > /etc/dnsmasq.d/pxe.conf <<EOF
 # DNS aus
 port=0
 
@@ -82,40 +96,74 @@ tftp-root=${BASE}
 log-dhcp
 log-facility=${LOG}
 EOF
-
-echo "==> Ubuntu ISO laden"
-mkdir -p "${ISO_DIR}"
-if [[ ! -f "${ISO_DIR}/${ISO}" ]]; then
-  wget -nv -O "${ISO_DIR}/${ISO}" "${UBUNTU_URL}/${ISO}"
-else
-  echo "ISO bereits vorhanden: ${ISO_DIR}/${ISO}"
+then
+  fail "Konnte /etc/dnsmasq.d/pxe.conf nicht schreiben."
 fi
 
-echo "==> Kernel & Initrd extrahieren"
-mkdir -p /tmp/iso
-mount -o loop "${ISO_DIR}/${ISO}" /tmp/iso
-cp /tmp/iso/casper/vmlinuz "${BASE}/vmlinuz"
-cp /tmp/iso/casper/initrd "${BASE}/initrd"
-umount /tmp/iso
-rmdir /tmp/iso
+log "Ubuntu ISO laden"
+if [ ! -f "${ISO_DIR}/${ISO}" ]; then
+  if ! wget -nv -O "${ISO_DIR}/${ISO}" "${UBUNTU_URL}/${ISO}"; then
+    fail "Download der ISO fehlgeschlagen: ${UBUNTU_URL}/${ISO}"
+  fi
+else
+  log "ISO bereits vorhanden: ${ISO_DIR}/${ISO}"
+fi
 
-echo "==> GRUB EFI Bootloader kopieren"
+log "Kernel & Initrd extrahieren"
+TMP_ISO_DIR="/tmp/iso"
+mkdir -p "${TMP_ISO_DIR}"
+
+if mountpoint -q "${TMP_ISO_DIR}"; then
+  warn "${TMP_ISO_DIR} ist bereits gemountet, versuche umount."
+  umount "${TMP_ISO_DIR}" || fail "Konnte bestehendes Mount von ${TMP_ISO_DIR} nicht loesen."
+fi
+
+if ! mount -o loop "${ISO_DIR}/${ISO}" "${TMP_ISO_DIR}"; then
+  fail "Konnte ISO nicht mounten: ${ISO_DIR}/${ISO}"
+fi
+
+if ! cp "${TMP_ISO_DIR}/casper/vmlinuz" "${BASE}/vmlinuz"; then
+  umount "${TMP_ISO_DIR}" || warn "Konnte ${TMP_ISO_DIR} nicht unmounten."
+  fail "Konnte vmlinuz aus ISO nicht kopieren."
+fi
+
+if ! cp "${TMP_ISO_DIR}/casper/initrd" "${BASE}/initrd"; then
+  umount "${TMP_ISO_DIR}" || warn "Konnte ${TMP_ISO_DIR} nicht unmounten."
+  fail "Konnte initrd aus ISO nicht kopieren."
+fi
+
+if ! umount "${TMP_ISO_DIR}"; then
+  warn "Konnte ${TMP_ISO_DIR} nicht unmounten."
+fi
+rmdir "${TMP_ISO_DIR}" 2>/dev/null || true
+
+log "GRUB EFI Bootloader kopieren"
 mkdir -p "${BASE}/grub/x86_64-efi/"
-cp -r /usr/lib/grub/x86_64-efi/* "${BASE}/grub/x86_64-efi/"
 
-# grubx64.efi nach /srv/tftp kopieren
-cp /usr/lib/grub/x86_64-efi-signed/grubnetx64.efi.signed \
-   "${BASE}/grubx64.efi"
+if ! cp -r /usr/lib/grub/x86_64-efi/* "${BASE}/grub/x86_64-efi/" 2>/dev/null; then
+  warn "Konnte GRUB-Module nicht nach ${BASE}/grub/x86_64-efi kopieren."
+fi
 
-echo "==> user-data von lernvirt holen"
-wget -nv -O "${WWW}/autoinstall/user-data" "${USERDATA_URL}"
+GRUB_NET_EFI="/usr/lib/grub/x86_64-efi-signed/grubnetx64.efi.signed"
+if [ -f "${GRUB_NET_EFI}" ]; then
+  if ! cp "${GRUB_NET_EFI}" "${BASE}/grubx64.efi"; then
+    warn "Konnte ${GRUB_NET_EFI} nicht nach ${BASE}/grubx64.efi kopieren."
+  fi
+else
+  warn "Signed GRUB-Net-EFI nicht gefunden unter ${GRUB_NET_EFI}. Bitte Pfad pruefen."
+fi
 
-echo "==> GRUB PXE Menue erstellen"
-cat > "${BASE}/grub/grub.cfg" <<EOF
+log "user-data von lernvirt holen"
+if ! wget -nv -O "${WWW}/autoinstall/user-data" "${USERDATA_URL}"; then
+  warn "Konnte user-data nicht laden von ${USERDATA_URL}. Autoinstall wird evtl. nicht funktionieren."
+fi
+
+log "GRUB PXE Menue erstellen"
+if ! cat > "${BASE}/grub/grub.cfg" <<EOF
 set timeout=60
 set default=0
 
-menuentry "Ubuntu Server 24.04 Autoinstall (lernvirt)" {
+menuentry "Ubuntu Server ${UBUNTU_VER} Autoinstall (lernvirt)" {
         linux /vmlinuz \\
           ip=dhcp \\
           url=http://${PXE_IP}/linux/ubuntu/noble/amd64/${ISO} \\
@@ -125,12 +173,14 @@ menuentry "Ubuntu Server 24.04 Autoinstall (lernvirt)" {
         initrd /initrd
 }
 EOF
+then
+  fail "Konnte ${BASE}/grub/grub.cfg nicht schreiben."
+fi
 
-echo "==> dnsmasq muss manuell gestartet werden"
-systemctl disable dnsmasq
-systemctl stop dnsmasq
+log "dnsmasq fuer automatischen Start deaktivieren"
+systemctl disable dnsmasq >/dev/null 2>&1 || warn "Konnte dnsmasq nicht deaktivieren (evtl. kein Systemd-Unit vorhanden)."
+systemctl stop dnsmasq >/dev/null 2>&1 || true
 
-
-echo "==> Fertig!"
+log "Fertig."
 echo "PXE Server starten mittels: sudo systemctl start dnsmasq"
 echo "Logs: ${LOG}"

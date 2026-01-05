@@ -74,8 +74,6 @@ cat >/etc/exports <<EOF
 /data/templates *(ro,sync,no_subtree_check)
 # Config RO
 /data/config *(ro,sync,no_subtree_check)
-# microk8s Hostpath
-/var/snap/microk8s/common/default-storage *(rw,sync,no_subtree_check,no_root_squash)
 EOF
 
 if ! exportfs -ra; then
