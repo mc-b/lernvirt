@@ -124,15 +124,11 @@ Eintrag in `values.yaml` eintragen, bzw. ändern
 ### 3.6 Control Plane + Worker joinen
 
     ssh -i ~/.ssh/lerncloud ubuntu@kv-control
-    microk8s add-node | grep worker | tail -1
+    microk8s add-node --token-ttl 3600 | grep worker | tail -1
     exit
     
     ssh -i ~/.ssh/lerncloud ubuntu@kv-worker-01
     # Ausgabe von microk8s add-node    
-    
-`/data` von Control Plane mounten
-
-    sudo mount -t nfs kv-control:/data /data    
     
 💡 **Tipp**: Richte mehrere Control Plane Nodes ein (High Availability Setup), damit der Cluster auch bei Ausfall eines Nodes weiterhin über die verbleibenden Control Plane Nodes erreichbar bleibt.
 
