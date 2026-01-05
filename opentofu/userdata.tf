@@ -59,18 +59,20 @@ locals {
 
   userdata_remote = {
     for name, m in local.machines_remote :
-    name => try(
-      data.http.userdata_master[name].response_body,
-      data.http.userdata_main[name].response_body,
-      data.http.userdata_fallback[name].response_body,
-    )
+    name =>
+      data.http.userdata_master[name].status_code == 200
+      ? data.http.userdata_master[name].response_body
+      : data.http.userdata_main[name].status_code == 200
+        ? data.http.userdata_main[name].response_body
+        : data.http.userdata_fallback[name].response_body
   }
 
   machines = {
     for name, m in local.machines_raw :
     name => merge(m, {
-      # erst lokal, sonst remote; Resultat: Cloud-Init-Inhalt
+      # erst lokal, sonst remote; Resultat: Cloud-Init-Inhalt (String)
       userdata = lookup(local.userdata_local, name, lookup(local.userdata_remote, name, ""))
     })
   }
 }
+
