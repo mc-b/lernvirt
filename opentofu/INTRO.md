@@ -1,19 +1,15 @@
 Module laut modulbaukasten.ch
 =============================
 
-Services
---------
+Umgebung für Modul ${modul}
 
-Development:
-- https://${development_fqdn}:4200       - Terminal im Browser. User: ubuntu, Password insecure
+Intro
+-----
 
-Build (CI/CD):
-- https://${vm_fqdn}:4200                - Terminal im Browser. User: ubuntu, Password insecure
+- https://${vm_fqdn}
 
 SSH Zugriff
 -----------
-
-ssh -i ~/.ssh/lerncloud ubuntu@${development_fqdn}
 
 ssh -i ~/.ssh/lerncloud ubuntu@${vm_fqdn}
     

@@ -1,14 +1,8 @@
 
 
-# Rohdefinition der Maschinen (wie vorher im module-Block)
+# Rohdefinition der Maschinen 
 locals {
   machines_raw = {
-    # Podman Umgebung als Test
-    dev = {
-      hostname = "dev"
-      userdata = "cloud-init-test.yaml" # lokale Datei im Projekt
-    }
-
     # VM anhand Terraform Workspace, z.B. "m122"
     vm = {
       hostname = local.modul
@@ -20,8 +14,7 @@ locals {
 
 # K8s Cluster
 module "vms" {
-  source = local.selected_source
-
+  source   = local.selected_source
   machines = local.machines
 
   description = "Kubernetes Nodes"
@@ -29,7 +22,7 @@ module "vms" {
   cores       = 2
   storage     = 16
 
-  ports = [22, 80, 443, 16443]
+  ports = [22, 80, 443, 3389, 16443]
 
   # MAAS: URL MAAS, Azure: Resource Group, Google: Project-Id
   url = var.url
@@ -37,4 +30,6 @@ module "vms" {
   key = var.key
   # MAAS: optionales WireGuard VPN
   vpn = var.vpn
+  # Anzahl VMs pro KVM-Host
+  vm_per_host = var.vm_per_host
 }
