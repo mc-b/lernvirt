@@ -9,7 +9,7 @@
 
 ## 3. Installation
 
-Bei einer neu Installation auf Bare Metal [autoinstall](autoinstall/README.md) verwenden und weiter bei Punkt 3.3.
+Bei einer neu Installation auf Bare Metal [autoinstall](autoinstall/README.md) verwenden und weiter bei Punkt 3.5.
 
 **Alternative**:
 
@@ -19,9 +19,8 @@ Auf dem Bare-Metal-Host werden zuerst eine zentrale Dateiablage (NFS) und microk
 
 Als **root** ausführen:
 
-    curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsshare.sh | bash -
+    curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/scripts/install-lernvirt.sh | bash -
     curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -
-   
 
 ### 3.2 KubeVirt aktivieren
 

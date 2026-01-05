@@ -80,4 +80,48 @@ os:
   architecture: ${ARCH}
 EOF
 
+WWW_ROOT="/var/www/html"
+mkdir -p "$WWW_ROOT"
+
+cat >"$WWW_ROOT/index.html" <<EOF
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>lernvirt Host ${HOSTNAME}</title>
+  <style>
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 960px; margin: 2rem auto; line-height: 1.5; }
+    pre { background: #f5f5f5; padding: .75rem; overflow-x: auto; }
+    code { font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    h1, h2, h3 { font-weight: 600; }
+  </style>
+</head>
+<body>
+<h1>lernvirt / KubeVirt Modulumgebung</h1>
+
+<h2>Erstellen einer Modulumgebung für eine Klasse</h2>
+<p>Beispiel:</p>
+<pre><code>helm install m122 oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace</code></pre>
+<p>Dieses Chart stellt die KubeVirt-Umgebung bereit und liest das passende <code>cloud-init</code>-Script über <code>vm.userdata</code> ein (siehe <a href="https://github.com/mc-b/lernvirt/blob/main/CONFIG.md">CONFIG.md</a>).</p>
+<p><code>vm.userdata</code> kann entweder eine einzelne URL oder eine Liste von Fallback-URLs sein; es wird jeweils die erste erreichbare (HTTP 200) verwendet. Standardmässig werden folgende Fallback-URLs verwendet:</p>
+<pre><code>vm:
+  userdata:
+    - https://raw.githubusercontent.com/tbz-it/{{RELEASE}}/refs/heads/master/cloud-init.yaml
+    - https://raw.githubusercontent.com/tbz-it/{{RELEASE}}/refs/heads/main/cloud-init.yaml
+    - https://raw.githubusercontent.com/mc-b/lernmaas/master/gns3/cloud-init.yaml</code></pre>
+<p>Für das Modul <code>m122</code> wird somit zuerst nach <code>https://raw.githubusercontent.com/tbz-it/m122/refs/heads/master/cloud-init.yaml</code>, danach im <code>main</code>-Branch und anschliessend nach der <a href="https://github.com/mc-b/lernmaas">lernmaas</a>-Logik über deren <a href="https://github.com/mc-b/lernmaas/blob/master/config.yaml">config.yaml</a> gesucht.</p>
+<p>Die VMs verwenden per Default 2 Cores und 2&nbsp;GiB Memory. Diese Werte können z.B. so überschrieben werden:</p>
+<pre><code>helm install m169k3s oci://ghcr.io/mc-b/lernmaas -n ap21a --create-namespace -f hosts/gx10.yaml --set vm.memory=4Gi</code></pre>
+<h3>Host-spezifische Konfiguration (<code>hosts/${HOSTNAME}.yaml</code>)</h3>
+<p>Auf diesem Host wurde folgende Datei generiert:</p>
+<ul>
+  <li><a href="/lernvirt/hosts/${HOSTNAME}.yaml">/lernvirt/hosts/${HOSTNAME}.yaml</a></li>
+</ul>
+<p>Diese Datei kann als zusätzliche Values-Datei verwendet werden, z.B.:</p>
+<pre><code>helm install m122 oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace -f hosts/${HOSTNAME}.yaml</code></pre>
+<p>Weitere Informationen zu Host-Anpassungen wie Image Mirror, ARM64 etc. finden sich im <a href="https://github.com/mc-b/lernvirt/blob/main/hosts/README.md">hosts/README.md</a>.</p>
+</body>
+</html>
+EOF
+
 echo "Fertig: ${HOSTS_DIR}/${HOSTNAME}.yaml (IP=${IP_ADDR}, Arch=${ARCH})"
