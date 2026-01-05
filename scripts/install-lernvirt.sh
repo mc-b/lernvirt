@@ -1,28 +1,71 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -o pipefail
 
-if [ "$EUID" -ne 0 ]; then echo "Bitte als root/sudo ausführen." >&2; exit 1; fi
+# Einfache Logging-Funktionen
+log()  { echo "[$(date -Iseconds)] INFO:  $*" >&2; }
+warn() { echo "[$(date -Iseconds)] WARN:  $*" >&2; }
+fail() { echo "[$(date -Iseconds)] FEHLER: $*" >&2; exit 1; }
+
+if [ "${EUID:-$(id -u)}" -ne 0 ]; then
+  fail "Bitte als root/sudo ausführen."
+fi
+
 export DEBIAN_FRONTEND=noninteractive
 
-HOSTNAME="$(hostname -s || hostname)"
+HOSTNAME="$(hostname -s 2>/dev/null || hostname 2>/dev/null || echo host)"
 IP_ADDR="$(ip route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}')"
-if [ -z "$IP_ADDR" ]; then IP_ADDR="$(ip -4 addr show scope global | awk '/inet / {print $2}' | cut -d/ -f1 | head -n1)"; fi
-if [ -z "$IP_ADDR" ]; then echo "Konnte IP-Adresse nicht automatisch ermitteln." >&2; exit 1; fi
+if [ -z "$IP_ADDR" ]; then
+  IP_ADDR="$(ip -4 addr show scope global 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1 | head -n1)"
+fi
+if [ -z "$IP_ADDR" ]; then
+  fail "Konnte IP-Adresse nicht automatisch ermitteln."
+fi
 
-ARCH_RAW="$(uname -m)"
+ARCH_RAW="$(uname -m 2>/dev/null || echo unknown)"
 case "$ARCH_RAW" in
   x86_64) ARCH="amd64" ;;
   aarch64|arm64) ARCH="arm64" ;;
-  *) echo "Nicht unterstützte Architektur: $ARCH_RAW" >&2; exit 1 ;;
+  *) fail "Nicht unterstützte Architektur: $ARCH_RAW" ;;
 esac
 
-apt-get update -y
-apt-get install -y nfs-kernel-server nginx git wget curl
+# Hilfsfunktion für Downloads (nicht fatal)
+download() {
+  local url="$1"
+  local destdir="$2"
+  mkdir -p "$destdir"
+  if ! wget -q -nc -P "$destdir" "$url"; then
+    warn "Download fehlgeschlagen: $url"
+  else
+    log "Download ok: $url"
+  fi
+}
 
+log "APT-Index aktualisieren…"
+if ! apt-get update -y; then
+  fail "apt-get update fehlgeschlagen."
+fi
+
+# Pakete einzeln installieren, Fehler nur loggen
+for pkg in nfs-kernel-server nginx git wget curl; do
+  if dpkg -s "$pkg" >/dev/null 2>&1; then
+    log "Paket bereits installiert: $pkg"
+  else
+    log "Installiere Paket: $pkg"
+    if ! apt-get install -y "$pkg"; then
+      warn "Paket konnte nicht installiert werden: $pkg"
+    fi
+  fi
+done
+
+# Basisverzeichnisse
 mkdir -p /data /data/storage /data/config /data/templates /data/config/ssh
-chown -R ubuntu:ubuntu /data || true
-chmod 777 /data/storage
+# chown kann fehlschlagen, wenn es den User nicht gibt -> nur warnen
+if ! chown -R ubuntu:ubuntu /data 2>/dev/null; then
+  warn "Konnte /data nicht auf Benutzer 'ubuntu' setzen (User existiert evtl. nicht)."
+fi
+chmod 777 /data/storage || warn "Konnte Berechtigungen für /data/storage nicht setzen."
 
+# NFS-Exports schreiben
 cat >/etc/exports <<EOF
 # /etc/exports: NFS Export-Konfiguration
 # Storage RW
@@ -35,25 +78,56 @@ cat >/etc/exports <<EOF
 /var/snap/microk8s/common/default-storage *(rw,sync,no_subtree_check,no_root_squash)
 EOF
 
-exportfs -ra
-systemctl enable nfs-kernel-server nginx
-systemctl restart nfs-kernel-server nginx
+if ! exportfs -ra; then
+  warn "exportfs -ra fehlgeschlagen. NFS-Exports bitte manuell prüfen."
+fi
+
+# Dienste aktivieren/neu starten; Fehler nur warnen
+for svc in nfs-kernel-server nginx; do
+  if systemctl enable "$svc" >/dev/null 2>&1; then
+    log "Dienst aktiviert: $svc"
+  else
+    warn "Konnte Dienst nicht aktivieren: $svc"
+  fi
+
+  if systemctl restart "$svc" >/dev/null 2>&1; then
+    log "Dienst neu gestartet: $svc"
+  else
+    warn "Konnte Dienst nicht neu starten: $svc"
+  fi
+done
 
 LINUX_BASE="/var/www/html/linux"
-mkdir -p "$LINUX_BASE/ubuntu/noble/amd64" "$LINUX_BASE/ubuntu/noble/arm64" "$LINUX_BASE/alpine/edge/amd64" "$LINUX_BASE/alpine/edge/arm64"
+mkdir -p \
+  "$LINUX_BASE/ubuntu/noble/amd64" \
+  "$LINUX_BASE/ubuntu/noble/arm64" \
+  "$LINUX_BASE/alpine/edge/amd64" \
+  "$LINUX_BASE/alpine/edge/arm64"
 
-wget -q -nc -P "$LINUX_BASE/ubuntu/noble/amd64" "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
-wget -q -nc -P "$LINUX_BASE/ubuntu/noble/arm64" "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-arm64.img"
+# Ubuntu-Images
+download "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img" \
+         "$LINUX_BASE/ubuntu/noble/amd64"
+download "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-arm64.img" \
+         "$LINUX_BASE/ubuntu/noble/arm64"
 
-wget -q -nc -P "$LINUX_BASE/alpine/edge/amd64" "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/generic_alpine-3.23.0-x86_64-bios-cloudinit-r0.qcow2"
-wget -q -nc -P "$LINUX_BASE/alpine/edge/arm64" "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/generic_alpine-3.23.2-aarch64-uefi-cloudinit-r0.qcow2"
+# Alpine-Images
+download "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/generic_alpine-3.23.0-x86_64-bios-cloudinit-r0.qcow2" \
+         "$LINUX_BASE/alpine/edge/amd64"
+download "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/generic_alpine-3.23.2-aarch64-uefi-cloudinit-r0.qcow2" \
+         "$LINUX_BASE/alpine/edge/arm64"
 
 LERNVIRT_DIR="/var/www/html/lernvirt"
 if [ -d "$LERNVIRT_DIR/.git" ]; then
-  git -C "$LERNVIRT_DIR" pull --ff-only || true
+  log "Aktualisiere bestehendes lernvirt-Repository…"
+  if ! git -C "$LERNVIRT_DIR" pull --ff-only; then
+    warn "git pull fehlgeschlagen, verwende bestehenden Stand."
+  fi
 else
-  rm -rf "$LERNVIRT_DIR" || true
-  git clone https://github.com/mc-b/lernvirt.git "$LERNVIRT_DIR"
+  log "Klonen von lernvirt-Repository…"
+  rm -rf "$LERNVIRT_DIR" 2>/dev/null || true
+  if ! git clone https://github.com/mc-b/lernvirt.git "$LERNVIRT_DIR"; then
+    warn "git clone fehlgeschlagen, lernvirt steht evtl. nicht vollständig zur Verfügung."
+  fi
 fi
 
 HOSTS_DIR="$LERNVIRT_DIR/hosts"
@@ -124,4 +198,5 @@ cat >"$WWW_ROOT/index.html" <<EOF
 </html>
 EOF
 
-echo "Fertig: ${HOSTS_DIR}/${HOSTNAME}.yaml (IP=${IP_ADDR}, Arch=${ARCH})"
+log "Fertig: ${HOSTS_DIR}/${HOSTNAME}.yaml (IP=${IP_ADDR}, Arch=${ARCH})"
+echo "OK"
