@@ -169,30 +169,148 @@ cat >"$WWW_ROOT/index.html" <<EOF
   </style>
 </head>
 <body>
-<h1>lernvirt / KubeVirt Modulumgebung</h1>
+<h1>lernvirt Modulumgebung</h1>
 
-<h2>Erstellen einer Modulumgebung für eine Klasse</h2>
-<p>Beispiel:</p>
-<pre><code>helm install m122 oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace</code></pre>
-<p>Dieses Chart stellt die KubeVirt-Umgebung bereit und liest das passende <code>cloud-init</code>-Script über <code>vm.userdata</code> ein (siehe <a href="https://github.com/mc-b/lernvirt/blob/main/CONFIG.md">CONFIG.md</a>).</p>
-<p><code>vm.userdata</code> kann entweder eine einzelne URL oder eine Liste von Fallback-URLs sein; es wird jeweils die erste erreichbare (HTTP 200) verwendet. Standardmässig werden folgende Fallback-URLs verwendet:</p>
+<h2>Voraussetzungen</h2>
+<p>
+Für die Arbeit mit <em>lernvirt</em> werden <code>kubectl</code> und <code>helm</code> benötigt.
+Beide Werkzeuge sind lokal zu installieren.
+</p>
+<ul>
+  <li>
+    kubectl:
+    <a href="https://kubernetes.io/docs/tasks/tools/">https://kubernetes.io/docs/tasks/tools/</a>
+  </li>
+  <li>
+    helm:
+    <a href="https://helm.sh/docs/intro/install/">https://helm.sh/docs/intro/install/</a>
+  </li>
+</ul>
+<p>
+Zusätzlich sind die Zugriffsinformationen auf den Kubernetes-Cluster erforderlich.
+Diese werden durch die Administration bereitgestellt (KUBECONFIG).
+</p>
+
+<h2>Host-spezifische Konfiguration</h2>
+<p>
+Für jeden Host existiert eine spezifische Values-Datei.
+Diese ist vor der Installation herunterzuladen:
+</p>
+<ul>
+  <li><a href="/lernvirt/hosts/${HOSTNAME}.yaml">hosts/${HOSTNAME}.yaml</a></li>
+</ul>
+
+<h2>Installation einer Modulumgebung</h2>
+<p>
+Die Modulumgebung wird mit <code>helm</code> installiert.
+Dabei wird die host-spezifische Konfiguration explizit eingebunden:
+</p>
+<pre><code>helm install m122 oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace -f ${HOSTNAME}.yaml</code></pre>
+
+<p>
+Während der Installation gibt <code>helm</code> den Status der erstellten Ressourcen aus.
+Diese Ausgaben sind Bestandteil des normalen Installationsablaufs.
+</p>
+
+<h2>Ressourcenanpassungen</h2>
+<p>
+Standardmässig werden virtuelle Maschinen mit 2 vCPU und 2&nbsp;GiB Arbeitsspeicher erstellt.
+Diese Werte können bei Bedarf überschrieben werden, zum Beispiel:
+</p>
+<pre><code>helm install m122 oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace -f ${HOSTNAME}.yaml --set vm.memory=4Gi</code></pre>
+
+<h2>cloud-init und Fallback-Mechanismus</h2>
+<p>
+Das Chart lädt das <code>cloud-init</code>-Script über <code>vm.userdata</code>.
+Dabei können mehrere URLs definiert werden.
+Es wird jeweils die erste erreichbare Quelle (HTTP&nbsp;200) verwendet.
+</p>
+
+<p>
+Die standardmässig konfigurierten Fallback-URLs lauten:
+</p>
 <pre><code>vm:
   userdata:
     - https://raw.githubusercontent.com/tbz-it/{{RELEASE}}/refs/heads/master/cloud-init.yaml
     - https://raw.githubusercontent.com/tbz-it/{{RELEASE}}/refs/heads/main/cloud-init.yaml
     - https://raw.githubusercontent.com/mc-b/lernmaas/master/gns3/cloud-init.yaml</code></pre>
-<p>Für das Modul <code>m122</code> wird somit zuerst nach <code>https://raw.githubusercontent.com/tbz-it/m122/refs/heads/master/cloud-init.yaml</code>, danach im <code>main</code>-Branch und anschliessend nach der <a href="https://github.com/mc-b/lernmaas">lernmaas</a>-Logik über deren <a href="https://github.com/mc-b/lernmaas/blob/master/config.yaml">config.yaml</a> gesucht.</p>
-<p>Die VMs verwenden per Default 2 Cores und 2&nbsp;GiB Memory. Diese Werte können z.B. so überschrieben werden:</p>
-<pre><code>helm install m169k3s oci://ghcr.io/mc-b/lernmaas -n ap21a --create-namespace -f hosts/gx10.yaml --set vm.memory=4Gi</code></pre>
-<h3>Host-spezifische Konfiguration (<code>hosts/${HOSTNAME}.yaml</code>)</h3>
-<p>Auf diesem Host wurde folgende Datei generiert:</p>
+
+<p>
+Für das Modul <code>m122</code> wird somit zuerst im <code>master</code>-Branch,
+anschliessend im <code>main</code>-Branch und zuletzt gemäss der
+lernmaas-Logik nach einem passenden <code>cloud-init.yaml</code> gesucht.
+</p>
+
+<p>
+Details zur Konfiguration sind in
+<a href="https://github.com/mc-b/lernvirt/blob/main/CONFIG.md">CONFIG.md</a>
+und zu host-spezifischen Anpassungen in
+<a href="https://github.com/mc-b/lernvirt/blob/main/hosts/README.md">hosts/README.md</a>
+dokumentiert.
+</p>
+
+<h2>Hinweis für Administratoren</h2>
+<p>
+<h3>KUBECONFIG</h3>
+Für die Administration existiert ein Hilfsskript zur Erstellung von
+<code>KUBECONFIG</code>-Dateien für eine oder mehrere Lehrpersonen:
+</p>
 <ul>
-  <li><a href="/lernvirt/hosts/${HOSTNAME}.yaml">/lernvirt/hosts/${HOSTNAME}.yaml</a></li>
+  <li>
+    <a href="https://github.com/mc-b/lernvirt/blob/main/scripts/gen-kubeconfig.sh">
+      lernvirt/scripts/gen-kubeconfig.sh
+    </a>
+  </li>
 </ul>
-<p>Diese Datei kann als zusätzliche Values-Datei verwendet werden, z.B.:</p>
-<pre><code>helm install m122 oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace -f hosts/${HOSTNAME}.yaml</code></pre>
-<p>Weitere Informationen zu Host-Anpassungen wie Image Mirror, ARM64 etc. finden sich im <a href="https://github.com/mc-b/lernvirt/blob/main/hosts/README.md">hosts/README.md</a>.</p>
+
+<p>
+Das Skript erzeugt eine dedizierte <code>KUBECONFIG</code> basierend auf einem
+Lehrpersonen-Kürzel, zum Beispiel:
+</p>
+<pre><code>gen-kubeconfig.sh &lt;Kürzel Lehrperson&gt;</code></pre>
+
+<h3>PXE Boot (dnsmsaq)</h3>
+<p>
+Zusätzlich ist auf dem Host <code>dnsmasq</code> installiert.
+Dieser Dienst erlaubt es, weitere Worker Nodes automatisiert per PXE-Boot
+zu installieren.
+</p>
+
+<p>
+Aus Sicherheitsgründen ist <code>dnsmasq</code> standardmässig deaktiviert.
+Die Aktivierung erfolgt explizit durch die Administration:
+</p>
+<pre><code>sudo systemctl start dnsmasq</code></pre>
+
+<h3>Weitere Worker Nodes anbinden</h3>
+<p>
+Zusätzliche Worker Nodes werden über <code>microk8s add-node</code>
+am Control Node registriert.
+Der Join-Token ist zeitlich begrenzt gültig.
+</p>
+
+<p>
+Auf dem Control Node:
+</p>
+<pre><code>ssh -i ~/.ssh/lerncloud ubuntu@kv-control
+microk8s add-node --token-ttl 3600 | grep worker | tail -1
+exit</code></pre>
+
+<p>
+Der ausgegebene Join-Befehl ist anschliessend auf dem jeweiligen Worker Node
+auszuführen:
+</p>
+<pre><code>ssh -i ~/.ssh/lerncloud ubuntu@kv-worker-01
+# Ausgabe von microk8s add-node</code></pre>
+
+<p>
+Nach erfolgreichem Join erscheint der Worker Node im Cluster
+und kann für weitere Workloads verwendet werden.
+</p>
+
+
 </body>
+
 </html>
 EOF
 
