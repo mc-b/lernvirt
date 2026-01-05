@@ -56,7 +56,7 @@ d.h. für m122, siehe zuerst nach `https://raw.githubusercontent.com/tbz-it/m122
 
 Die VMs verwenden 2 Cores und 2 GB an Memory. Dieses kann mittels `--set vm.memory` oder `vm.cpu` überschrieben werden:
 
-    helm install m169k3s oci://ghcr.io/mc-b/lernmaas -n ap21a --create-namespace -f hosts/gx10.yaml --set vm.memory=4Gi
+    helm install m169k3s oci://ghcr.io/mc-b/lernmaas -n ap21a --create-namespace --set vm.memory=4Gi
     
 Für Hosts spezifische Anpassungen wie Image Mirror, ARM64 etc. siehe [hosts](hosts/README.md)
 
