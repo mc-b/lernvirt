@@ -9,7 +9,7 @@ Quelle: [KubeVirt Architektur – User Guide](https://kubevirt.io/user-guide/arc
 
 - - -
 
-**lernmaas** ist eine lokale, reproduzierbare Lernumgebung auf Basis von Kubernetes und KubeVirt.
+**lernvirt** ist eine lokale, reproduzierbare Lernumgebung auf Basis von Kubernetes und KubeVirt.
 Sie ermöglicht es, **virtuelle Maschinen als Kubernetes-Ressourcen** zu betreiben und dabei sowohl klassische Virtualisierung als auch Kubernetes-Konzepte praxisnah zu erlernen.
 
 Die Umgebung eignet sich besonders für:
@@ -33,6 +33,8 @@ Die Umgebung eignet sich besonders für:
 ---
 
 ## 5. Deployment der VMs
+
+Eine Anleitung für Cloud Umgebungen, wie z.B. AWS, Azure, MAAS.io siehe [cloud](cloud/README.md). Dort wird statt Kubernetes und Kubevirt [opentofu](https://opentofu.org/) (fork von [terraform](https://developer.hashicorp.com/terraform)) verwendet.
 
 ### 5.1 Erstellen einer Modulumgebung für eine Klasse
 

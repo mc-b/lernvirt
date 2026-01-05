@@ -1,6 +1,6 @@
-# lerncloud – Workspaces & `userdata` verwenden
+## Erstellen einer Modulumgebung für eine Klasse (Cloud, opentofu)
 
-Dieses Setup steuert Provider und `userdata` komplett über den Workspace-Namen und eine einfache VM-Definition im Root-Modul.
+Zuerst ist [opentofu](https://opentofu.org/) (fork von [terraform](https://developer.hashicorp.com/terraform)) zu installieren.
 
 ## 1. Workspace wählen
 
@@ -23,10 +23,7 @@ Dabei gilt:
 
     tofu workspace select aws-m122
 
-2. In `userdata.tf` bei Bedarf `locals.machines_raw` anpassen
-   (z.B. weitere VMs hinzufügen, lokale Cloud-Init-Dateien angeben).
-
-3. `tofu init`, `tofu plan`, `tofu apply` ausführen.
+2. `tofu init`, `tofu plan`, `tofu apply` ausführen.
 
 ## 2. VMs definieren
 
