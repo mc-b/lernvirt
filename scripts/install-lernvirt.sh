@@ -267,7 +267,7 @@ Für die Administration existiert ein Hilfsskript zur Erstellung von
 Das Skript erzeugt eine dedizierte <code>KUBECONFIG</code> basierend auf einem
 Lehrpersonen-Kürzel, zum Beispiel:
 </p>
-<pre><code>gen-kubeconfig.sh &lt;Kürzel Lehrperson&gt;</code></pre>
+<pre><code>gen-kubeconfig.sh ben</code></pre>
 
 <h3>PXE Boot (dnsmsaq)</h3>
 <p>
@@ -292,15 +292,13 @@ Der Join-Token ist zeitlich begrenzt gültig.
 <p>
 Auf dem Control Node:
 </p>
-<pre><code>ssh -i ~/.ssh/lerncloud ubuntu@kv-control
-microk8s add-node --token-ttl 3600 | grep worker | tail -1
-exit</code></pre>
+<pre><code>microk8s add-node --token-ttl 3600 | grep worker | tail -1</code></pre>
 
 <p>
 Der ausgegebene Join-Befehl ist anschliessend auf dem jeweiligen Worker Node
 auszuführen:
 </p>
-<pre><code>ssh -i ~/.ssh/lerncloud ubuntu@kv-worker-01
+<pre><code>ssh ubuntu@kv-worker-01
 # Ausgabe von microk8s add-node</code></pre>
 
 <p>
