@@ -6,10 +6,11 @@ Umgebung für Modul ${modul}
 Intro
 -----
 
-- https://${vm_fqdn}
+- https://${vm_fqdn} 
 
 SSH Zugriff
 -----------
 
-ssh -i ~/.ssh/lerncloud ubuntu@${vm_fqdn}
+ssh -i ~/.ssh/lerncloud ubuntu@${vm_fqdn} 
+
     

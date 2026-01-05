@@ -7,12 +7,12 @@ Intro
 -----
 
 %{ for idx in range(length(vms)) ~}
-- ${idx + 1}. https://${vms[idx]}
+- ${idx + 1}. https://${vms[idx]} 
 %{ endfor ~}
 
 SSH Zugriff
 -----------
 
 %{ for idx in range(length(vms)) ~}
-ssh -i ~/.ssh/lerncloud ubuntu@${vms[idx]}
+ssh -i ~/.ssh/lerncloud ubuntu@${vms[idx]} 
 %{ endfor ~}
