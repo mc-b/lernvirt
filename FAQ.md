@@ -73,7 +73,12 @@ Dann erweiterst du deine `.bashrc` (unter Git Bash auf Windows oder auch unter L
       PS1="\[\e[32m\]\u@\h:\w\[\e[0m\]${kube}\$ "
     }
     
-    PROMPT_COMMAND="__update_ps1"
+`helm` Aufruf mit Values Datei vom Host
+    
+    function h() {
+      helm "$@" \
+        -f "${HELM_VALUES_HOST}"
+    }  
 
 ### Änderungen im Überblick:
 
