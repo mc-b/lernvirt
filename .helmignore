@@ -17,3 +17,5 @@ build/*
 *.md
 *.tgz
 .helmignore
+.terraform
+terra*
