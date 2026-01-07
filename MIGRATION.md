@@ -43,11 +43,11 @@ Abhängig von den Anforderungen an die Ausfallsicherheit können mehrere Control
 
 Die weiteren Installationsschritte, wie das Einrichten des NFS-Shares, sind mit der MAAS.io-Umgebung kompatibel und haben keinen Einfluss.
 
-Nach der Installation (siehe unten) von lernvirt auf dem Region-/Rack-Server werden die KVM-Hosts als Kubernetes Worker Nodes aufbereitet werden. Die Informationen dazu liefert das MAAS CLI.
+**Nach der Installation (siehe unten) von lernvirt auf dem Region-/Rack-Server** werden die KVM-Hosts als Kubernetes Worker Nodes aufbereitet. Die Informationen dazu liefert das MAAS CLI.
 
     maas $PROFILE machines read | jq -r '.[] | select(.power_type=="manual") | "\(.hostname): \(.ip_addresses | join(", ")) | \(.boot_interface.mac_address // "")"'
         
-Maschinen starten, falls nicht aktiv
+Maschinen starten, falls Power Off:
 
     for host in $(maas $PROFILE machines read | jq -r '.[] | select(.power_type=="manual") | .boot_interface.mac_address // empty')
     do
@@ -70,7 +70,7 @@ Nachdem microk8s läuft - explizite Angabe des Interfaces (MAAS erstellt auf jed
         ssh ${host} "sudo microk8s kubectl -n kube-system set env daemonset/calico-node IP_AUTODETECTION_METHOD=interface=br-eno1"
     done    
 
-Kontrolle (die Pods müssen gestartet sein.
+Kontrolle (die Pods müssen gestartet sein):
 
     for host in $(maas $PROFILE machines read | jq -r '.[] | select(.power_type=="manual") | .ip_addresses[0]')
     do
@@ -78,13 +78,17 @@ Kontrolle (die Pods müssen gestartet sein.
         ssh ${host} sudo microk8s kubectl get pods -A
     done
 
-Worker joinen
+Worker joinen:
     
     JOIN=$(microk8s add-node --token-ttl 3600 | grep worker | tail -1)
     for host in $(maas $PROFILE machines read | jq -r '.[] | select(.power_type=="manual") | .ip_addresses[0]')
     do
         ssh ${host} "sudo $JOIN"
     done  
+
+Kontrollieren ob alle Nodes zu einem Cluster verbunden sind:
+
+    kubectl get nodes -o wide
 
 Installation lernvirt
 ---------------------
