@@ -99,11 +99,9 @@ Installationsschritte wie bei [Autoinstall](autoinstall/nocloud.control/user-dat
     curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -
     sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -"
     microk8s kubectl -n kubevirt patch kubevirt kubevirt --type=merge --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":false}}}}'
-    
-Optional (nur wenn PXE verwendet werden soll):
-    
-    curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-pxe.sh | bash -     
 
 IP-Adresse des Hosts im Browser anwählen und Anleitung folgen.
 
 Die erstellte [Hosts-Datei](hosts/README.md) beinhaltet die lokalen IP-Adressen. Diese sind vor Verwendung des Rechners anzupassen auf die WireGuard/externen IP Adressen umzustellen.
+    
+**ACHTUNG**: das `install-pxe.sh` darf auf keinen Fall benützt werden. Es deinstalliert MAAS.io.
