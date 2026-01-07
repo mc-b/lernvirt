@@ -5,7 +5,7 @@ vm:
   
   # VM Default Werte - koennen ueberschrieben werden
   cpu: 2
-  memory: 8Gi
+  memory: 4Gi
   storage: 72Gi
 
 os:
