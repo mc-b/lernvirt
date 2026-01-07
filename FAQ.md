@@ -80,53 +80,7 @@ Dann erweiterst du deine `.bashrc` (unter Git Bash auf Windows oder auch unter L
         -f "${HELM_VALUES_HOST}"
     }  
 
-### Änderungen im Überblick:
-
-* **Verbesserte Lesbarkeit**: Klarere Struktur und Formulierungen im erklärenden Text.
-* **Statt `__short_pwd`**: Jetzt wird `\w` verwendet, was im Prompt den vollständigen Pfad (`$PWD`) anzeigt.
-* **Prompt-Anzeige**: Zeigt zusätzlich den aktiven Kubernetes-Context in lila `[CTX_NAME]`.
-* **Unicode-Icons**: Kleine Icons zur besseren Lesbarkeit bei Kontextwechsel und Fehlermeldungen.
-
 ---
-
-Wenn du möchtest, kann ich dir auch eine Zsh-kompatible Version oder Unterstützung für Autovervollständigung des `cts`-Befehls geben.
-
-
-Zuerst sind pro Cluster die `~/.kube/config` Dateien lokal als `.kube/<host>` zu speichern.
-
-Anschliessend `.bashrc` (Git/Bash auf Windows) wie folgt erweitern:
-
-    function cts() {
-      case "$1" in
-        kvc)
-          export KUBECONFIG=~/.kube/kvc
-          export HELM_VALUES_HOST="hosts/kvc.yaml"
-          export CTX_NAME="kvc"
-          ;;
-        gx10)
-          export KUBECONFIG=~/.kube/gx10
-          export HELM_VALUES_HOST="hosts/gx10.yaml"
-          export CTX_NAME="gx10"
-          ;;
-        *)
-          echo "Unknown context: $1"
-          return 1
-          ;;
-      esac
-    
-      echo "🔀 Switched context → $CTX_NAME"
-    }
-    __update_ps1() {
-      local kube=""
-      if [[ -n "$CTX_NAME" ]]; then
-        kube=" \[\e[35m\][$(basename "$CTX_NAME")]\[\e[0m\]"
-      fi
-    
-      PS1="\[\e[32m\]\u@\h:\w\[\e[0m\]${kube}\$ "
-    }
-    
-    PROMPT_COMMAND="__update_ps1"
-    
 
 ### Kubernetes Server Zertifikate
 
@@ -222,6 +176,115 @@ Neu builden
 Testen
 
     docker manifest inspect $IMAGE:$TAG
+    
+**Auto Shop Container Images**
 
-  
+    cd /tmp
+    rm -rf shop
+    git clone https://gitlab.com/ch-mc-b/autoshop-ms/app/shop.git
+    cd shop
+    mv webshop shop
 
+    TARGET=registry.gitlab.com/ch-mc-b/autoshop-ms/app/shop
+    
+    for tag in 1.0.0 2.0.0 2.0.1 2.0.2 2.0.3 2.1.0 3.0.0 3.1.0 3.2.0 3.3.0 3.4.0
+    do
+      git checkout -b v$tag origin/v$tag
+      for image in catalog customer order shop
+      do
+        if [ -d "$image" ]; then
+          (
+            cd "$image"
+            docker buildx build . --platform linux/amd64,linux/arm64 --provenance=false --sbom=false -t ${TARGET}/${image}:${tag} --push
+          )
+        fi
+      done
+    done
+    
+**Management**    
+    
+    rm -rf management
+    git clone https://gitlab.com/ch-mc-b/autoshop-ms/app/management.git
+    cd management
+
+    TARGET=registry.gitlab.com/ch-mc-b/autoshop-ms/app/management
+    
+    for tag in 3.2.0
+    do
+      git checkout -b v$tag origin/v$tag
+      for image in sales
+      do
+        if [ -d "$image" ]; then
+          (
+            cd "$image"
+            docker buildx build . --platform linux/amd64,linux/arm64 --provenance=false --sbom=false -t ${TARGET}/${image}:${tag} --push
+          )
+        fi
+      done
+    done    
+
+**Backoffice**    
+    
+    rm -rf backoffice
+    git clone https://gitlab.com/ch-mc-b/autoshop-ms/app/backoffice.git
+    cd backoffice
+
+    TARGET=registry.gitlab.com/ch-mc-b/autoshop-ms/app/backoffice
+    
+    for tag in 3.1.0 4.0.0
+    do
+      git checkout -b v$tag origin/v$tag
+      for image in invoicing shipment
+      do
+        if [ -d "$image" ]; then
+          (
+            cd "$image"
+            docker buildx build . --platform linux/amd64,linux/arm64 --provenance=false --sbom=false -t ${TARGET}/${image}:${tag} --push
+          )
+        fi
+      done
+    done    
+    
+**IoT**    
+    
+    rm -rf iot
+    git clone https://gitlab.com/ch-mc-b/autoshop-ms/app/iot.git
+    cd iot
+
+    TARGET=registry.gitlab.com/ch-mc-b/autoshop-ms/app/iot
+    
+    for tag in 1.0.0
+    do
+      for image in alert pipe consumer
+      do
+        if [ -d "$image" ]; then
+          (
+            cd "$image"
+            docker buildx build . --platform linux/amd64,linux/arm64 --provenance=false --sbom=false -t ${TARGET}/iot-${image}:${tag} --push
+          )
+        fi
+      done
+    done 
+    
+**IIoT**    
+    
+    rm -rf iiot
+    git clone https://gitlab.com/ch-mc-b/autoshop-ms/infra/iiot.git
+    cd iiot
+
+    TARGET=registry.gitlab.com/ch-mc-b/autoshop-ms/infra/iiot
+    
+    for tag in 1.0.0
+    do
+      for image in mqtt-device-ui mqtt-listener mqtt-operator
+      do
+        if [ -d "$image" ]; then
+          (
+            cd "$image"
+            docker buildx build . --platform linux/amd64,linux/arm64 --provenance=false --sbom=false -t ${TARGET}/${image}:${tag} --push
+          )
+        fi
+      done
+    done         
+
+**Hinweis**: besser gleich via CI/CD Job lösen.
