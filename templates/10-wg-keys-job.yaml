@@ -11,7 +11,8 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: keygen
-          image: alpine:3.19
+          image: public.ecr.aws/docker/library/alpine:3.21
+          imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "/scripts/keygen.sh"]
           volumeMounts:
             - name: scripts

@@ -28,7 +28,8 @@ spec:
       restartPolicy: Never
       containers:
       - name: wg
-        image: alpine:3.19
+        image: public.ecr.aws/docker/library/alpine:3.21
+        imagePullPolicy: IfNotPresent
         command:
         - /bin/sh
         - -c

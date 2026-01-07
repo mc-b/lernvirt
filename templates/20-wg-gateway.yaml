@@ -15,7 +15,8 @@ spec:
       serviceAccountName: {{ include "lernvirt.fullname" $ }}-gateway
       containers:
         - name: wg
-          image: alpine:3.19
+          image: public.ecr.aws/docker/library/alpine:3.21
+          imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
           ports:
