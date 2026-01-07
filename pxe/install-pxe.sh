@@ -23,11 +23,32 @@ if [ -z "${IFACE}" ]; then
   fail "Konnte aktives Netzwerkinterface nicht ermitteln."
 fi
 
-# IPv4-Adresse des Interfaces holen
-PXE_IP="$(ip -4 addr show dev "${IFACE}" 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1 | head -n1)"
-if [ -z "${PXE_IP}" ]; then
+# IPv4-Adresse und Praefix des Interfaces holen
+CIDR="$(ip -4 addr show dev "${IFACE}" 2>/dev/null | awk '/inet / {print $2}' | head -n1)"
+if [ -z "${CIDR}" ]; then
   fail "Konnte keine IPv4-Adresse fuer ${IFACE} finden."
 fi
+
+PXE_IP="${CIDR%%/*}"
+PREFIX="${CIDR##*/}"
+
+# Subnetz-Adresse und Netzmaske berechnen
+IFS='.' read -r o1 o2 o3 o4 <<< "${PXE_IP}"
+IP_INT=$(( (o1 << 24) + (o2 << 16) + (o3 << 8) + o4 ))
+MASK_INT=$(( (0xFFFFFFFF << (32 - PREFIX)) & 0xFFFFFFFF ))
+NET_INT=$(( IP_INT & MASK_INT ))
+
+NET1=$(( (NET_INT >> 24) & 255 ))
+NET2=$(( (NET_INT >> 16) & 255 ))
+NET3=$(( (NET_INT >> 8) & 255 ))
+NET4=$(( NET_INT & 255 ))
+SUBNET="${NET1}.${NET2}.${NET3}.${NET4}"
+
+M1=$(( (MASK_INT >> 24) & 255 ))
+M2=$(( (MASK_INT >> 16) & 255 ))
+M3=$(( (MASK_INT >> 8) & 255 ))
+M4=$(( MASK_INT & 255 ))
+NETMASK="${M1}.${M2}.${M3}.${M4}"
 
 ### KONFIGURATION ###
 BASE="/srv/tftp"
@@ -73,7 +94,7 @@ if ! cat > /etc/dnsmasq.d/pxe.conf <<EOF
 port=0
 
 # ProxyDHCP fuer dein Netz (evtl. an eigenes Netz anpassen)
-dhcp-range=192.168.1.0,proxy,255.255.255.0
+dhcp-range=${SUBNET},proxy,${NETMASK}
 
 # Interface
 interface=${IFACE}
