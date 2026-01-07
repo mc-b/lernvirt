@@ -10,21 +10,20 @@ if [ "${EUID:-$(id -u)}" -ne 0 ]; then
   fail "Bitte als root/sudo ausfuehren."
 fi
 
-### AKTIVES NETZWERK-INTERFACE & IP ERMITTELN ###
-
+### AKTIVES NETZWERK-INTERFACE & IP ###
 IFACE="$(ip -4 route show default 2>/dev/null | awk '{print $5; exit}')"
 if [ -z "${IFACE}" ]; then
-  IFACE="$(ip -o link show 2>/dev/null | awk -F': ' '$2 !~ /lo/ {print $2; exit}')"
+  IFACE="$(ip -o link show | awk -F': ' '$2 !~ /lo/ {print $2; exit}')"
 fi
-
 [ -z "${IFACE}" ] && fail "Konnte aktives Netzwerkinterface nicht ermitteln."
 
 PXE_IP="$(ip -4 addr show dev "${IFACE}" \
   | awk '/inet / {print $2}' | cut -d/ -f1 | head -n1)"
-
 [ -z "${PXE_IP}" ] && fail "Konnte keine IPv4-Adresse fuer ${IFACE} finden."
 
-SUBNET_CIDR="$(ip -4 addr show dev "${IFACE}" | awk '/inet / {print $2; exit}')"
+### SUBNET (KERNEL-SICHT) ###
+SUBNET_CIDR="$(ip -4 route show dev "${IFACE}" proto kernel \
+  | awk '/scope link/ {print $1; exit}')"
 [ -z "${SUBNET_CIDR}" ] && fail "Konnte Subnetz fuer ${IFACE} nicht ermitteln."
 
 ### KONFIGURATION ###
@@ -39,35 +38,33 @@ ISO_DIR="${WWW}/linux/ubuntu/noble/amd64"
 
 USERDATA_URL="https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/pxe/user-data"
 
-log "Verwende Interface: ${IFACE}, IP: ${PXE_IP}, Netz: ${SUBNET_CIDR}"
+log "Interface: ${IFACE}"
+log "PXE IP:    ${PXE_IP}"
+log "Subnetz:   ${SUBNET_CIDR}"
 
+### PAKETE ###
 log "APT Index aktualisieren"
 apt-get update -y || fail "apt-get update fehlgeschlagen."
 
 log "Pakete installieren"
-for pkg in dnsmasq nginx wget unzip syslinux-common grub-common grub-efi-amd64-bin ipcalc; do
-  dpkg -s "$pkg" >/dev/null 2>&1 || apt-get install -y "$pkg" || warn "Konnte Paket nicht installieren: $pkg"
+for pkg in dnsmasq nginx wget unzip syslinux-common grub-common grub-efi-amd64-bin; do
+  dpkg -s "$pkg" >/dev/null 2>&1 || apt-get install -y "$pkg" || warn "Paket fehlt: $pkg"
 done
 
-NETWORK="$(ipcalc -n "${SUBNET_CIDR}" | awk -F= '/NETWORK/ {print $2}')"
-NETMASK="$(ipcalc -m "${SUBNET_CIDR}" | awk -F= '/NETMASK/ {print $2}')"
-
-[ -z "${NETWORK}" ] || [ -z "${NETMASK}" ] && fail "Subnetzberechnung fehlgeschlagen."
-
-log "Ermitteltes PXE-Netz: ${NETWORK} ${NETMASK}"
-
+### VERZEICHNISSE ###
 log "Verzeichnisse anlegen"
 mkdir -p "${BASE}/grub/x86_64-efi" "${WWW}/autoinstall" "${ISO_DIR}"
 mkdir -p "$(dirname "${LOG}")" 2>/dev/null || true
 
-log "dnsmasq stoppen (falls aktiv)"
+### DNSMASQ ###
+log "dnsmasq stoppen"
 systemctl stop dnsmasq >/dev/null 2>&1 || true
 
 log "dnsmasq ProxyDHCP konfigurieren"
-cat > /etc/dnsmasq.d/pxe.conf <<EOF || fail "Konnte dnsmasq Konfiguration nicht schreiben."
+cat > /etc/dnsmasq.d/pxe.conf <<EOF || fail "dnsmasq Konfiguration fehlgeschlagen"
 port=0
 
-dhcp-range=${NETWORK},proxy,${NETMASK}
+dhcp-range=${SUBNET_CIDR},proxy
 
 interface=${IFACE}
 bind-interfaces
@@ -84,9 +81,15 @@ log-dhcp
 log-facility=${LOG}
 EOF
 
+### ISO ###
 log "Ubuntu ISO laden"
-[ -f "${ISO_DIR}/${ISO}" ] || wget -nv -O "${ISO_DIR}/${ISO}" "${UBUNTU_URL}/${ISO}" || fail "ISO Download fehlgeschlagen"
+if [ ! -f "${ISO_DIR}/${ISO}" ]; then
+  wget -nv -O "${ISO_DIR}/${ISO}" "${UBUNTU_URL}/${ISO}" || fail "ISO Download fehlgeschlagen"
+else
+  log "ISO bereits vorhanden"
+fi
 
+### KERNEL / INITRD ###
 log "Kernel & Initrd extrahieren"
 TMP_ISO_DIR="/tmp/iso"
 mkdir -p "${TMP_ISO_DIR}"
@@ -100,17 +103,20 @@ cp "${TMP_ISO_DIR}/casper/initrd"  "${BASE}/initrd"  || fail "initrd kopieren fe
 umount "${TMP_ISO_DIR}" || warn "Unmount fehlgeschlagen"
 rmdir "${TMP_ISO_DIR}" 2>/dev/null || true
 
-log "GRUB EFI Bootloader kopieren"
+### GRUB ###
+log "GRUB EFI kopieren"
 cp -r /usr/lib/grub/x86_64-efi/* "${BASE}/grub/x86_64-efi/" 2>/dev/null || true
 
 GRUB_NET_EFI="/usr/lib/grub/x86_64-efi-signed/grubnetx64.efi.signed"
-[ -f "${GRUB_NET_EFI}" ] && cp "${GRUB_NET_EFI}" "${BASE}/grubx64.efi" || warn "Signed GRUB EFI fehlt"
+[ -f "${GRUB_NET_EFI}" ] && cp "${GRUB_NET_EFI}" "${BASE}/grubx64.efi" || warn "Signed GRUB fehlt"
 
-log "user-data von lernvirt holen"
+### USER-DATA ###
+log "user-data laden"
 wget -nv -O "${WWW}/autoinstall/user-data" "${USERDATA_URL}" || warn "user-data Download fehlgeschlagen"
 
+### GRUB CFG ###
 log "GRUB PXE Menu erstellen"
-cat > "${BASE}/grub/grub.cfg" <<EOF || fail "GRUB Config schreiben fehlgeschlagen"
+cat > "${BASE}/grub/grub.cfg" <<EOF || fail "GRUB Config fehlgeschlagen"
 set timeout=60
 set default=0
 
@@ -124,10 +130,11 @@ menuentry "Ubuntu Server ${UBUNTU_VER} Autoinstall (lernvirt)" {
 }
 EOF
 
+### ABSCHLUSS ###
 log "dnsmasq Autostart deaktivieren"
 systemctl disable dnsmasq >/dev/null 2>&1 || true
 systemctl stop dnsmasq >/dev/null 2>&1 || true
 
 log "Fertig."
-echo "PXE Server starten mit: sudo systemctl start dnsmasq"
-echo "Logs: ${LOG}"
+echo "Start: sudo systemctl start dnsmasq"
+echo "Logs : ${LOG}"
