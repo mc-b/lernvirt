@@ -25,6 +25,7 @@ Die Umgebung eignet sich besonders für:
 ## 2. + 3. Voraussetzungen und Installation
 
 * [Installation](INSTALL.md)
+* Für bestehende lernMAAS Umgebungen siehe [Migration](MIGRATION.md)
 
 ---
 
