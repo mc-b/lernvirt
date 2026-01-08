@@ -99,6 +99,8 @@ Installationsschritte wie bei [Autoinstall](autoinstall/nocloud.control/user-dat
     curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -
     sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -"
     microk8s kubectl -n kubevirt patch kubevirt kubevirt --type=merge --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":false}}}}'
+    microk8s enable metrics-server
+    microk8s enable rbac    
 
 IP-Adresse des Hosts im Browser anwählen und Anleitung folgen.
 

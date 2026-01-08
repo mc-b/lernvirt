@@ -33,6 +33,14 @@ Falls zuvor CPU-Emulation aktiviert wurde, kann diese wieder deaktiviert werden:
     kubectl -n kubevirt patch kubevirt kubevirt \
       --type=merge \
       --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":false}}}}'
+      
+Metrics Server um die Auslastung anzeigen zu können `kubectl top nodes`
+
+    microk8s enable metrics-server
+    
+Rollenbasierter Access um unerlaubte Zugriffe zu unterbinden, aktiveren:
+    
+    microk8s enable rbac      
 
 ### 3.3 VM-Images vorbereiten (optional, empfohlen)
 
