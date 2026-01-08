@@ -106,6 +106,11 @@ Installationsschritte wie bei [Autoinstall](autoinstall/nocloud.control/user-dat
     microk8s kubectl -n kubevirt patch kubevirt kubevirt --type=merge --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":false}}}}'
     microk8s enable metrics-server
     microk8s enable rbac    
+    
+Optional Dashboard aktivieren
+
+    microk8s kubectl apply -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/addons/dashboard-readonly.yaml 
+    microk8s kubectl apply -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/addons/dashboard-rbac.yaml     
 
 IP-Adresse des Hosts im Browser anwählen und Anleitung folgen.
 
