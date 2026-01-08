@@ -3,85 +3,65 @@
 {{- $ipBase := 10 }}
 {{- $ipStart := add $vmStart $ipBase }}
 {{- $ipEnd := add $ipStart (sub $vmCount 1) }}
+------------------------------------------------------
+VMs
+---
 
-=========================================
- VMs
-=========================================
+IP-Adressbereich der VMs: 10.10.0.{{ $ipStart }} – 10.10.0.{{ $ipEnd }}
 
-VMs: IP-Adressen 10.10.0.{{ $ipStart }} – 10.10.0.{{ $ipEnd }}
+Console Verbindung zu einer VM (Beispiel)
+    virtctl console {{ include "lernvirt.fullname" $ }}-vm-0 -n {{ .Release.Namespace }}
 
-Verbinden mit VM (Beispiel)
+Installationsstatus prüfen
+    kubectl get sc,pv,pvc,dv,vm,vmi -n {{ .Release.Namespace }}
+    
+Verwendete Cloud-Init Deklaration Anzeigen
+    kubectl get secret {{ include "lernvirt.fullname" $ }}-vm-0 -n {{ .Release.Namespace }} -o jsonpath='{.data.userData}' | base64 -d   
 
-  virtctl console {{ include "lernvirt.fullname" $ }}-vm-0 -n {{ .Release.Namespace }}
-  
- oder (wenn WireGuard aktiv)
- 
-{{- if or (not .Values.auth) (and .Values.auth (or (not (hasKey .Values.auth "manageSshKey")) .Values.auth.manageSshKey)) }} 
+VM löschen und neu erstellen (Beispiel)
+    kubectl delete vm {{ include "lernvirt.fullname" $ }}-vm-0 -n {{ .Release.Namespace }}
+    helm upgrade {{ .Release.Name }} . -n {{ .Release.Namespace }}
 
-  ssh -i ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh ubuntu@10.10.0.10
-  
-{{- else }}
+Umgebung vollständig entfernen
+    helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }} && kubectl delete ns {{ .Release.Namespace }}
 
-  ssh -i ~/.ssh/lerncloud ubuntu@10.10.0.10  
-  
-{{- end }}
-  
-Fortschrittskontrolle der Installation
+SSH-Zugriff und Port-Weiterleitungen
+------------------------------------
 
-  kubectl get sc,pv,pvc,dv,vm,vmi -n {{ .Release.Namespace }}
-  
-Einzelne VM löschen und wieder erstellen (Beispiel)
+SSH-Ports anzeigen (für SSH Zugriff und Weiterleitungen)
+    kubectl get service -l app.kubernetes.io/instance={{ .Release.Name }} -n {{ .Release.Namespace }}
 
-  kubectl delete vm {{ include "lernvirt.fullname" $ }}-vm-0 -n {{ .Release.Namespace }}
-  helm upgrade {{ .Release.Name }} . -n {{ .Release.Namespace }}
-  
-Umgebung wieder löschen
-
-  helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }} && kubectl delete ns {{ .Release.Namespace }}
-
-=========================================
- SSH Zugriff / Port Weiterleitungen
-=========================================  
-
-Ausgabe der SSH Ports, z.B. für Port Weiterleitungen
-
-  kubectl get service -l app.kubernetes.io/instance={{ .Release.Name }} -n {{ .Release.Namespace }} 
-
+SSH Zugriff auf VM
 {{- if or (not .Values.auth) (and .Values.auth (or (not (hasKey .Values.auth "manageSshKey")) .Values.auth.manageSshKey)) }}
+    ssh -i ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh -p <SSH-Port> ubuntu@{{ .Values.wgClients.endpointNode }}
+{{- else }}
+    ssh -i ~/.ssh/lerncloud -p <SSH-Port> ubuntu@{{ .Values.wgClients.endpointNode }}
+{{- end }}
+    
+{{- if or (not .Values.auth) (and .Values.auth (or (not (hasKey .Values.auth "manageSshKey")) .Values.auth.manageSshKey)) }}
+SSH-Private-Key aus Secret extrahieren
+    kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} -o jsonpath='{.data.ssh-privatekey}' | base64 -d > ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh
+    chmod 600 ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh
 
-SSH-Private-Key aus Secret holen und lokal abstellen
+Port-Weiterleitung (Beispiel) - VM-Port 80 auf lokalen Port 8080
+    ssh -i ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh -p <SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}
 
-  kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} \
-    -o jsonpath='{.data.ssh-privatekey}' | base64 -d >~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh
-  chmod 600 ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh  
-
-Port Weiterleitung (Beispiel: VM-Port 80 → lokal 8080)
-
-  ssh -i ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh -p <gemappter SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}  
-  
-Ubuntu-Passwort aus Secret auslesen für Zugriff ohne SSH-Key
-
-  kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d; echo  
-
+Ubuntu-Passwort auslesen (Fallback) - Passwort aus Secret anzeigen
+    kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d; echo
 {{- else }}
 
-Port Weiterleitung (Beispiel: VM-Port 80 → lokal 8080)
-
-  ssh -i ~/.ssh/lerncloud -p <gemappter SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}  
-
+Port-Weiterleitung mit bestehendem Key - VM-Port 80 auf lokalen Port 8080
+    ssh -i ~/.ssh/lerncloud -p <SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}
 {{- end }}
 
-=========================================
- WireGuard Clients 
-=========================================
+WireGuard-Clients
+-----------------
 
-Clients: IP-Adressen 10.10.0.{{ add .Values.wgClients.startHostId 1 }} – 10.10.0.{{ add .Values.wgClients.startHostId (sub .Values.wgClients.count 1) }}
+IP-Adressbereich der Clients: 10.10.0.{{ add .Values.wgClients.startHostId 1 }} – 10.10.0.{{ add .Values.wgClients.startHostId (sub .Values.wgClients.count 1) }}
 
-Client-Konfigurationen als einzelne Dateien ablegen
-
+Client-Konfigurationen exportieren - Jede Konfiguration als eigene Datei ablegen
     for i in $(seq {{ add .Values.wgClients.startHostId 1 }} {{ add .Values.wgClients.startHostId (sub .Values.wgClients.count 1) }})
     do
         echo "create {{ include "lernvirt.fullname" $ }}-client-$i.conf"
-        kubectl get secret {{ include "lernvirt.fullname" $ }}-client-$i -n {{ .Release.Namespace }} -o jsonpath='{.data.wg0\.conf}' | base64 -d \
-        >{{ include "lernvirt.fullname" $ }}-client-$i.conf 
+        kubectl get secret {{ include "lernvirt.fullname" $ }}-client-$i -n {{ .Release.Namespace }} -o jsonpath='{.data.wg0\.conf}' | base64 -d >{{ include "lernvirt.fullname" $ }}-client-$i.conf 
     done
