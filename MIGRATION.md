@@ -46,6 +46,11 @@ Die weiteren Installationsschritte, wie das Einrichten des NFS-Shares, sind mit 
 **Nach der Installation (siehe unten) von lernvirt auf dem Region-/Rack-Server** werden die KVM-Hosts als Kubernetes Worker Nodes aufbereitet. Die Informationen dazu liefert das MAAS CLI.
 
     maas $PROFILE machines read | jq -r '.[] | select(.power_type=="manual") | "\(.hostname): \(.ip_addresses | join(", ")) | \(.boot_interface.mac_address // "")"'
+    
+Kontrolle ob genügend Pull Request vom Docker HUB möglich sind, minimum > 40.
+
+    TOKEN=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:ratelimitpreview/test:pull" | jq -r .token)
+    curl --head -H "Authorization: Bearer $TOKEN" https://registry-1.docker.io/v2/ratelimitpreview/test/manifests/latest
         
 Maschinen starten, falls Power Off:
 
