@@ -150,6 +150,51 @@ Jetzt erreichst du den Webserver der VM ganz einfach im Browser oder per `curl` 
   
 Der zweite Befehl holt eine IP-Adresse vom Server und wird nur gebraucht, wenn das nicht automatisch erfolgt.
 
+---
+
+### ReadOnly Zugriff auf Kubernetes Cluster
+
+> **Wie kann ich den Lernenden ReadOnly Zugriff auf den Kubernetes Cluster gewähren?**
+
+Dazu muss das Dashboard aktiviert sind oder zumindestens dessen RBAC eingerichtet sein.
+
+    kubectl apply -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/addons/dashboard-rbac.yaml
+    
+Token und minimale KUBECONFIG erzeugen
+
+    DASHBOARD_TOKEN=$(kubectl -n kubernetes-dashboard create token dashboard-readonly)
+
+    APISERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+    CA=$(kubectl config view --raw --minify -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
+    
+    export KUBECONFIG=readonly.config
+    
+    cat <<EOF >${KUBECONFIG}
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - name: cluster
+      cluster:
+        server: ${APISERVER}
+        certificate-authority-data: ${CA}
+    users:
+    - name: dashboard-readonly
+      user:
+        token: ${DASHBOARD_TOKEN}
+    contexts:
+    - name: dashboard-readonly
+      context:
+        cluster: cluster
+        user: dashboard-readonly
+    current-context: dashboard-readonly
+    EOF
+        
+    kubectl get dv,vmi
+    
+**ACHTUNG**: dadurch sehen die Lernenden auch die VMs und Default Passwörter der anderen Klassen.    
+    
+---
+
 ### Multi Arch Container Images
 
 > **ARM-basierende Hardware wird immer attraktiver – wie erstelle ich ein Multiarch-Container-Image, das sowohl auf x86_64 als auch auf ARM läuft?**

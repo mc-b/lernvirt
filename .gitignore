@@ -210,3 +210,4 @@ __marimo__/
 /lernvirt-*.tgz
 /ca-lerncluster.crt
 /*-ssh
+/readonly.config

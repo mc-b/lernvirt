@@ -73,6 +73,19 @@ Typische Ressourcen:
 * `PersistentVolumeClaim` - (Storage)
 * `VirtualMachine` / `VirtualMachineInstance`
 
+Wenn das Dashboard aktiviert ist, kann über https://<Control Plane>:30443 darauf zugegriffen werden. Die relevanten Informationen werden dabei grafisch dargestellt.
+
+Für den Zugriff ist ein Token erforderlich. Dieser kann wie folgt erstellt werden:
+
+        kubectl -n kubernetes-dashboard create token dashboard-readonly --duration=8h
+
+Wird die Option `--duration` nicht angegeben, ist der Token standardmässig eine Stunde gültig.
+
+Das Dashboard kann auch manuell gestart werden:
+
+    kubectl apply -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/addons/dashboard-readonly.yaml 
+    kubectl apply -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/addons/dashboard-rbac.yaml  
+
 ### 5.3 Zugriff auf VM-Konsole
 
     virtctl console m122-lernmaas-vm-0 -n ap21a
