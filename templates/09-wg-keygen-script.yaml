@@ -109,7 +109,69 @@ data:
       fi
     else
       echo "[KEYGEN] SSH key management disabled (auth.manageSshKey=false)"
-    fi
+    fi      
+
+      # --------  kubeconfig für Lernende erzeugen und ins -ssh Secret schreiben --------
+      READONLY_SA="${FULLNAME}-readonly"
+      READONLY_SECRET="${FULLNAME}-readonly-token"
+
+      echo "[KEYGEN] building kubeconfig for ServiceAccount ${READONLY_SA}"
+
+      # warten, bis das Token-Secret vorhanden ist
+      until kubectl get secret "$READONLY_SECRET" -n "$NS" >/dev/null 2>&1; do
+        echo "[KEYGEN] waiting for secret ${READONLY_SECRET} in namespace ${NS} ..."
+        sleep 2
+      done
+
+      TOKEN_B64="$(kubectl get secret "$READONLY_SECRET" -n "$NS" \
+        -o jsonpath='{.data.token}')"
+      CA_CRT_B64="$(kubectl get secret "$READONLY_SECRET" -n "$NS" \
+        -o jsonpath='{.data.ca\.crt}')"
+
+      if [ -z "$TOKEN_B64" ] || [ -z "$CA_CRT_B64" ]; then
+        echo "[KEYGEN][ERROR] readonly token secret missing token/ca.crt"
+        exit 1
+      fi
+
+      TOKEN="$(printf "%s" "$TOKEN_B64" | base64 -d)"
+      CA_DATA="$CA_CRT_B64"
+
+      API_SERVER="https://{{ .Values.wgClients.endpointNode }}:16443"
+
+      cat > /tmp/kubeconfig <<EOF
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - cluster:
+        certificate-authority-data: ${CA_DATA}
+        server: ${API_SERVER}
+      name: {{ .Release.Name }}-lernvirt
+    contexts:
+    - context:
+        cluster: {{ .Release.Name }}-lernvirt
+        user: ${READONLY_SA}
+        namespace: ${NS}
+      name: {{ .Release.Name }}-lernvirt
+    current-context: {{ .Release.Name }}-lernvirt
+    users:
+    - name: ${READONLY_SA}
+      user:
+        token: ${TOKEN}
+    EOF
+
+      # base64 portabel (GNU coreutils oder BusyBox)
+      if base64 --help 2>&1 | grep -q '\-w'; then
+        KCFG_B64="$(base64 -w0 /tmp/kubeconfig)"
+      else
+        KCFG_B64="$(base64 /tmp/kubeconfig | tr -d '\n')"
+      fi
+
+      echo "[KEYGEN] patching kubeconfig into secret ${SSH_SECRET}"
+
+      kubectl patch secret "$SSH_SECRET" -n "$NS" \
+        --type merge \
+        -p "{\"data\":{\"kubeconfig\":\"$KCFG_B64\"}}"
+
 
     i=0
     while [ "$i" -lt "$COUNT" ]; do

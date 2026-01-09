@@ -4,8 +4,9 @@
 {{- $ipStart := add $vmStart $ipBase }}
 {{- $ipEnd := add $ipStart (sub $vmCount 1) }}
 ------------------------------------------------------
-VMs
----
+
+Lehrperson (Nachkontrolle und Troubleshooting)
+----------------------------------------------
 
 IP-Adressbereich der VMs: 10.10.0.{{ $ipStart }} – 10.10.0.{{ $ipEnd }}
 
@@ -25,43 +26,49 @@ VM löschen und neu erstellen (Beispiel)
 Umgebung vollständig entfernen
     helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }} && kubectl delete ns {{ .Release.Namespace }}
 
-SSH-Zugriff und Port-Weiterleitungen
-------------------------------------
+WireGuard-Clients: 10.10.0.{{ add .Values.wgClients.startHostId 1 }} – 10.10.0.{{ add .Values.wgClients.startHostId (sub .Values.wgClients.count 1) }}
 
-SSH-Ports anzeigen (für SSH Zugriff und Weiterleitungen)
-    kubectl get service -l app.kubernetes.io/instance={{ .Release.Name }} -n {{ .Release.Namespace }}
-
-SSH Zugriff auf VM
-{{- if or (not .Values.auth) (and .Values.auth (or (not (hasKey .Values.auth "manageSshKey")) .Values.auth.manageSshKey)) }}
-    ssh -i ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh -p <SSH-Port> ubuntu@{{ .Values.wgClients.endpointNode }}
-{{- else }}
-    ssh -i ~/.ssh/lerncloud -p <SSH-Port> ubuntu@{{ .Values.wgClients.endpointNode }}
-{{- end }}
-    
-{{- if or (not .Values.auth) (and .Values.auth (or (not (hasKey .Values.auth "manageSshKey")) .Values.auth.manageSshKey)) }}
-SSH-Private-Key aus Secret extrahieren
-    kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} -o jsonpath='{.data.ssh-privatekey}' | base64 -d > ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh
-    chmod 600 ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh
-
-Port-Weiterleitung (Beispiel) - VM-Port 80 auf lokalen Port 8080
-    ssh -i ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh -p <SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}
-
-Ubuntu-Passwort auslesen (Fallback) - Passwort aus Secret anzeigen
-    kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d; echo
-{{- else }}
-
-Port-Weiterleitung mit bestehendem Key - VM-Port 80 auf lokalen Port 8080
-    ssh -i ~/.ssh/lerncloud -p <SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}
-{{- end }}
-
-WireGuard-Clients
------------------
-
-IP-Adressbereich der Clients: 10.10.0.{{ add .Values.wgClients.startHostId 1 }} – 10.10.0.{{ add .Values.wgClients.startHostId (sub .Values.wgClients.count 1) }}
-
-Client-Konfigurationen exportieren - Jede Konfiguration als eigene Datei ablegen
+WireGuard-Client Konfigurationen exportieren - Jede Konfiguration als eigene Datei ablegen
     for i in $(seq {{ add .Values.wgClients.startHostId 1 }} {{ add .Values.wgClients.startHostId (sub .Values.wgClients.count 1) }})
     do
         echo "create {{ include "lernvirt.fullname" $ }}-client-$i.conf"
         kubectl get secret {{ include "lernvirt.fullname" $ }}-client-$i -n {{ .Release.Namespace }} -o jsonpath='{.data.wg0\.conf}' | base64 -d >{{ include "lernvirt.fullname" $ }}-client-$i.conf 
     done
+    
+Lernende (ReadOnly)
+-------------------
+
+Zugriffsinformationen (kubeconfig) aus dem Cluster holen
+    kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} -o jsonpath='{.data.kubeconfig}' | base64 -d > kubeconfig
+
+Übersicht über Ressourcen gewinnen (Image Import, Disk, Virtuelle Maschinen und Services)
+    KUBECONFIG=./kubeconfig kubectl get dv,pvc,vmi,service -l app.kubernetes.io/instance={{ .Release.Name }} -n {{ .Release.Namespace }}
+
+
+{{- if or (not .Values.auth) (and .Values.auth (or (not (hasKey .Values.auth "manageSshKey")) .Values.auth.manageSshKey)) }}
+SSH-Private-Key aus Secret extrahieren
+    KUBECONFIG=./kubeconfig kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} -o jsonpath='{.data.ssh-privatekey}' | base64 -d > ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh
+    chmod 600 ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh
+oder Ubuntu-Passwort auslesen (Fallback) - Passwort aus Secret anzeigen
+    KUBECONFIG=./kubeconfig kubectl get secret {{ include "lernvirt.fullname" $ }}-ssh -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d; echo
+
+Auf VMs mittels SSH zugreifen
+    ssh -i ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh -p <SSH-Port> ubuntu@{{ .Values.wgClients.endpointNode }}
+
+Port-Weiterleitung (Beispiel) - VM-Port 80 auf lokalen Port 8080
+    ssh -i ~/.ssh/{{ include "lernvirt.fullname" $ }}-ssh -p <SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}
+
+{{- else }}
+Auf VMs per SSH zugreifen
+    ssh -i ~/.ssh/lerncloud -p <SSH-Port> ubuntu@{{ .Values.wgClients.endpointNode }}
+
+Port-Weiterleitung mit lerncloud Key - VM-Port 80 auf lokalen Port 8080
+    ssh -i ~/.ssh/lerncloud -p <SSH-Port> -L 8080:localhost:80 ubuntu@{{ .Values.wgClients.endpointNode }}
+{{- end }}
+
+WireGuard Konfiguration holen (100 durch {{ add .Values.wgClients.startHostId 1 }} – {{ add .Values.wgClients.startHostId (sub .Values.wgClients.count 1) }} ersetzen)
+
+    KUBECONFIG=./kubeconfig kubectl get secret {{ include "lernvirt.fullname" $ }}-client-100 -n {{ .Release.Namespace }} -o jsonpath='{.data.wg0\.conf}' | base64 -d 
+
+
+    

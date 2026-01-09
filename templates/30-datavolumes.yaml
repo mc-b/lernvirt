@@ -4,6 +4,9 @@ apiVersion: cdi.kubevirt.io/v1beta1
 kind: DataVolume
 metadata:
   name: {{ include "lernvirt.fullname" $ }}-vm-{{ $i }}
+  labels:
+    kubevirt.io/domain: {{ include "lernvirt.fullname" $ }}-vm-{{ $i }}
+    {{- include "lernvirt.labels" $ | nindent 4 }}    
 spec:
   source:
     http:
