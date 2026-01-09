@@ -212,4 +212,4 @@ __marimo__/
 /*-ssh
 /readonly.config
 /kubeconfig
-/alpine-lernvirt-config
+/*-config
