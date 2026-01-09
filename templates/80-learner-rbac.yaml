@@ -1,3 +1,7 @@
+{{- $full := include "lernvirt.fullname" . -}}
+{{- $startHostId := int .Values.wgClients.startHostId -}}
+{{- $clientCount := int .Values.wgClients.count -}}
+
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -13,9 +17,21 @@ rules:
   - apiGroups: [""]
     resources:
       - services
-      - secrets
       - persistentvolumeclaims
     verbs: ["get","list","watch"]
+    
+  # Secrets nur gezielt erlauben: *-ssh + WireGuard-Client-Secrets
+  - apiGroups: [""]
+    resources:
+      - secrets
+    resourceNames:
+      - {{ $full }}-ssh
+{{- range $i, $_ := until $clientCount }}
+      - {{ $full }}-client-{{ add $startHostId (add $i (int 1)) }}
+{{- end }}
+    verbs:
+      - get 
+      
   - apiGroups: ["kubevirt.io"]
     resources:
       - virtualmachineinstances

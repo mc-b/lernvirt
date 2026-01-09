@@ -211,3 +211,4 @@ __marimo__/
 /ca-lerncluster.crt
 /*-ssh
 /readonly.config
+/kubeconfig
