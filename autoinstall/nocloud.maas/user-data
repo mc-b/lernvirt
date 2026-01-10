@@ -40,4 +40,5 @@ autoinstall:
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/issue-patch.sh | bash -   
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/xfce4.sh | bash -     
       - curl -sfL https://raw.githubusercontent.com/mc-b/lernmaas/refs/heads/master/scripts/maas.sh | bash -
-      
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -    
+     
