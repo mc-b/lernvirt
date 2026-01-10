@@ -21,152 +21,166 @@ data:
     #!/bin/sh
     set -e
 
-    echo "[WG] starting controller"
+    install_dependencies() {
+      apk add --no-cache \
+        wireguard-tools \
+        kubectl \
+        jq \
+        iproute2 \
+        iptables \
+        grep \
+        sed \
+        coreutils
+    }
 
-    apk add --no-cache \
-      wireguard-tools \
-      kubectl \
-      jq \
-      iproute2 \
-      iptables \
-      grep \
-      sed \
-      coreutils
+    init_globals() {
+      WG_IF="wg0"
+      WG_PORT="51820"
+      BASE_IP="10.10.0"
+      GW_IP="10.10.0.1/24"
+      SYNC_INTERVAL="15"
+      GW_PRIV="/config/privatekey"
 
-    WG_IF="wg0"
-    WG_PORT="51820"
-    BASE_IP="10.10.0"
-    GW_IP="10.10.0.1/24"
-    SYNC_INTERVAL="15"
-    GW_PRIV="/config/privatekey"
+      FULLNAME="{{ include "lernvirt.fullname" $ }}"
+      GW_SECRET="${FULLNAME}-gateway-priv"
+      GW_PUB_SECRET="${FULLNAME}-gateway-pub"
 
-    FULLNAME="{{ include "lernvirt.fullname" $ }}"
-    GW_SECRET="${FULLNAME}-gateway-priv"
-    GW_PUB_SECRET="${FULLNAME}-gateway-pub"
+      NS="${POD_NAMESPACE:-$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace 2>/dev/null || echo default)}"
 
-    NS="${POD_NAMESPACE:-$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace 2>/dev/null || echo default)}"
+      PEER_REGEX="^(${FULLNAME}-vm-[0-9]+|${FULLNAME}-client-[0-9]+)$"
+    }
 
-    PEER_REGEX="^(${FULLNAME}-vm-[0-9]+|${FULLNAME}-client-[0-9]+)$"
+    init_gateway_keys() {
+      # 1) Gateway Private/Public Key (Secret = Source of Truth)
+      PRIV_B64="$(kubectl get secret "$GW_SECRET" -n "$NS" -o jsonpath='{.data.privatekey}' 2>/dev/null || true)"
 
-    # ------------------------------------------------------------
-    # 1) Gateway Private/Public Key (Secret = Source of Truth)
-    # ------------------------------------------------------------
-    PRIV_B64="$(kubectl get secret "$GW_SECRET" -n "$NS" -o jsonpath='{.data.privatekey}' 2>/dev/null || true)"
+      if [ -z "$PRIV_B64" ]; then
+        echo "[WG] generating gateway private key (persisted in secret)"
+        umask 077
+        PRIV="$(wg genkey)"
+        PRIV_B64="$(printf "%s" "$PRIV" | base64 -w0)"
 
-    if [ -z "$PRIV_B64" ]; then
-      echo "[WG] generating gateway private key (persisted in secret)"
+        kubectl patch secret "$GW_SECRET" -n "$NS" --type merge \
+          -p "{\"data\":{\"privatekey\":\"$PRIV_B64\"}}"
+      else
+        PRIV="$(printf "%s" "$PRIV_B64" | base64 -d)"
+      fi
+
       umask 077
-      PRIV="$(wg genkey)"
-      PRIV_B64="$(printf "%s" "$PRIV" | base64 -w0)"
+      printf "%s" "$PRIV" > "$GW_PRIV"
 
-      kubectl patch secret "$GW_SECRET" -n "$NS" --type merge \
-        -p "{\"data\":{\"privatekey\":\"$PRIV_B64\"}}"
-    else
-      PRIV="$(printf "%s" "$PRIV_B64" | base64 -d)"
-    fi
+      GW_PUB="$(printf "%s" "$PRIV" | wg pubkey)"
+      PUB_B64="$(printf "%s" "$GW_PUB" | base64 -w0)"
 
-    umask 077
-    printf "%s" "$PRIV" > "$GW_PRIV"
+      kubectl patch secret "$GW_PUB_SECRET" -n "$NS" --type merge \
+        -p "{\"data\":{\"publickey\":\"$PUB_B64\"}}"
+    }
 
-    GW_PUB="$(printf "%s" "$PRIV" | wg pubkey)"
-    PUB_B64="$(printf "%s" "$GW_PUB" | base64 -w0)"
+    init_interface() {
+      # 2) WireGuard Interface initialisieren
+      echo "[WG] init interface"
 
-    kubectl patch secret "$GW_PUB_SECRET" -n "$NS" --type merge \
-      -p "{\"data\":{\"publickey\":\"$PUB_B64\"}}"
+      if ! ip link show "$WG_IF" >/dev/null 2>&1; then
+        ip link add "$WG_IF" type wireguard
+        ip addr add "$GW_IP" dev "$WG_IF"
+      fi
 
-    # ------------------------------------------------------------
-    # 2) WireGuard Interface initialisieren
-    # ------------------------------------------------------------
-    echo "[WG] init interface"
+      wg set "$WG_IF" \
+        private-key "$GW_PRIV" \
+        listen-port "$WG_PORT"
 
-    if ! ip link show "$WG_IF" >/dev/null 2>&1; then
-      ip link add "$WG_IF" type wireguard
-      ip addr add "$GW_IP" dev "$WG_IF"
-    fi
+      ip link set up dev "$WG_IF"
+    }
 
-    wg set "$WG_IF" \
-      private-key "$GW_PRIV" \
-      listen-port "$WG_PORT"
+    enable_routing_nat() {
+      # 3) Routing & NAT aktivieren
+      echo "[WG] enable IP forwarding"
+      sysctl -w net.ipv4.ip_forward=1
 
-    ip link set up dev "$WG_IF"
+      EXT_IF="$(ip route | awk '/default/ {print $5}')"
+      echo "[WG] enable NAT via $EXT_IF"
 
-    # ------------------------------------------------------------
-    # 3) Routing & NAT aktivieren
-    # ------------------------------------------------------------
-    echo "[WG] enable IP forwarding"
-    sysctl -w net.ipv4.ip_forward=1
+      iptables -t nat -C POSTROUTING -s 10.10.0.0/24 -o "$EXT_IF" -j MASQUERADE 2>/dev/null \
+        || iptables -t nat -A POSTROUTING -s 10.10.0.0/24 -o "$EXT_IF" -j MASQUERADE
 
-    EXT_IF="$(ip route | awk '/default/ {print $5}')"
-    echo "[WG] enable NAT via $EXT_IF"
+      iptables -C FORWARD -i "$WG_IF" -j ACCEPT 2>/dev/null || iptables -A FORWARD -i "$WG_IF" -j ACCEPT
+      iptables -C FORWARD -o "$WG_IF" -j ACCEPT 2>/dev/null || iptables -A FORWARD -o "$WG_IF" -j ACCEPT
+    }
 
-    iptables -t nat -C POSTROUTING -s 10.10.0.0/24 -o "$EXT_IF" -j MASQUERADE 2>/dev/null \
-      || iptables -t nat -A POSTROUTING -s 10.10.0.0/24 -o "$EXT_IF" -j MASQUERADE
+    sync_peers_loop() {
+      # 4) Peer-Synchronisation (korrektes Base64-Handling)
+      while true; do
+        echo "[WG] syncing peers"
 
-    iptables -C FORWARD -i "$WG_IF" -j ACCEPT 2>/dev/null || iptables -A FORWARD -i "$WG_IF" -j ACCEPT
-    iptables -C FORWARD -o "$WG_IF" -j ACCEPT 2>/dev/null || iptables -A FORWARD -o "$WG_IF" -j ACCEPT
+        JSON="$(kubectl get secrets -n "$NS" -o json 2>/dev/null || true)"
+        [ -z "$JSON" ] && sleep "$SYNC_INTERVAL" && continue
 
-    # ------------------------------------------------------------
-    # 4) Peer-Synchronisation (korrektes Base64-Handling)
-    # ------------------------------------------------------------
-    while true; do
-      echo "[WG] syncing peers"
+        echo "$JSON" | jq -e . >/dev/null 2>&1 || {
+          sleep "$SYNC_INTERVAL"
+          continue
+        }
 
-      JSON="$(kubectl get secrets -n "$NS" -o json 2>/dev/null || true)"
-      [ -z "$JSON" ] && sleep "$SYNC_INTERVAL" && continue
+        DESIRED_KEYS="$(echo "$JSON" | jq -r --arg re "$PEER_REGEX" '
+          .items[]
+          | select(.metadata.name | test($re))
+          | .data.publickey
+        ' | while read -r B64; do
+              printf "%s\n" "$(printf "%s" "$B64" | base64 -d)"
+            done | sort)"
 
-      echo "$JSON" | jq -e . >/dev/null 2>&1 || {
-        sleep "$SYNC_INTERVAL"
-        continue
-      }
+        CURRENT_KEYS="$(wg show "$WG_IF" peers | sort)"
 
-      DESIRED_KEYS="$(echo "$JSON" | jq -r --arg re "$PEER_REGEX" '
-        .items[]
-        | select(.metadata.name | test($re))
-        | .data.publickey
-      ' | while read -r B64; do
-            printf "%s\n" "$(printf "%s" "$B64" | base64 -d)"
-          done | sort)"
+        echo "$JSON" | jq -c --arg re "$PEER_REGEX" '
+          .items[]
+          | select(.metadata.name | test($re))
+          | {
+              name: .metadata.name,
+              pub_b64: .data.publickey
+            }
+        ' | while read -r line; do
+            NAME="$(echo "$line" | jq -r .name)"
+            PUB="$(echo "$line" | jq -r .pub_b64 | base64 -d)"
+            [ "${#PUB}" -eq 44 ] || continue
 
-      CURRENT_KEYS="$(wg show "$WG_IF" peers | sort)"
+            case "$NAME" in
+              ${FULLNAME}-vm-*)
+                IDX="$(echo "$NAME" | sed -E "s/${FULLNAME}-vm-([0-9]+)/\1/")"
+                IP="$BASE_IP.$((IDX+10))/32"
+                ;;
+              ${FULLNAME}-client-*)
+                IDX="$(echo "$NAME" | sed -E "s/${FULLNAME}-client-([0-9]+)/\1/")"
+                IP="$BASE_IP.$IDX/32"
+                ;;
+              *)
+                continue
+                ;;
+            esac
 
-      echo "$JSON" | jq -c --arg re "$PEER_REGEX" '
-        .items[]
-        | select(.metadata.name | test($re))
-        | {
-            name: .metadata.name,
-            pub_b64: .data.publickey
-          }
-      ' | while read -r line; do
-          NAME="$(echo "$line" | jq -r .name)"
-          PUB="$(echo "$line" | jq -r .pub_b64 | base64 -d)"
-          [ "${#PUB}" -eq 44 ] || continue
+            if ! echo "$CURRENT_KEYS" | grep -qx "$PUB"; then
+              echo "[WG] add peer $NAME ($IP)"
+              wg set "$WG_IF" peer "$PUB" allowed-ips "$IP"
+            fi
+          done
 
-          case "$NAME" in
-            ${FULLNAME}-vm-*)
-              IDX="$(echo "$NAME" | sed -E "s/${FULLNAME}-vm-([0-9]+)/\1/")"
-              IP="$BASE_IP.$((IDX+10))/32"
-              ;;
-            ${FULLNAME}-client-*)
-              IDX="$(echo "$NAME" | sed -E "s/${FULLNAME}-client-([0-9]+)/\1/")"
-              IP="$BASE_IP.$IDX/32"
-              ;;
-            *)
-              continue
-              ;;
-          esac
-
-          if ! echo "$CURRENT_KEYS" | grep -qx "$PUB"; then
-            echo "[WG] add peer $NAME ($IP)"
-            wg set "$WG_IF" peer "$PUB" allowed-ips "$IP"
+        for PUB in $CURRENT_KEYS; do
+          if ! echo "$DESIRED_KEYS" | grep -qx "$PUB"; then
+            echo "[WG] remove stale peer $PUB"
+            wg set "$WG_IF" peer "$PUB" remove
           fi
         done
 
-      for PUB in $CURRENT_KEYS; do
-        if ! echo "$DESIRED_KEYS" | grep -qx "$PUB"; then
-          echo "[WG] remove stale peer $PUB"
-          wg set "$WG_IF" peer "$PUB" remove
-        fi
+        sleep "$SYNC_INTERVAL"
       done
+    }
 
-      sleep "$SYNC_INTERVAL"
-    done
+    main() {
+      echo "[WG] starting controller"
+      install_dependencies
+      init_globals
+      init_gateway_keys
+      init_interface
+      enable_routing_nat
+      sync_peers_loop
+    }
+
+    main

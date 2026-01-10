@@ -36,49 +36,58 @@ spec:
         - |
           set -e
 
-          apk add --no-cache wireguard-tools kubectl coreutils
+          install_dependencies() {
+            apk add --no-cache wireguard-tools kubectl coreutils
+          }
 
-          FULLNAME="{{ include "lernvirt.fullname" $ }}"
-          START={{ .Values.wgClients.startHostId }}
-          COUNT={{ .Values.wgClients.count }}
-          NS="{{ .Release.Namespace }}"
-          WG_NET="10.10.0.0/24"
-          ENDPOINT="{{ .Values.wgClients.endpointNode }}"
+          init_globals() {
+            FULLNAME="{{ include "lernvirt.fullname" $ }}"
+            START={{ .Values.wgClients.startHostId }}
+            COUNT={{ .Values.wgClients.count }}
+            NS="{{ .Release.Namespace }}"
+            WG_NET="10.10.0.0/24"
+            ENDPOINT="{{ .Values.wgClients.endpointNode }}"
+          }
 
-          until kubectl get secret "${FULLNAME}-gateway-pub" -n "$NS" >/dev/null 2>&1; do
-            sleep 2
-          done
+          wait_for_gateway_pub() {
+            until kubectl get secret "${FULLNAME}-gateway-pub" -n "$NS" >/dev/null 2>&1; do
+              sleep 2
+            done
 
-          GW_PUB="$(kubectl get secret "${FULLNAME}-gateway-pub" -n "$NS" \
-            -o jsonpath='{.data.publickey}' | base64 -d)"
-          [ -n "$GW_PUB" ] || exit 1
+            GW_PUB="$(kubectl get secret "${FULLNAME}-gateway-pub" -n "$NS" \
+              -o jsonpath='{.data.publickey}' | base64 -d)"
+            [ -n "$GW_PUB" ] || exit 1
+          }
 
-          until kubectl get svc "${FULLNAME}-gateway" -n "$NS" >/dev/null 2>&1; do
-            sleep 2
-          done
+          wait_for_gateway_service() {
+            until kubectl get svc "${FULLNAME}-gateway" -n "$NS" >/dev/null 2>&1; do
+              sleep 2
+            done
 
-          WG_PORT="$(kubectl get svc "${FULLNAME}-gateway" -n "$NS" \
-            -o jsonpath='{.spec.ports[?(@.port==51820)].nodePort}')"
-          [ -n "$WG_PORT" ] || exit 1
+            WG_PORT="$(kubectl get svc "${FULLNAME}-gateway" -n "$NS" \
+              -o jsonpath='{.spec.ports[?(@.port==51820)].nodePort}')"
+            [ -n "$WG_PORT" ] || exit 1
+          }
 
-          for i in $(seq 0 $((COUNT-1))); do
-            HOST_ID=$((START+i))
-            SECRET="${FULLNAME}-client-${HOST_ID}"
-            CLIENT_IP="10.10.0.${HOST_ID}/32"
+          generate_clients() {
+            for i in $(seq 0 $((COUNT-1))); do
+              HOST_ID=$((START+i))
+              SECRET="${FULLNAME}-client-${HOST_ID}"
+              CLIENT_IP="10.10.0.${HOST_ID}/32"
 
-            EXISTING_PRIV_B64="$(kubectl get secret "$SECRET" -n "$NS" \
-              -o jsonpath='{.data.privatekey}' 2>/dev/null || true)"
+              EXISTING_PRIV_B64="$(kubectl get secret "$SECRET" -n "$NS" \
+                -o jsonpath='{.data.privatekey}' 2>/dev/null || true)"
 
-            if [ -n "$EXISTING_PRIV_B64" ]; then
-              CLIENT_PRIV="$(printf "%s" "$EXISTING_PRIV_B64" | base64 -d)"
-            else
-              umask 077
-              CLIENT_PRIV="$(wg genkey)"
-            fi
+              if [ -n "$EXISTING_PRIV_B64" ]; then
+                CLIENT_PRIV="$(printf "%s" "$EXISTING_PRIV_B64" | base64 -d)"
+              else
+                umask 077
+                CLIENT_PRIV="$(wg genkey)"
+              fi
 
-            CLIENT_PUB="$(printf "%s" "$CLIENT_PRIV" | wg pubkey)"
+              CLIENT_PUB="$(printf "%s" "$CLIENT_PRIV" | wg pubkey)"
 
-            cat > /tmp/wg0.conf <<EOF
+              cat > /tmp/wg0.conf <<EOF
           [Interface]
           PrivateKey = ${CLIENT_PRIV}
           Address = ${CLIENT_IP}
@@ -90,14 +99,25 @@ spec:
           PersistentKeepalive = 25
           EOF
 
-            CONF_B64="$(base64 -w0 /tmp/wg0.conf)"
-            PRIV_B64="$(printf "%s" "$CLIENT_PRIV" | base64 -w0)"
-            PUB_B64="$(printf "%s" "$CLIENT_PUB" | base64 -w0)"
+              CONF_B64="$(base64 -w0 /tmp/wg0.conf)"
+              PRIV_B64="$(printf "%s" "$CLIENT_PRIV" | base64 -w0)"
+              PUB_B64="$(printf "%s" "$CLIENT_PUB" | base64 -w0)"
 
-            kubectl patch secret "$SECRET" -n "$NS" \
-              --type merge \
-              -p "{\"data\":{\"wg0.conf\":\"$CONF_B64\",\"privatekey\":\"$PRIV_B64\",\"publickey\":\"$PUB_B64\"}}"
-          done
+              kubectl patch secret "$SECRET" -n "$NS" \
+                --type merge \
+                -p "{\"data\":{\"wg0.conf\":\"$CONF_B64\",\"privatekey\":\"$PRIV_B64\",\"publickey\":\"$PUB_B64\"}}"
+            done
+          }
 
-          echo "[CLIENTS] done"
+          main() {
+            install_dependencies
+            init_globals
+            wait_for_gateway_pub
+            wait_for_gateway_service
+            generate_clients
+
+            echo "[CLIENTS] done"
+          }
+
+          main
           exit 0
