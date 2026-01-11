@@ -19,10 +19,16 @@ rules:
       - configmaps
       - secrets
       - persistentvolumeclaims
+      - persistentvolumes
       - events
       - replicationcontrollers 
     verbs: ["get","list","watch"]
-
+    
+  - apiGroups: ["storage.k8s.io"]
+    resources:    
+      - storageclasses
+    verbs: ["get","list","watch"]
+      
   - apiGroups: ["apps"]
     resources:
       - deployments
