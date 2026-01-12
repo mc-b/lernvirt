@@ -40,7 +40,7 @@
       "properties": {
         "count": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 0
         },
         "cpu": {
           "type": "integer",

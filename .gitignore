@@ -213,3 +213,4 @@ __marimo__/
 /readonly.config
 /kubeconfig
 /*-config
+/out/

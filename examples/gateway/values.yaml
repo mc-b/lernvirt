@@ -1,0 +1,11 @@
+
+# VMs welche erstellt werden sollen. 
+vm:
+  count: 0
+  
+  
+# WireGuard Clients. WireGuard erreichbar via Host
+wgClients:
+  startHostId: 20
+  count: 48
+  endpointNode: cloud.tbz.ch 
