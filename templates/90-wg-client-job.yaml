@@ -45,7 +45,7 @@ spec:
             START={{ .Values.wgClients.startHostId }}
             COUNT={{ .Values.wgClients.count }}
             NS="{{ .Release.Namespace }}"
-            WG_NET="10.10.0.0/24"
+            WG_NET="10.10.1.0/24"
             ENDPOINT="{{ .Values.wgClients.endpointNode }}"
           }
 
@@ -73,7 +73,7 @@ spec:
             for i in $(seq 0 $((COUNT-1))); do
               HOST_ID=$((START+i))
               SECRET="${FULLNAME}-client-${HOST_ID}"
-              CLIENT_IP="10.10.0.${HOST_ID}/32"
+              CLIENT_IP="10.10.1.${HOST_ID}/32"
 
               EXISTING_PRIV_B64="$(kubectl get secret "$SECRET" -n "$NS" \
                 -o jsonpath='{.data.privatekey}' 2>/dev/null || true)"

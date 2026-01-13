@@ -19,7 +19,7 @@ Parameter:
     --fullname NAME       Prefix der Ressourcen, z.B. Helm-FULLNAME (wie im Gateway)
     --endpoint HOST       Öffentlicher Endpoint des Gateways (DNS oder IP)
     --namespace, -n NS    Namespace (Standard: default)
-    --wg-net CIDR         WG Netz (Standard: 10.10.0.0/24)
+    --wg-net CIDR         WG Netz (Standard: 10.10.1.0/24)
     --count N             Anzahl neuer Clients
     --start-id ID         Erste Host-ID (optional, sonst automatisch ermittelt)
     --output-dir DIR      Verzeichnis, in das wg0.conf-Dateien geschrieben werden
@@ -34,7 +34,7 @@ EOF
 ACTION=""
 FULLNAME=""
 NS="default"
-WG_NET="10.10.0.0/24"
+WG_NET="10.10.1.0/24"
 ENDPOINT=""
 COUNT=0
 START_ID=""
@@ -196,7 +196,7 @@ add_clients() {
   for ((i=0; i<COUNT; i++)); do
     local host_id=$((start_id + i))
     local secret_name="${FULLNAME}-client-${host_id}"
-    local client_ip="10.10.0.${host_id}/32"
+    local client_ip="10.10.1.${host_id}/32"
 
     if kubectl get secret "$secret_name" -n "$NS" >/dev/null 2>&1; then
       echo "Secret ${secret_name} existiert bereits – ueberspringe."

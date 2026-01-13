@@ -276,12 +276,12 @@ data:
         content: |
           [Interface]
           PrivateKey = ${PRIV:-__KEEP_EXISTING_PRIVATEKEY__}
-          Address = 10.10.0.${IP}/32
+          Address = 10.10.1.${IP}/32
 
           [Peer]
           PublicKey = ${GW_PUB}
           Endpoint = ${FULLNAME}-gateway:51820
-          AllowedIPs = 10.10.0.0/24
+          AllowedIPs = 10.10.1.0/24
           PersistentKeepalive = 25
           
       - path: /etc/datasource.conf
@@ -300,12 +300,12 @@ data:
         content: |
           [Interface]
           PrivateKey = ${PRIV:-__KEEP_EXISTING_PRIVATEKEY__}
-          Address = 10.10.0.${IP}/32
+          Address = 10.10.1.${IP}/32
     
           [Peer]
           PublicKey = ${GW_PUB}
           Endpoint = ${FULLNAME}-gateway:51820
-          AllowedIPs = 10.10.0.0/24
+          AllowedIPs = 10.10.1.0/24
           PersistentKeepalive = 25
       - path: /etc/datasource.conf
         permissions: "0644"

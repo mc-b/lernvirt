@@ -36,8 +36,8 @@ data:
     init_globals() {
       WG_IF="wg0"
       WG_PORT="51820"
-      BASE_IP="10.10.0"
-      GW_IP="10.10.0.1/24"
+      BASE_IP="10.10.1"
+      GW_IP="10.10.1.1/24"
       SYNC_INTERVAL="15"
       GW_PRIV="/config/privatekey"
 
@@ -100,8 +100,8 @@ data:
       EXT_IF="$(ip route | awk '/default/ {print $5}')"
       echo "[WG] enable NAT via $EXT_IF"
 
-      iptables -t nat -C POSTROUTING -s 10.10.0.0/24 -o "$EXT_IF" -j MASQUERADE 2>/dev/null \
-        || iptables -t nat -A POSTROUTING -s 10.10.0.0/24 -o "$EXT_IF" -j MASQUERADE
+      iptables -t nat -C POSTROUTING -s 10.10.1.0/24 -o "$EXT_IF" -j MASQUERADE 2>/dev/null \
+        || iptables -t nat -A POSTROUTING -s 10.10.1.0/24 -o "$EXT_IF" -j MASQUERADE
 
       iptables -C FORWARD -i "$WG_IF" -j ACCEPT 2>/dev/null || iptables -A FORWARD -i "$WG_IF" -j ACCEPT
       iptables -C FORWARD -o "$WG_IF" -j ACCEPT 2>/dev/null || iptables -A FORWARD -o "$WG_IF" -j ACCEPT

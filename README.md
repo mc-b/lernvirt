@@ -112,7 +112,7 @@ Die Konfiguration kann direkt in einen WireGuard-Client importiert werden (Linux
 
 Nach erfolgreicher VPN-Verbindung ist der Zugriff per SSH möglich:
 
-    ssh -i ~/.ssh/lerncloud debian@10.10.0.10
+    ssh -i ~/.ssh/lerncloud debian@10.10.1.10
 
 ---
 

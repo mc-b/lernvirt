@@ -27,7 +27,7 @@ Testen
 
     virtctl console vm-0 -n duk   
     
-    ssh -i ~/.ssh/lerncloud ubuntu@10.10.0.10  
+    ssh -i ~/.ssh/lerncloud ubuntu@10.10.1.10  
     
 ### Troubleshooting
 
@@ -35,9 +35,9 @@ Testen
 
 Die Control Plane Node (vm-0) kann `ssh vm-1` ausführen aber nicht umgekehrt.
 
-Lösung: statt vm-0, WireGuard IP-Adresse 10.10.0.10 verwenden. Bsp:
+Lösung: statt vm-0, WireGuard IP-Adresse 10.10.1.10 verwenden. Bsp:
 
-    ssh vm-1 -- "sudo mount -t nfs 10.10.0.10:/data /data; df -h | grep /data" 
+    ssh vm-1 -- "sudo mount -t nfs 10.10.1.10:/data /data; df -h | grep /data" 
     
 **nginx**
 

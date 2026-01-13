@@ -8,7 +8,7 @@
 Lehrperson (Nachkontrolle und Troubleshooting)
 ----------------------------------------------
 
-IP-Adressbereich der VMs: 10.10.0.{{ $ipStart }} – 10.10.0.{{ $ipEnd }}
+IP-Adressbereich der VMs: 10.10.1.{{ $ipStart }} – 10.10.1.{{ $ipEnd }}
 
 Console Verbindung zu einer VM (Beispiel)
     virtctl console {{ include "lernvirt.fullname" $ }}-vm-0 -n {{ .Release.Namespace }}
@@ -26,7 +26,7 @@ VM löschen und neu erstellen (Beispiel)
 Umgebung vollständig entfernen
     helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }} && kubectl delete ns {{ .Release.Namespace }}
 
-WireGuard-Clients: 10.10.0.{{ add .Values.wgClients.startHostId 1 }} – 10.10.0.{{ add .Values.wgClients.startHostId (sub .Values.wgClients.count 1) }}
+WireGuard-Clients: 10.10.1.{{ add .Values.wgClients.startHostId 1 }} – 10.10.1.{{ add .Values.wgClients.startHostId (sub .Values.wgClients.count 1) }}
 
 WireGuard-Client Konfigurationen exportieren - Jede Konfiguration als eigene Datei ablegen
     for i in $(seq {{ add .Values.wgClients.startHostId 1 }} {{ add .Values.wgClients.startHostId (sub .Values.wgClients.count 1) }})

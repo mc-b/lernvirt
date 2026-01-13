@@ -40,7 +40,7 @@ Beispiel:
       
     # Cloud-init Datasource - fuer nfsclient.sh, mounted /data etc.  
     datasource:
-      serverIP: 10.10.0.2       
+      serverIP: 10.10.0.5
 
 **Bedeutung der wichtigsten Parameter:**
 

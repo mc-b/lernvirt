@@ -30,11 +30,11 @@ mirror:
   enabled: false
   storage:
     size: 50Gi  
-  mirrorBaseUrl: http://10.10.0.2
+  mirrorBaseUrl: http://10.10.0.5
   
 # Cloud-init Datasource - fuer nfsclient.sh, mounted /data etc.  
 datasource:
-  serverIP: 10.10.0.2 
+  serverIP: 10.10.0.5 
   
 # StorageClass fuer DataVolume fuer Single Node, ARM64  
 storage:
