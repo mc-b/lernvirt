@@ -152,6 +152,54 @@ Der zweite Befehl holt eine IP-Adresse vom Server und wird nur gebraucht, wenn d
 
 ---
 
+### SSH nur Port Weiterleitung (ohne Shell)
+
+> **Wie kann ich den Lernenden nur Zugriff auf einen bestimmen Port auf meinem System gewähren?**
+
+Das lässt sich mit einem **eingeschränkten SSH-Key** über `authorized_keys` sauber lösen. Der Zugriff wird dabei auf **Port-Forwarding zu einem definierten Ziel/Port** beschränkt, z.B. auf den Ollama-Service.
+
+Beispielannahme:
+– Ollama läuft auf `127.0.0.1:11434` (oder einem internen Service)
+– Der Benutzer auf dem Zielsystem heisst `ollama`
+
+Zuerst erzeugst du lokal den SSH-Key:
+
+    ssh-keygen -t ed25519 -f ollama-portforward -C "ollama-portforward-only"
+
+Das erzeugt:
+
+* `ollama-portforward` (privat)
+* `ollama-portforward.pub` (öffentlich)
+
+Nun trägst du den **öffentlichen Key** auf dem Server in
+
+`/home/ollama/.ssh/authorized_keys` ein – **mit Einschränkungen davor**:
+
+    command="echo 'Port forwarding only'",\
+    no-pty,\
+    no-agent-forwarding,\
+    no-X11-forwarding,\
+    permitopen="127.0.0.1:11434" \
+    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... ollama-portforward-only
+
+Wichtiges dazu, kurz und präzise:
+
+* `permitopen` erlaubt **nur genau diesen Host:Port**
+* `no-pty` verhindert eine Shell
+* `command=...` ersetzt jede mögliche Kommandoausführung
+* Login ist faktisch **nicht interaktiv**
+* Der Key ist nur für SSH-Tunneling brauchbar
+
+Verbindung vom Client aus:
+
+    ssh -i ollama-portforward -N -L 11434:127.0.0.1:11434 ollama@server.example.ch
+
+Danach ist Ollama lokal erreichbar unter:
+
+    http://localhost:11434
+
+---
+
 ### ReadOnly Zugriff auf Kubernetes Cluster
 
 > **Wie kann ich den Lernenden ReadOnly Zugriff auf den Kubernetes Cluster gewähren?**
