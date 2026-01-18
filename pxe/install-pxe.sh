@@ -179,8 +179,8 @@ cat <<EOF >/home/ubuntu/.ssh/config
 StrictHostKeyChecking no
 UserKnownHostsFile /dev/null
 LogLevel error
-#User ubuntu
-#IdentityFile ~/.ssh/id_rsa
+User ubuntu
+IdentityFile ~/.ssh/id_rsa_lernvirt
 EOF
 chown ubuntu:ubuntu /home/ubuntu/.ssh/config
 chmod 400 /home/ubuntu/.ssh/config
