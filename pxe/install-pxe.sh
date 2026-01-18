@@ -200,6 +200,7 @@ menuentry "Local boot (lernvirt)" {
     configfile (\$root)/boot/grub/grub.cfg
 }
 menuentry "Ubuntu Server ${UBUNTU_VER} Autoinstall (lernvirt)" {
+        set root=(tftp)
         linux /vmlinuz \\
           ip=dhcp \\
           url=http://${PXE_IP}/linux/ubuntu/noble/amd64/${ISO} \\
