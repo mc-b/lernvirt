@@ -181,9 +181,24 @@ fi
 
 log "GRUB PXE Menue erstellen"
 if ! cat > "${BASE}/grub/grub.cfg" <<EOF
-set timeout=60
-set default=0
+set timeout=5
+set default=1
 
+# WICHTIG: Erlaubt GRUB den Zugriff auf lokale Festplatten
+insmod part_gpt
+insmod ext2       # Deckt auch ext3/ext4 ab
+# Falls die Datei auf einer FAT32/EFI-Partition liegt, zusätzlich:
+insmod fat
+
+# Suche nach der Datei und setze root
+if search --no-floppy --file --set=root /boot/lernvirt-installed; then
+    set default="0"
+fi
+
+menuentry "Local boot (lernvirt)" {
+    # laedt die lokale Konfiguration von der gefundenen Partition
+    configfile (\$root)/boot/grub/grub.cfg
+}
 menuentry "Ubuntu Server ${UBUNTU_VER} Autoinstall (lernvirt)" {
         linux /vmlinuz \\
           ip=dhcp \\
@@ -198,10 +213,7 @@ then
   fail "Konnte ${BASE}/grub/grub.cfg nicht schreiben."
 fi
 
-log "dnsmasq fuer automatischen Start deaktivieren"
-systemctl disable dnsmasq >/dev/null 2>&1 || warn "Konnte dnsmasq nicht deaktivieren (evtl. kein Systemd-Unit vorhanden)."
-systemctl stop dnsmasq >/dev/null 2>&1 || true
+systemctl restart dnsmasq >/dev/null 2>&1 || true
 
 log "Fertig."
-echo "PXE Server starten mittels: sudo systemctl start dnsmasq"
 echo "Logs: ${LOG}"

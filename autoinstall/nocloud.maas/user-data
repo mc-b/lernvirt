@@ -23,6 +23,10 @@ autoinstall:
   storage:
     layout:
       name: direct
+      
+  # Diese Befehle laufen NOCH VOR dem Reboot am Ende der Installation
+  late-commands:
+    - curtin in-target --target=/target -- touch /boot/lernvirt-installed           
 
   user-data:
     users:

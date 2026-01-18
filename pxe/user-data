@@ -23,6 +23,10 @@ autoinstall:
   storage:
     layout:
       name: direct
+
+  # Diese Befehle laufen NOCH VOR dem Reboot am Ende der Installation
+  late-commands:
+    - curtin in-target --target=/target -- touch /boot/lernvirt-installed      
       
   user-data:
     users:
@@ -42,6 +46,5 @@ autoinstall:
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsclient.sh | bash -
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -  
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/scripts/disable-uefi-pxe.sh | bash -        
       - echo "ubuntu:insecure" | chpasswd         
  

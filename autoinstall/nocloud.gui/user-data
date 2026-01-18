@@ -24,6 +24,10 @@ autoinstall:
     layout:
       name: direct
 
+  # Diese Befehle laufen NOCH VOR dem Reboot am Ende der Installation
+  late-commands:
+    - curtin in-target --target=/target -- touch /boot/lernvirt-installed           
+
   user-data:
     users:
       - default
@@ -52,7 +56,7 @@ autoinstall:
       - microk8s kubectl apply -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/addons/dashboard-readonly.yaml 
       - microk8s kubectl apply -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/addons/dashboard-rbac.yaml
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -    
-      - echo "ubuntu:insecure" | chpasswd
+      - echo "ubuntu:$(head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 16)" | chpasswd
       - curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-pxe.sh | bash -     
             
       
