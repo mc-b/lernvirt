@@ -174,9 +174,33 @@ else
   warn "Signed GRUB-Net-EFI nicht gefunden unter ${GRUB_NET_EFI}. Bitte Pfad pruefen."
 fi
 
+# 1. SSH-Key für den User 'ubuntu' erzeugen (falls noch nicht vorhanden)
+# -N "" setzt kein Passwort, -f definiert den Pfad
+SSH_KEY_FILE="/home/ubuntu/.ssh/id_rsa_lernvirt"
+if [ ! -f "$SSH_KEY_FILE" ]; then
+    log "Erzeuge neuen SSH-Key für Ubuntu-User..."
+    ssh-keygen -t rsa -b 4096 -N "" -f "$SSH_KEY_FILE" -C "ubuntu@lernvirt-$(date +%F)"
+    chown ubuntu:ubuntu "$SSH_KEY_FILE" "${SSH_KEY_FILE}.pub"
+    chmod 400 "$SSH_KEY_FILE" "${SSH_KEY_FILE}.pub"
+fi
+
+# Public Key in eine Variable laden
+PUB_KEY=$(cat "${SSH_KEY_FILE}.pub")
+
+# 2. user-data herunterladen
 log "user-data von lernvirt holen"
-if ! wget -nv -O "${WWW}/autoinstall/user-data" "${USERDATA_URL}"; then
-  warn "Konnte user-data nicht laden von ${USERDATA_URL}. Autoinstall wird evtl. nicht funktionieren."
+TEMP_USERDATA="/tmp/user-data.tmp"
+if wget -nv -O "$TEMP_USERDATA" "${USERDATA_URL}"; then
+    
+    # 3. Den alten Key durch den neuen ersetzen
+    # Wir suchen nach der Zeile mit 'ssh-rsa' und ersetzen die komplette Zeile
+    log "Injektiere neuen SSH-Key in user-data"
+    sed -i "s|ssh-rsa .* insecure@lerncloud|- $PUB_KEY|" "$TEMP_USERDATA"
+    
+    # Datei an Zielort verschieben
+    mv "$TEMP_USERDATA" "${WWW}/autoinstall/user-data"
+else
+    warn "Konnte user-data nicht laden von ${USERDATA_URL}. Autoinstall wird evtl. nicht funktionieren."
 fi
 
 log "GRUB PXE Menue erstellen"
