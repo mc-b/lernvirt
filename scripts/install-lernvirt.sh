@@ -276,12 +276,6 @@ Dieser Dienst erlaubt es, weitere Worker Nodes automatisiert per PXE-Boot
 zu installieren.
 </p>
 
-<p>
-Aus Sicherheitsgründen ist <code>dnsmasq</code> standardmässig deaktiviert.
-Die Aktivierung erfolgt explizit durch die Administration:
-</p>
-<pre><code>sudo systemctl start dnsmasq</code></pre>
-
 <h3>Weitere Worker Nodes anbinden</h3>
 <p>
 Zusätzliche Worker Nodes werden über <code>microk8s add-node</code>
