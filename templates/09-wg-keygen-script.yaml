@@ -44,32 +44,23 @@ data:
       SSH_PUB_LINE=""
     }
 
-    build_userdata_list() {
-      # -------- userdata array vorbereiten (per Helm gerendert) --------
-      USERDATA_LIST=""
-      i=0
-      while [ "$i" -lt "$COUNT" ]; do
-        case "$i" in
 {{- range $k, $v := .Values }}
 {{- if hasPrefix "vm-" $k }}
 {{- if and (hasKey $v "userdata") (ne $v.userdata "") }}
-        {{ trimPrefix "vm-" $k }})
-          USERDATA_LIST="$USERDATA_LIST {{ $v.userdata }}"
-          ;;
+    VM_{{ trimPrefix "vm-" $k }}_USERDATA="{{ $v.userdata }}"
 {{- end }}
 {{- end }}
 {{- end }}
-        *)
-          USERDATA_LIST="$USERDATA_LIST __DEFAULT__"
-          ;;
-        esac
-        i=$((i+1))
-      done
-    }
 
-    prepare_userdata_positional() {
-      # shell positional params = userdata entries
-      set -- $USERDATA_LIST
+    get_userdata_for_vm() {
+      idx="$1"
+      eval "UD=\${VM_${idx}_USERDATA:-}"
+    
+      if [ -n "$UD" ]; then
+        echo "$UD $DEFAULT_USERDATA"
+      else
+        echo "$DEFAULT_USERDATA"
+      fi
     }
 
     wait_for_gateway_public_key() {
@@ -188,13 +179,8 @@ data:
     process_all_vms() {
       i=0
       while [ "$i" -lt "$COUNT" ]; do
-        eval "UD=\${$((i+1))}"
-
-        if [ "$UD" = "__DEFAULT__" ] || [ -z "$UD" ]; then
-          CANDIDATES="$DEFAULT_USERDATA"
-        else
-          CANDIDATES="$UD"
-        fi
+      
+        CANDIDATES="$(get_userdata_for_vm "$i")"
         CANDIDATES="${CANDIDATES//\{\{RELEASE\}\}/{{ .Release.Name }}}"
 
         VM_SECRET="${FULLNAME}-vm-$i"
@@ -330,8 +316,6 @@ data:
       echo "[KEYGEN] starting"
       install_dependencies
       init_globals
-      build_userdata_list
-      prepare_userdata_positional
       wait_for_gateway_public_key
       ensure_shared_ssh_key
       build_kubeconfig
