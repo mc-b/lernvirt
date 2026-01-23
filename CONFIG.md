@@ -60,4 +60,5 @@ Das Verzeichnis examples/ enthält optionale, in sich geschlossene Beispiele, di
 * [Windows 10](examples/win10/README.md)
 * [Windows Server 2022](examples/wins2022/README.md)
 * [lernvirt nur als Wireguard Gateway Server verwenden](examples/gateway/README.md)
+* [AI Umgebung](examples/aiaas/README.md)
 

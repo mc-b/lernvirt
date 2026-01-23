@@ -1,0 +1,24 @@
+#
+# Erstellt eine Control Plane Node und zwei Worker Nodes
+#
+
+vm:
+  count: 5
+  ports:
+    - 32188
+  
+  # AI Clients
+  cpu: 2
+  memory: 2Gi
+  storage: 8Gi
+  userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/aiaas/cloud-init-ai-client.yaml
+
+# AI Server 
+vm-0:
+  cpu: 8
+  memory: 12Gi
+  storage: 32Gi
+  userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/aiaas/cloud-init-ai-server.yaml
+  ports:
+    - 11434
+   
