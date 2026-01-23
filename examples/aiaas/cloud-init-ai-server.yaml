@@ -16,10 +16,16 @@ packages:
 runcmd:
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsclient.sh | bash -
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/vpn.sh | bash -
-  - curl -fsSL https://ollama.com/install.sh | sh
-  - sudo systemctl enable ollama
-  - sudo systemctl start ollama
-  - ollama pull llama3.1:8b-instruct-q4_K_M
-  - ollama pull qwen2.5:7b-instruct-q4_K_M
+  - mkdir -p /etc/systemd/system/ollama.service.d
+  - |
+    cat <<EOF > /etc/systemd/system/ollama.service.d/override.conf
+    [Service]
+    Environment="OLLAMA_HOST=0.0.0.0:11434"
+    EOF
+  - systemctl daemon-reexec
+  - systemctl daemon-reload
+  - systemctl restart ollama
+  - sudo -u ubuntu bash -lc "ollama pull llama3.1:8b-instruct-q4_K_M"
+  - sudo -u ubuntu bash -lc "ollama pull qwen2.5:7b-instruct-q4_K_M"
 
 
