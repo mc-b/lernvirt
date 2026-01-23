@@ -26,9 +26,44 @@ Testen
 
     virtctl console vm-0 -n aiaas 
 
-    
-    
-cat <<EOF > /etc/systemd/system/ollama.service.d/override.conf
-[Service]
-Environment="OLLAMA_HOST=0.0.0.0:11434"  
-EOF
+### Ansprechen aus VSCode (mit Continue) 
+
+Continue in VS Code kann nur auf localhost zugreifen. Damit trotzdem eine Ollama-Instanz auf einem Remote-Server verwendet werden kann, wird ein SSH-Port-Forwarding eingesetzt.
+
+**Voraussetzungen**
+
+* Linux-Server oder VM mit laufender Ollama-Instanz
+* Ollama hört auf Port `11434`
+* SSH-Zugang (Host, Benutzer, SSH-Key)
+* Lokal installierter VS Code
+
+**Schritt 1: SSH-Port-Forwarding einrichten**
+
+Auf dem lokalen Rechner wird eine SSH-Verbindung mit Port-Weiterleitung aufgebaut:
+
+    ssh -L 11434:localhost:11434 -i <ssh-key> ubuntu@<host>
+
+**Schritt 2: VS Code starten**
+
+VS Code wird lokal gestartet.
+
+**Schritt 3: Continue Extension installieren**
+
+* Öffnen des Extension Marketplace in VS Code
+* Installation der Extension **Continue**
+
+Nach der Installation steht Continue im Editor als Chat View (Ctrl+L) zur Verfügung.
+
+**Schritt 4: Continue für Ollama konfigurieren**
+
+In der Continue-Konfiguration wird Ollama als Provider eingetragen.
+
+**Schritt 5: Nutzung von Continue**
+
+Continue kann nun direkt in VS Code verwendet werden, zum Beispiel für:
+
+* Erklärungen von Code
+* Unterstützung beim Schreiben von Code
+* Vorschläge für Verbesserungen oder Refactorings
+
+Die KI läuft auf dem Server, erscheint für Continue jedoch als lokaler Dienst.
