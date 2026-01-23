@@ -16,6 +16,7 @@ packages:
 runcmd:
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsclient.sh | bash -
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/vpn.sh | bash -
+  - curl -fsSL https://ollama.com/install.sh | sh  
   - mkdir -p /etc/systemd/system/ollama.service.d
   - |
     cat <<EOF > /etc/systemd/system/ollama.service.d/override.conf
