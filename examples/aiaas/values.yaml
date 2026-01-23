@@ -16,7 +16,7 @@ vm:
 # AI Server 
 vm-0:
   cpu: 8
-  memory: 12Gi
+  memory: 14Gi
   storage: 32Gi
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/aiaas/cloud-init-ai-server.yaml
   ports:
