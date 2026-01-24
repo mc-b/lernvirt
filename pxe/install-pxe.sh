@@ -97,8 +97,9 @@ port=0
 dhcp-range=${SUBNET},proxy,${NETMASK}
 
 # Interface
-interface=${IFACE}
-bind-interfaces
+#interface=${IFACE}
+#bind-interfaces
+bind-dynamic
 
 # PXE-Clients erkennen
 dhcp-match=set:pxe,option:vendor-class,PXEClient
