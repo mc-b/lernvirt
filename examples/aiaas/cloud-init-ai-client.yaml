@@ -17,5 +17,6 @@ runcmd:
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsclient.sh | bash -
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/vpn.sh | bash -
   - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/jupyter-notebook.sh | bash -"
-  - sudo su - ubuntu -c "curl -L https://github.com/mc-b/lernvirt/archive/refs/heads/main.tar.gz | tar xz --strip-components=3 lernvirt-main/examples/aiaas --exclude='*/'"
+  - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/jupyter-libraries-ai.sh | bash -"
+  - sudo su - ubuntu -c "cd data && curl -L https://github.com/mc-b/lernvirt/archive/refs/heads/main.tar.gz | tar xz --strip-components=3 lernvirt-main/examples/aiaas --exclude='*/'"
 
