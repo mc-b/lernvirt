@@ -275,6 +275,7 @@ Zusätzlich ist auf dem Host <code>dnsmasq</code> installiert.
 Dieser Dienst erlaubt es, weitere Worker Nodes automatisiert per PXE-Boot
 zu installieren.
 </p>
+<pre><code>sudo systemctl status dnsmasq</code></pre>
 
 <h3>Weitere Worker Nodes anbinden</h3>
 <p>
@@ -286,20 +287,20 @@ Der Join-Token ist zeitlich begrenzt gültig.
 <p>
 Auf dem Control Node:
 </p>
-<pre><code>microk8s add-node --token-ttl 3600 | grep worker | tail -1</code></pre>
+<pre><code>
+JOIN=\$(microk8s add-node --token-ttl 3600 | grep worker | tail -1)
+MY_IP=\$(hostname -I | awk '{print \$1}')
 
-<p>
-Der ausgegebene Join-Befehl ist anschliessend auf dem jeweiligen Worker Node
-auszuführen:
-</p>
-<pre><code>ssh ubuntu@kv-worker-01
-# Ausgabe von microk8s add-node</code></pre>
+for host in \$(nmap -p 16443 --open -Pn -n -oG - 10.10.0.0/24 --exclude "\$MY_IP" | grep "/open/" | awk '{print \$2}')
+do
+    ssh \$host sudo \$JOIN
+done
+</code></pre>
 
 <p>
 Nach erfolgreichem Join erscheint der Worker Node im Cluster
 und kann für weitere Workloads verwendet werden.
 </p>
-
 
 </body>
 
