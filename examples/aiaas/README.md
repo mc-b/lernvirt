@@ -67,3 +67,6 @@ Continue kann nun direkt in VS Code verwendet werden, zum Beispiel für:
 * Vorschläge für Verbesserungen oder Refactorings
 
 Die KI läuft auf dem Server, erscheint für Continue jedoch als lokaler Dienst.
+
+**Hinweis**: für die Einrichtung der Server Seite siehe [FAQ - SSH nur Port Weiterleitung](https://github.com/mc-b/lernvirt/blob/main/FAQ.md#ssh-nur-port-weiterleitung-ohne-shell)
+
