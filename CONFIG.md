@@ -50,15 +50,5 @@ Beispiel:
 * `mirror.enabled + mirrorBaseUrl` - Ist ein lokale Mirror für die VM Images vorhanden und wo (siehe [Installation](INSTALL.md)).
 * `datasource.serverIP` - wird mit einer zentralen NFS Ablage gearbeitet ist hier die IP des NFS-Servers einzutragen
 
-### 4.2 Beispiele
 
-Das Verzeichnis examples/ enthält optionale, in sich geschlossene Beispiele, die typische Einsatz- und Lernszenarien mit KubeVirt und Kubernetes demonstrieren.
-
-* [Alpine Linux](examples/alpine/README.md)
-* [Docker, Podman und Kubernetes](examples/duk/README.md)
-* [GNS3 Labor](examples/gns3/README.md)
-* [Windows 10](examples/win10/README.md)
-* [Windows Server 2022](examples/wins2022/README.md)
-* [lernvirt nur als Wireguard Gateway Server verwenden](examples/gateway/README.md)
-* [AI Umgebung](examples/aiaas/README.md)
 

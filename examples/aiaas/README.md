@@ -1,14 +1,15 @@
 AI as a Service
 ---------------
 
-Eine dedizierte virtuelle Maschine stellt den KI-Dienst bereit.
-Darauf laeuft **Ollama als System-Service** und verwaltet **zwei KI-Modelle**, die bedarfsgesteuert geladen und wieder entladen werden. Die Modelle werden zentral betrieben und stehen allen Clients ueber eine **OpenAI-kompatible API** zur Verfuegung.
+![](../images/jupyterlab.png)
 
-Alle weiteren virtuellen Maschinen dienen als **Client-Umgebungen**.
-Sie enthalten **Jupyter Notebooks mit OpenAI-Runtime** und greifen ausschliesslich ueber die API auf den zentralen KI-Dienst zu. Lokale Modellinstallation oder GPU-Zugriff auf den Client-VMs ist nicht erforderlich.
+---
+
+Eine dedizierte virtuelle Maschine (AI-Server) stellt den KI-Dienst bereit. Darauf laeuft **Ollama als System-Service** und verwaltet **zwei KI-Modelle**, die bedarfsgesteuert geladen und wieder entladen werden. Die Modelle werden zentral betrieben und stehen allen Clients ueber eine **OpenAI-kompatible API** zur Verfuegung.
+
+Alle weiteren virtuellen Maschinen dienen als **Client-Umgebungen**. Sie enthalten **Jupyter Lab Notebooks mit OpenAI-Runtime** und greifen ausschliesslich ueber die API auf den zentralen KI-Dienst zu. Lokale Modellinstallation oder GPU-Zugriff auf den Client-VMs ist nicht erforderlich.
 
 Dieses Setup trennt **KI-Infrastruktur** und **Anwendungsentwicklung** klar voneinander und eignet sich besonders fuer Schulungs- und Laborumgebungen.
-
 
 Installation
 
@@ -26,7 +27,13 @@ Testen
 
     virtctl console vm-0 -n aiaas 
 
-### Ansprechen aus VSCode (mit Continue) 
+---
+
+## Ansprechen aus VSCode (mit Continue) 
+
+![](../images/vscode.png)
+
+---
 
 Continue in VS Code kann nur auf localhost zugreifen. Damit trotzdem eine Ollama-Instanz auf einem Remote-Server verwendet werden kann, wird ein SSH-Port-Forwarding eingesetzt.
 
@@ -69,4 +76,49 @@ Continue kann nun direkt in VS Code verwendet werden, zum Beispiel für:
 Die KI läuft auf dem Server, erscheint für Continue jedoch als lokaler Dienst.
 
 **Hinweis**: für die Einrichtung der Server Seite siehe [FAQ - SSH nur Port Weiterleitung](https://github.com/mc-b/lernvirt/blob/main/FAQ.md#ssh-nur-port-weiterleitung-ohne-shell)
+
+---
+
+## Jupyter Lab
+
+Im JupyterLab stehen einige Notebooks zur Verfügung, die zur Demonstration der AI-Lernumgebung dienen.
+
+
+### Chat
+
+![](../images/chat.png)
+
+**Notebooks**: 
+* [data/chat/ollama.ipynb](chat/ollama.ipynb) - Einfacher Chat mit beiden Ollama LLM Modellen
+* [data/chat/openai.ipynb](chat/openai.ipynb) - Wir bauen eine kleine Webanwendung mittels dem OpenAI API
+
+### RAG - Retrieval Augmented Generation 
+
+RAG (Retrieval Augmented Generation) ist ein Ansatz in der KI, bei dem ein Sprachmodell vor der Antwort relevante Informationen aus externen Wissensquellen abruft und diese in die Generierung der Antwort einbezieht.
+
+![](../images/rag.png)
+
+---
+
+**Notebooks**: 
+* [data/rag/rag_ollama_chroma.ipynb](rag/rag_ollama_chroma.ipynb) - Bereitet ein Mouser Magazine als RAG Inhalt auf
+* [data/rag/openai-vectorstore.ipynb](rag/openai-vectorstore.ipynb) - Bereitet das Projekt lernmaas für RAG auf und stellt gezielt Fragen.
+
+
+### MCP - Model Context Protocol
+
+Model Context Protocol ist ein offenes Protokoll, mit dem Tools, Dateien, Repositories, Datenbanken oder APIs strukturiert an ein LLM angebunden werden.
+
+Ollama liefert dabei nur die Text-Generierung; Kontext, Tools und Ressourcen kommen über MCP von aussen.
+
+![](../images/mcp.png)
+
+![](../images/mcp-chat.png)
+
+---
+
+**Notebooks**:
+* [data/mcp/mcp-server.ipynb](mcp/mcp-server.ipynb) - MCP Server Applikation, zuerst starten
+* [data/mcp/mcp-client.ipynb](mcp/mcp-client.ipynb) - einfacher MCP Client ohne AI.
+* [data/mcp/mcp-ai-client.ipynb](mcp/mcp-ai-client.ipynb) - MCP Client in Kombination mit AI
 

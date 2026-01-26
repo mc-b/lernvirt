@@ -1,6 +1,10 @@
 alpine
 ----
 
+![](../images/alpine.png)
+
+---
+
 **Alpine Linux** ist eine schlanke, sichere und ressourcensparende Linux-Distribution, die besonders für Server, Container und virtuelle Umgebungen geeignet ist. 
 
 In dieser Umgebung steht eine **kleine Alpine-Installation** zur Verfügung, in der bereits grundlegende Dienste wie **NFS** für Dateifreigaben und **WireGuard** 
@@ -10,7 +14,7 @@ Weitere Software wird unter Alpine einfach über den Paketmanager **`apk`** inst
 
 Installation
 
-    helm install lab . -n alpine --create-namespace -f examples/alpine/values.yaml
+    helm install alpine . -n alpine --create-namespace -f examples/alpine/values.yaml
     
 Kontrolle
 
@@ -18,9 +22,10 @@ Kontrolle
     
 Löschen
 
-    helm uninstall lab -n alpine && kubectl delete ns alpine    
+    helm uninstall alpine -n alpine && kubectl delete ns alpine    
     
 Testen
 
     virtctl console vm-0 -n alpine 
     
+**Achtung:** Der User ist `alpine` nicht `ubuntu`.

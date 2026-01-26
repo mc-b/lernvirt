@@ -20,6 +20,30 @@ Die Umgebung eignet sich besonders für:
 * Klassen- oder Kursumgebungen
 * lokale Test- und Entwicklungsumgebungen
 
+**Beispiele**:
+
+**Module aus [Modulbaukasten (MBK)](https://www.modulbaukasten.ch/)**
+
+Modul M122 - Automatisieren mit Skripten. Cloud-init Deklaration von [https://github.com/tbz-it/M122](https://github.com/tbz-it/M122) wird verwendet
+
+    helm install m122-ap21a-ben -n ap21a --create-namespace 
+    
+Modul M169 Services mit Containern bereitstellen. Cloud-init Script von [lernmaas]() wird verwendet.
+
+    helm install m169k3s-ap21a-ben -n ap21a --create-namespace 
+  
+Aufbau Helm Instanz Namen: <Modul>-<Klasse>-<Lehrerkürzel> 
+    
+**Weitere**
+
+* [Alpine Linux](examples/alpine/README.md)
+* [Docker, Podman und Kubernetes](examples/duk/README.md)
+* [GNS3 Labor](examples/gns3/README.md)
+* [Windows 10](examples/win10/README.md)
+* [Windows Server 2022](examples/wins2022/README.md)
+* [lernvirt nur als Wireguard Gateway Server verwenden](examples/gateway/README.md)
+* [AI Umgebung](examples/aiaas/README.md)
+
 ---
 
 ## 2. + 3. Voraussetzungen und Installation
