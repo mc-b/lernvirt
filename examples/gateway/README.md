@@ -1,5 +1,9 @@
 ## lernvirt nur als WireGuard-Gateway verwenden
 
+![](../images/gateway.png)
+
+---
+
 ### Voraussetzungen
 
 * Laufender Kubernetes-Cluster
