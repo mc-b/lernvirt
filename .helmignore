@@ -5,10 +5,13 @@
 *.orig
 *.tmp
 *.log
+addons/*
 advanced/*
 autoinstall/*
+cloud/*
+examples/*
 multus/*
-hosts/tbz*.yaml
+hosts/*
 pxe/*
 scripts/*
 env/*
