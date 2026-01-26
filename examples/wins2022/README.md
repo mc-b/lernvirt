@@ -1,6 +1,11 @@
 Windows Server 2022
 ----
 
+![](../images/wins2022.png)
+
+---
+
+
 Die Windows Images wurden mit Packer erstellt.
 
 Funktionieren mit KVM, QEmu, Proxmoxx etc.

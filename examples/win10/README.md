@@ -1,6 +1,10 @@
 win10
 ----
 
+![](../images/win10.png)
+
+---
+
 Die Windows Images wurden mit Packer erstellt.
 
 Funktionieren mit KVM, QEmu, Proxmoxx etc.

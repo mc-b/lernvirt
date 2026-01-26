@@ -1,6 +1,10 @@
 Docker, PodMan und Kubernetes Umgebung
 --------------------------------------
 
+![](../images/duk.png)
+
+---
+
 ### Beinhaltet
 
 * Docker

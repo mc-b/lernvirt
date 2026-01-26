@@ -1,6 +1,10 @@
 GNS3
 ----
 
+![](../images/gns3.png)
+
+---
+
 GNS3 (Graphical Network Simulator 3) ist eine leistungsfähige Open-Source-Plattform zur Simulation komplexer Netzwerke mit virtuellen Routern, Switches und Endgeräten. Sie wird häufig in Ausbildung, Laborumgebungen und zur Vorbereitung auf Zertifizierungen eingesetzt. GNS3 ermöglicht es, reale Netzwerkszenarien praxisnah zu entwerfen, zu testen und zu analysieren, ohne physische Hardware zu benötigen.
 
 
