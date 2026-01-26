@@ -16,7 +16,7 @@ from chromadb.config import Settings
 # -----------------------
 # Konfiguration
 # -----------------------
-OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://10.10.1.10:11434")
 CHAT_MODEL = os.environ.get("OLLAMA_CHAT_MODEL", "llama3.1:8b-instruct-q4_K_M")
 EMBED_MODEL = os.environ.get("OLLAMA_EMBED_MODEL", "nomic-embed-text")
 
