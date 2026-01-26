@@ -83,6 +83,8 @@ Die KI läuft auf dem Server, erscheint für Continue jedoch als lokaler Dienst.
 
 Im JupyterLab stehen einige Notebooks zur Verfügung, die zur Demonstration der AI-Lernumgebung dienen.
 
+Die JupyterLab Umgebung läuft auf dem Port **32188**.
+
 
 ### Chat
 
