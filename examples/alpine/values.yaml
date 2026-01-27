@@ -14,7 +14,7 @@ vm-0:
 vm-1:
   cpu: 1
   memory: 1Gi
-  storage: 12Gi
+  storage: 8Gi
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/alpine/cloud-init-ai.yaml
   ports:
     - 32188

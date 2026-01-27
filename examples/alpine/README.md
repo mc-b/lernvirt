@@ -10,6 +10,11 @@ alpine
 In dieser Umgebung steht eine **kleine Alpine-Installation** zur Verfügung, in der bereits grundlegende Dienste wie **NFS** für Dateifreigaben und **WireGuard** 
 für sichere Netzwerkverbindungen eingerichtet sind.
 
+Zusätzlich:
+* vm-0: Alpine ohne Zusatzsoftware
+* vm-1: Docker und Juypter-Lab auf Port 32188 (ohne RAG, wegen Abhängigkeit zu `onnxruntime`)
+* vm-2: k3s Kubernetes (FIXME `doas chmod +r /etc/rancher/k3s/k3s.yaml` falls `kubectl` reklamiert)
+
 Weitere Software wird unter Alpine einfach über den Paketmanager **`apk`** installiert, z. B. mit `apk add <paketname>`. 
 
 Installation
