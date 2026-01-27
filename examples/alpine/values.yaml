@@ -6,7 +6,7 @@ vm:
   # VM Default Werte - koennen ueberschrieben werden
   cpu: 1
   memory: 512Mi
-  storage: 1Gi
+  storage: 4Gi
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/alpine/cloud-init.yaml
 
 os:
