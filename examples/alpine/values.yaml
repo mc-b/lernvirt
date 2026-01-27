@@ -3,12 +3,35 @@
 vm:
   count: 3
   
-  # VM Default Werte - koennen ueberschrieben werden
+# Alpine minimal  
+vm-0:
   cpu: 1
   memory: 512Mi
   storage: 4Gi
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/alpine/cloud-init.yaml
 
+# Alpine mit Docker und Juypter-Lab
+vm-1:
+  cpu: 1
+  memory: 1Gi
+  storage: 12Gi
+  userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/alpine/cloud-init-ai.yaml
+  ports:
+    - 32188
+
+# Alpine mit k3s
+vm-2:
+  cpu: 2
+  memory: 2Gi
+  storage: 12Gi
+  userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/alpine/cloud-init-k3s.yaml
+  ports:
+    - 6443
+
 os:
   name: alpine         # ubuntu | alpine | windows
   variant: edge       # linux: noble, jammy | windows: win10, win11, ws2022
+
+  
+  
+  
