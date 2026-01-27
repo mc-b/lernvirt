@@ -23,3 +23,6 @@ packages:
 runcmd:
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services.alpine/nfsclient.sh | sh -  
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services.alpine/vpn.sh | sh -  
+  - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services.alpine/docker.sh | sh -  
+  - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services.alpine/jupyter-lab.sh | sh -  
+  - su - alpine -c "cd data && curl -L https://github.com/mc-b/lernvirt/archive/refs/heads/main.tar.gz | tar xz --strip-components=3 lernvirt-main/examples/aiaas --exclude='*/'"

@@ -23,3 +23,4 @@ packages:
 runcmd:
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services.alpine/nfsclient.sh | sh -  
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services.alpine/vpn.sh | sh -  
+  - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services.alpine/k3s.sh | sh -       
