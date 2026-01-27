@@ -1,14 +1,11 @@
 
-# VMs welche erstellt werden sollen. 
+# Alpine minimal  
 vm:
   count: 3
-  
-# Alpine minimal  
-vm-0:
   cpu: 1
   memory: 512Mi
   storage: 4Gi
-  userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/alpine/cloud-init.yaml
+  userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/alpine/cloud-init.yaml  
 
 # Alpine mit Docker und Juypter-Lab
 vm-1:
