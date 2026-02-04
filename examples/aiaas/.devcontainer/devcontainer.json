@@ -1,0 +1,39 @@
+{
+  "name": "Python Multi-Kernel DevContainer",
+  
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+ 
+  "workspaceFolder": "/workspace",
+
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace,type=bind"
+  ],
+
+  "remoteUser": "root",
+
+  "containerEnv": {
+    "DISPLAY": "",
+    "WAYLAND_DISPLAY": ""
+  },
+  
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.venvPath": "/opt"
+      },  
+
+  "runArgs": [
+    "--security-opt=label=disable"
+  ],
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-toolsai.jupyter"
+      ]
+    }
+  }
+}

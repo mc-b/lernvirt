@@ -1,0 +1,39 @@
+{
+  "name": "terraform-opentofu-multicloud",
+
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+
+  "workspaceFolder": "/workspace",
+
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace,type=bind"
+  ],
+
+  "remoteUser": "root",
+
+  "containerEnv": {
+    "DISPLAY": "",
+    "WAYLAND_DISPLAY": ""
+  },
+
+  "runArgs": [
+    "--security-opt=label=disable"
+  ],
+
+  "postCreateCommand": "terraform version && tofu version",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "hashicorp.terraform",
+        "redhat.vscode-yaml",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "terraform.languageServer.enable": true
+      }
+    }
+  }
+}
