@@ -7,7 +7,7 @@ Intro
 -----
 
 %{ for idx in range(length(vms)) ~}
-- ${idx + 1}. https://${vms[idx]} 
+- ${idx + 1}. http://${vms[idx]} 
 %{ endfor ~}
 
 SSH Zugriff

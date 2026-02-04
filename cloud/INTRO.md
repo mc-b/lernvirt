@@ -6,7 +6,7 @@ Umgebung für Modul ${modul}
 Intro
 -----
 
-- https://${vm_fqdn} 
+- http://${vm_fqdn} 
 
 SSH Zugriff
 -----------
