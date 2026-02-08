@@ -1,10 +1,11 @@
 {
-	"name": "Python Multi-Kernel DevContainer",
+	"name": "Docker und Kubernetes",
+	
 	"build": {
-		"dockerfile": "./Dockerfile",
+		"dockerfile": "../Dockerfile",
 		"context": "."
 	},
-
+	
 	"customizations": {
 		"vscode": {
 			"settings": {
@@ -19,12 +20,16 @@
 	},
 	
 	"features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+    },
 		"ghcr.io/devcontainers/features/common-utils:2": {
 			"username": "vscode",
 			"userUid": "1000",
 			"userGid": "1000"
 		}
 	},
+	
+	"postCreateCommand":"mkdir -p /workspaces/duk/data && cd /workspaces/duk/data && curl -L https://github.com/mc-b/duk/archive/refs/heads/master.tar.gz | tar xz --strip-components=3 duk-master/data/jupyter --exclude='*/'","remoteUser":"vscode",
 	
 	"runArgs": [
 		"--security-opt=label=disable"
