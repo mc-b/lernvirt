@@ -73,13 +73,19 @@ Anschliessend kann die WSL Distribution erstellt werden. Weil der User mittels C
     wsl --unregister Ubuntu-24.04    
 
     export IMAGE=duk
+    mkdir -p ~/.cloud-init
     cp ${IMAGE}.user-data ~/.cloud-init/
     wsl --import ${IMAGE} D:/WSL/${IMAGE} D:/WSL/ubuntu/ubuntu24.04.tar --version 2 
 
     wsl --setdefault ${IMAGE}
     wsl cloud-init status --wait
     wsl --terminate ${IMAGE}
-    wsl    
+    wsl
+    
+**Debuggen**
+
+    wsl # auf einem zweiten Terminal
+    sudo tail -f /var/log/cloud-init-output.log
     
 Ubuntu
 ------

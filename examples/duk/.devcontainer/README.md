@@ -13,6 +13,8 @@ In der `dd` Variante kann ausserhalb des Dev Containers ein Kubernetes Cluster e
 Feintuning:
 * `~/.kube/config` - Ausserhalb des Dev Containers server: https: auf `https://127.0.0.1:6443 ändern. Und Datei in Dev Container kopieren.
 * Innerhalb des Dev Containers IP-Adresse des Docker Netzwerkes verwenden. Zuerst `kubectl --kubeconfig config get pods` ausführen, dann erscheint in der Fehlermeldung die IP des K8s Clusters.
+
+**Alternative**: Komplette Kubernetes, Istio, K-native, Jupyter Umgebung mit `duk.user-data` im Verzeichnis [wsl](../../wsl/README.md).
     
 **Dashboard und PersistentVolume**
 

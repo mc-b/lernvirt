@@ -60,6 +60,7 @@ WSL unterstützt [Cloud-init](https://cloudinit.readthedocs.io/en/latest/referen
 
 Dazu ist im Windows ein Verzeichnis `C:\Users\<User-ID>\.cloud-init` anzulegen und die Datei `docker.user-data` dorthin zu kopieren.
 
+    mkdir -p ~/.cloud-init
     cp docker.user-data ~/.cloud-init/
     wsl --import docker D:/WSL/docker D:/WSL/ubuntu/ubuntu24.04.tar --version 2 
 
