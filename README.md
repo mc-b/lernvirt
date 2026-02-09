@@ -44,6 +44,7 @@ Aufbau Helm Instanz Namen: [Modul]-[Klasse]-[Lehrerkürzel]
 * [lernvirt nur als Wireguard Gateway Server verwenden](examples/gateway/README.md)
 * [AI Umgebung](examples/aiaas/README.md)
 * [Dev Container](examples/devcontainer/README.md)
+* [WSL Umgebungen](examples/wsl/README.md)
 
 ---
 

@@ -1,0 +1,106 @@
+#cloud-config
+users:
+  - default
+  - name: ubuntu
+    ssh-authorized-keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDUHol1mBvP5Nwe3Bzbpq4GsHTSw96phXLZ27aPiRdrzhnQ2jMu4kSgv9xFsnpZgBsQa84EhdJQMZz8EOeuhvYuJtmhAVzAvNjjRak+bpxLPdWlox1pLJTuhcIqfTTSfBYJYB68VRAXJ29ocQB7qn7aDj6Cuw3s9IyXoaKhyb4n7I8yI3r0U30NAcMjyvV3LYOXx/JQbX+PjVsJMzp2NlrC7snz8gcSKxUtL/eF0g+WnC75iuhBbKbNPr7QP/ItHaAh9Tv5a3myBLNZQ56SgnSCgmS0EUVeMNsO8XaaKr2H2x5592IIoz7YRyL4wlOmj35bQocwdahdOCFI7nT9fr6f insecure@lerncloud
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    shell: /bin/bash
+
+package_update: true
+
+runcmd:
+  - apt-get install -y wget tar
+  - wget -O /tmp/frp.tar.gz https://github.com/fatedier/frp/releases/latest/download/frp_0.61.2_linux_amd64.tar.gz
+  - tar -xzf /tmp/frp.tar.gz -C /opt
+  - mv /opt/frp_*/frps /usr/local/bin/frps
+  - mkdir -p /etc/frp
+  - |
+    cat <<EOF > /etc/frp/frps.ini
+    [common]
+    bind_port = 7000
+    vhost_http_port = 8000
+    vhost_https_port = 8443
+    dashboard_port = 7500
+    dashboard_user = admin
+    dashboard_pwd = dea3a3c5ae92614b
+    token = 13bd15b50f2c16d4319499d0ce6caec1
+    EOF
+  - chown root:root /usr/local/bin/frps
+  - chmod +x /usr/local/bin/frps
+  - |
+    cat <<EOF > /etc/systemd/system/frps.service
+    [Unit]
+    Description=FRP Server
+    After=network.target
+
+    [Service]
+    Type=simple
+    ExecStart=/usr/local/bin/frps -c /etc/frp/frps.ini
+    Restart=on-failure
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+  - systemctl daemon-reexec
+  - systemctl daemon-reload
+  - systemctl enable frps
+  - systemctl start frps
+
+  - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsshare.sh | bash -  
+  - sudo apt install -y openssh-server docker.io podman podman-compose buildah skopeo jq -y
+  - sudo service ssh start
+  - sudo usermod -aG docker ubuntu 
+  - curl -Lo kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64 && chmod +x kind && sudo mv ./kind /usr/local/bin/kind
+  - sudo snap install kubectl --classic
+  - sudo snap install helm --classic  
+  - |
+    cat <<EOF > /home/ubuntu/kind-config.yaml
+    # kind-config.yaml
+    kind: Cluster
+    apiVersion: kind.x-k8s.io/v1alpha4
+    nodes:
+      - role: control-plane
+        extraMounts:
+          - hostPath: /data
+            containerPath: /data
+        extraPortMappings:
+          - containerPort: 80
+            hostPort: 80
+            protocol: TCP
+          - containerPort: 443
+            hostPort: 443
+            protocol: TCP
+      - role: worker
+        extraMounts:
+          - hostPath: /data
+            containerPath: /data
+      - role: worker
+        extraMounts:
+          - hostPath: /data
+            containerPath: /data
+    EOF
+  - sudo su - ubuntu -c "kind create cluster --config kind-config.yaml --name kind --retain"
+  - sudo su - ubuntu -c "git clone https://gitlab.com/ch-mc-b/autoshop-ms/infra/gateway.git"
+  - sudo su - ubuntu -c "helm install frp-gateway-operator ./gateway/operator --namespace frp --create-namespace --set frp.host=$(hostname -I | awk '{ print $1 }')"        
+  - sudo su - ubuntu -c "kubectl apply -f https://raw.githubusercontent.com/mc-b/lerncloud/master/data/DataVolume.yaml"
+  - sudo su - ubuntu -c "kubectl apply -f https://raw.githubusercontent.com/mc-b/lerncloud/master/addons/dashboard.yaml"
+  - sudo su - ubuntu -c "kubectl apply -f https://raw.githubusercontent.com/mc-b/lerncloud/master/addons/dashboard-admin.yaml"
+  - sudo su - ubuntu -c "kubectl label node kind-control-plane ingress-ready=true kubernetes.io/os=linux"  
+  - sudo su - ubuntu -c "kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.4/deploy/static/provider/kind/deploy.yaml"
+  - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/istio-zipkin.sh | bash -"
+  - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/istio-patch.sh | bash -"
+  - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/knative.sh | bash -"    
+  - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/knative-patch.sh | bash -"  
+  - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/jupyter-notebook.sh | bash -" 
+  - sudo su - ubuntu -c "git clone https://gitlab.com/ch-tbz-wb/Stud/CnA.git"
+  - sudo su - ubuntu -c "git clone https://github.com/mc-b/duk.git"
+  - docker ps --filter "name=kind" --format "{{.Names}}" | xargs -n1 docker update --restart unless-stopped
+  - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k8stools.sh | bash -   
+  
+write_files:
+- path: /etc/wsl.conf
+  append: true
+  content: |
+    [user]
+    default=ubuntu

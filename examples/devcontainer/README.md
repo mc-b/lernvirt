@@ -65,7 +65,7 @@ Dazu ist im Windows ein Verzeichnis `C:\Users\<User-ID>\.cloud-init` anzulegen u
 
     wsl --setdefault docker
     wsl cloud-init status --wait
-    wsl --termine docker
+    wsl --terminate docker
     wsl
     
 Bei Fehlern docker Umgebung weglöschen und von vorne anfangen
