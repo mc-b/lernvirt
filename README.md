@@ -43,6 +43,7 @@ Aufbau Helm Instanz Namen: <Modul>-<Klasse>-<Lehrerkürzel>
 * [Windows Server 2022](examples/wins2022/README.md)
 * [lernvirt nur als Wireguard Gateway Server verwenden](examples/gateway/README.md)
 * [AI Umgebung](examples/aiaas/README.md)
+* [Dev Container](examples/devcontainer/README.md)
 
 ---
 
