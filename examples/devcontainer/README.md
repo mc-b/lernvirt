@@ -79,3 +79,6 @@ In **VSCode** - Settings -> DevContainer
 * Execute in WSL Distro: `Ubuntu-24.04` oder `docker` eintragen.
 * Aktivieren: Forward WSL-Services
 
+### Links
+
+* [Einführung in Entwicklungscontainer](https://docs.github.com/de/codespaces/setting-up-your-project-for-codespaces/adding-a-dev-container-configuration/introduction-to-dev-containers)

@@ -124,3 +124,7 @@ Ollama liefert dabei nur die Text-Generierung; Kontext, Tools und Ressourcen kom
 * [data/mcp/mcp-client.ipynb](mcp/mcp-client.ipynb) - einfacher MCP Client ohne AI.
 * [data/mcp/mcp-ai-client.ipynb](mcp/mcp-ai-client.ipynb) - MCP Client in Kombination mit AI
 
+### Links
+
+* [KI Kompetenz (TBZ)](https://gitlab.com/ch-tbz-it/Stud/allgemein/ki-kompetenz)
+
