@@ -32,7 +32,7 @@ Modul M169 Services mit Containern bereitstellen. Cloud-init Script von [lernmaa
 
     helm install m169k3s-ap21a-ben -n ap21a --create-namespace 
   
-Aufbau Helm Instanz Namen: <Modul>-<Klasse>-<Lehrerkürzel> 
+Aufbau Helm Instanz Namen: [Modul]-[Klasse]-[Lehrerkürzel]
     
 **Weitere**
 
