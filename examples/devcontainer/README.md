@@ -1,7 +1,5 @@
 # Beispiel für Lernumgebungen basierend auf DevContainern
 
-Kurzfassung, ohne Marketing-Text:
-
 Ein DevContainer ist eine **vordefinierte Entwicklungsumgebung in einem Container**. Er legt fest, welches Betriebssystem, welche Tools, welche Versionen und welche Einstellungen verwendet werden. Öffnet man ein Projekt in VS Code, wird genau diese Umgebung automatisch gestartet.
 
 Für die Lernumgebung bedeutet das:

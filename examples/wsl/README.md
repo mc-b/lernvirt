@@ -1,11 +1,11 @@
 Windows Subsystem Linux (WSL)
 =============================
 
-Das Windows Subsysten Linux eignet sich vorzüglich um **Linux Namespaces** und `podman` zu testen.
+Windows Subsystem for Linux (WSL) ist eine Funktion von Windows, mit der sich eine vollständige Linux-Umgebung direkt unter Windows ausführen lässt – ohne klassische virtuelle Maschine oder Dual-Boot-Setup. 
 
-Dazu am besten zuerst [Windows Terminal](https://learn.microsoft.com/en-us/windows/terminal/install) installieren.
+Dazu empfiehlt es sich, zuerst das [Windows Terminal](https://learn.microsoft.com/en-us/windows/terminal/install) zu installieren, da es eine moderne Oberfläche für mehrere Shells und Distributionen bietet.
 
-Und dann WSL und die verschiedenen Linux Distributionen, hier Alpine Linux, RedHat, SuSe, Ubuntu
+Danach können bei Bedarf weitere Distributionen installiert werden, etwa Alpine Linux, RedHat, SuSe oder Ubuntu.
 
 **Installation WSL und wichtige Befehle**
 
