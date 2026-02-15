@@ -245,6 +245,20 @@ menuentry "Ubuntu Server ${UBUNTU_VER} Autoinstall (lernvirt)" {
           ---
         initrd /initrd
 }
+
+menuentry "Ubuntu BusyBox-Shell" {
+        set root=(tftp)
+        linux /vmlinuz \\
+          ip=dhcp \\
+          url=http://${PXE_IP}/linux/ubuntu/noble/amd64/${ISO} \\
+          autoinstall debug \\
+          cloud-config-url=http://${PXE_IP}/autoinstall/user-data \\
+          toram \\
+          break \\
+          ---
+        initrd /initrd
+}
+
 EOF
 then
   fail "Konnte ${BASE}/grub/grub.cfg nicht schreiben."
