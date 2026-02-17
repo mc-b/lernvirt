@@ -58,8 +58,13 @@ if [ -f "${TMP}/boot/vmlinuz-virt" ]; then
   cp "${TMP}/boot/vmlinuz-virt" "${TFTP_ALPINE}/vmlinuz-virt"
   cp "${TMP}/boot/initramfs-virt" "${TFTP_ALPINE}/initramfs-virt"
   cp "${TMP}/boot/modloop-virt" "${WWW_ALPINE}/modloop-virt"
-  chmod +r ${TFTP_ALPINE}/*
 fi
+# ohne Leserechte funktoiniert tftp nicht
+chmod +r ${TFTP_ALPINE}/*
+
+# Installationsscripts
+wget -P ${WWW_ALPINE}/ https://github.com/mc-b/lernvirt/raw/refs/heads/main/pxe/alpine/install-ssh.sh
+wget -P ${WWW_ALPINE}/ https://github.com/mc-b/lernvirt/raw/refs/heads/main/pxe/alpine/install-win.sh
 
 ### GRUB EINTRAG ERGAENZEN ###
 GRUB_CFG="${BASE}/grub/grub.cfg"
