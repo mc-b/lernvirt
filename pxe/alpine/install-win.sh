@@ -86,7 +86,7 @@ echo "https://dl-cdn.alpinelinux.org/alpine/v3.23/main"      >  /etc/apk/reposit
 echo "https://dl-cdn.alpinelinux.org/alpine/v3.23/community" >> /etc/apk/repositories
 
 apk update
-apk add --no-cache gptfdisk dosfstools util-linux wimlib rsync wget
+apk add --no-cache gptfdisk dosfstools util-linux wimlib sgdisk rsync ntfs-3g parted wget curl git
 
 # ------------------------------------------------------------
 # Disk vollständig neu initialisieren
