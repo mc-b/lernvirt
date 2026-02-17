@@ -58,6 +58,7 @@ if [ -f "${TMP}/boot/vmlinuz-virt" ]; then
   cp "${TMP}/boot/vmlinuz-virt" "${TFTP_ALPINE}/vmlinuz-virt"
   cp "${TMP}/boot/initramfs-virt" "${TFTP_ALPINE}/initramfs-virt"
   cp "${TMP}/boot/modloop-virt" "${WWW_ALPINE}/modloop-virt"
+  chmod +r ${TFTP_ALPINE}/*
 fi
 
 ### GRUB EINTRAG ERGAENZEN ###
