@@ -60,5 +60,4 @@ autoinstall:
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -    
       - echo "ubuntu:$(head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 16)" | chpasswd
       - curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-pxe.sh | bash -     
-            
-      
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-alpine.sh | bash - 
