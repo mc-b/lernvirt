@@ -225,10 +225,38 @@ insmod part_gpt
 insmod ext2       # Deckt auch ext3/ext4 ab
 # Falls die Datei auf einer FAT32/EFI-Partition liegt, zusätzlich:
 insmod fat
+insmod ntfs
+insmod hfsplus
 
 # Suche nach der Datei und setze root
 if search --no-floppy --file --set=root /boot/lernvirt-installed; then
     set default="0"
+fi
+
+# Windows-Installation erkennen:
+# Suche auf allen Disks nach der typischen EFI-Datei von Windows
+search --no-floppy --file --set=win_esp /EFI/Microsoft/Boot/bootmgfw.efi
+if [ -n "\$win_esp" ]; then
+    set default="0"
+    echo "Hinweis: Windows-Installation gefunden auf \$win_esp"
+    sleep 5    
+fi
+
+# macOS-Installation erkennen (klassisch, nicht APFS-spezifisch):
+# Variante 1: Bootloader auf EFI-Systempartition
+search --no-floppy --file --set=mac_esp /EFI/Apple/Boot/bootx64.efi
+if [ -n "\$mac_esp" ]; then
+    set default="0"
+    echo "Hinweis: macOS-Installation (Apple-EFI) gefunden auf \$mac_esp"
+    sleep 5    
+fi
+
+# Variante 2: klassischer macOS-Bootloader im Systemvolume
+search --no-floppy --file --set=mac_sys /System/Library/CoreServices/boot.efi
+if [ -n "\$mac_sys" ]; then
+    set default="0"
+    sleep 5    
+    echo "Hinweis: macOS-System gefunden auf \$mac_sys"
 fi
 
 menuentry "Local boot (lernvirt)" {
