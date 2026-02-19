@@ -117,12 +117,68 @@ Ollama liefert dabei nur die Text-Generierung; Kontext, Tools und Ressourcen kom
 
 ![](../images/mcp-chat.png)
 
----
-
 **Notebooks**:
 * [data/mcp/mcp-server.ipynb](mcp/mcp-server.ipynb) - MCP Server Applikation, zuerst starten
 * [data/mcp/mcp-client.ipynb](mcp/mcp-client.ipynb) - einfacher MCP Client ohne AI.
 * [data/mcp/mcp-ai-client.ipynb](mcp/mcp-ai-client.ipynb) - MCP Client in Kombination mit AI
+
+---
+
+### Agenten-Workflows - LlamaIndex
+
+LlamaIndex ist ein Python-Framework zur Entwicklung von Retrieval-Augmented-Generation-Anwendungen, das eigene Datenquellen strukturiert indexiert und mit grossen Sprachmodellen für kontextbasierte Abfragen und Agenten-Workflows verbindet.
+
+**Einfacher Agent** der mithilfe eines Tools einfache Multiplikationen durchführen kann:
+
+    def multiply(a: float, b: float) -> float:
+        """Useful for multiplying two numbers."""
+        return a * b
+    agent = FunctionAgent(
+        tools=[multiply],
+        llm=Ollama(
+            model="llama3.1:8b-instruct-q4_K_M",
+            request_timeout=360.0,
+            context_window=8000,
+        ),
+        system_prompt="You are a helpful assistant that can multiply two numbers.",
+    )
+    async def main():
+        response = await agent.run("What is 1234 * 4567?")
+        return response
+
+**Chat History**
+
+    agent = FunctionAgent(
+        llm=Ollama(
+            model="llama3.1:8b-instruct-q4_K_M",
+            request_timeout=360.0,
+            context_window=8000,
+        ),
+    )
+    # run agent with context
+    response = await agent.run("My name is Logan", ctx=ctx)
+    response = await agent.run("What is my name?", ctx=ctx)
+
+**RAG Funktionen**
+
+    search_documents = https://raw.githubusercontent.com/run-llama/llama_index/main/docs/examples/data/paul_graham/paul_graham_essay.txt -O data/paul_graham_essay.txt
+    
+    agent = AgentWorkflow.from_tools_or_functions(
+        [multiply, search_documents],
+        llm=Settings.llm,
+        system_prompt="""You are a helpful assistant that can perform calculations
+        and search through documents to answer questions.""",
+    )
+    async def main():
+        response = await agent.run(
+            "What did the author do in college? Also, what's 7 * 8?"
+        )
+        return response   
+
+**Notebooks**:
+* [data/agent/Basic.ipynb](agent/Basic.ipynb) - Einfacher Agent
+* [data/agent/ChatHistory.ipynb](agent/ChatHistory.ipynb) - Chat History
+* [data/agent/RAG.ipynb](agent/RAG.ipynb) - RAG Funktionen
 
 ### Links
 
