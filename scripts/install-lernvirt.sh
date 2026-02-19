@@ -291,7 +291,7 @@ Auf dem Control Node:
 JOIN=\$(microk8s add-node --token-ttl 3600 | grep worker | tail -1)
 MY_IP=\$(hostname -I | awk '{print \$1}')
 
-for host in \$(nmap -p 16443 --open -Pn -n -oG - \${IP_ADDR%.*}.0/24 --exclude "\$MY_IP" | grep "/open/" | awk '{print \$2}')
+for host in \$(nmap -p 16443 --open -Pn -n -oG - \${MY_IP%.*}.0/24 --exclude "\$MY_IP" | grep "/open/" | awk '{print \$2}')
 do
     ssh \$host sudo \$JOIN
 done
