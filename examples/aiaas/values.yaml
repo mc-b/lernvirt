@@ -10,7 +10,7 @@ vm:
   # AI Clients
   cpu: 2
   memory: 2Gi
-  storage: 8Gi
+  storage: 12Gi
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/aiaas/cloud-init-ai-client.yaml
 
 # AI Server 
