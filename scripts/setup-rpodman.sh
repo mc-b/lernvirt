@@ -77,6 +77,40 @@ export PATH="/usr/local/rpodman/rbin"
 export HOME="/home/rpodman"
 cd "$HOME" || exit 1
 
+# --- Banner / MOTD ---
+/usr/bin/clear 2>/dev/null || true
+
+echo "============================================================"
+echo "  rpodman Container-Sandbox"
+echo "============================================================"
+
+# Hostname
+if [[ -r /etc/hostname ]]; then
+  printf "Hostname:        %s\n" "$(/usr/bin/cat /etc/hostname)"
+fi
+
+# Ubuntu Version
+if [[ -r /etc/os-release ]]; then
+  . /etc/os-release
+  printf "Betriebssystem:  %s %s\n" "${NAME:-}" "${VERSION:-}"
+fi
+
+echo
+echo "Verfügbare Befehle:"
+if [[ -d /usr/local/rpodman/rbin ]]; then
+  /usr/bin/ls -1 /usr/local/rpodman/rbin | /usr/bin/sort
+fi
+
+echo
+echo "------------------------------------------------------------"
+echo "Hinweis:"
+echo "Dieses System ist eine kontrollierte Container-Umgebung."
+echo "Jegliche Versuche, Sicherheitsmechanismen zu umgehen,"
+echo "Host-Zugriffe zu erzwingen oder das System zu manipulieren,"
+echo "sind strikt untersagt und werden protokolliert."
+echo "------------------------------------------------------------"
+echo
+
 exec /bin/bash --restricted --noprofile --norc -i
 EOF
 
