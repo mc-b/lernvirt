@@ -5,7 +5,9 @@ AI as a Service
 
 ---
 
-Eine dedizierte virtuelle Maschine (AI-Server) stellt den KI-Dienst bereit. Darauf laeuft **Ollama als System-Service** und verwaltet **zwei KI-Modelle**, die bedarfsgesteuert geladen und wieder entladen werden. Die Modelle werden zentral betrieben und stehen allen Clients ueber eine **OpenAI-kompatible API** zur Verfuegung.
+Steht ein dedizierter AI-Rechner (z. B. NVIDIA DGX Spark) zur Verfügung, wird dieser gemäss [SERVER.md](SERVER.md) als zentraler KI-Server eingerichtet. Die KI-Dienste laufen dabei als Podman-Container mit direktem GPU-Zugriff. Die Installation wird anschliessend bei VSCode fortgesetzt.
+
+**Andernfalls** wird eine dedizierte virtuelle Maschine (AI-Server) bereitgestellt, welche den KI-Dienst in der VM betreibt. Auf dieser läuft Ollama als System-Service und verwaltet zwei KI-Modelle, die bedarfsgesteuert geladen und wieder entladen werden. 
 
 Alle weiteren virtuellen Maschinen dienen als **Client-Umgebungen**. Sie enthalten **Jupyter Lab Notebooks mit OpenAI-Runtime** und greifen ausschliesslich ueber die API auf den zentralen KI-Dienst zu. Lokale Modellinstallation oder GPU-Zugriff auf den Client-VMs ist nicht erforderlich.
 
