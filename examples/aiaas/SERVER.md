@@ -59,8 +59,38 @@ Ausgabe der GPU Devices
 Direktes Laden eines Modells in Ollama und Prompt    
 
     podman exec -it open-webui bash -lc 'ollama pull llama3.2:1b && ollama run llama3.2:1b "Schreibe 2 Saetze ueber GPUs."'
+    
+Testen der Kommunikationsverbindung
+
+    curl -sS http://10.3.24.13:11434/api/tags
+    curl -sS http://10.3.24.13:11434/v1/models    
 
 **Links**:
 
 * [Installing Open WebUI with Bundled Ollama Support](https://github.com/open-webui/open-webui?tab=readme-ov-file#installing-open-webui-with-bundled-ollama-support)
 
+---
+
+### vLLM
+
+vLLM ist eine schnelle und einfach zu nutzende Bibliothek für die Inferenz und das Bereitstellen (Serving) grosser Sprachmodelle. Sie optimiert die Ausführung auf GPUs durch effizientes Speichermanagement (z. B. PagedAttention) und ermöglicht hohe Durchsätze bei geringer Latenz, sowohl im Batch- als auch im Online-Betrieb.
+
+    podman run --device nvidia.com/gpu=all \
+    -p 8000:8000 \
+    --ipc=host \
+    docker.io/vllm/vllm-openai:cu130-nightly \
+    --model Qwen/Qwen2.5-0.5B-Instruct
+    
+Die OpenAI-kompatible API von vLLM steht auf Port 8000 zur Verfügung    
+
+Weitere vLLM-taugliche Kandidaten:
+* Orion-zhen/Qwen3-0.6B-AWQ (4-bit AWQ)
+* JunHowie/Qwen3-0.6B-GPTQ-Int4
+    
+**Hinweis**: Das starten von vLLM kann mehrere Minuten dauern.   
+
+**Links**:
+
+* [Using Docker](https://docs.vllm.ai/en/stable/deployment/docker/#pre-built-images)
+
+ 
