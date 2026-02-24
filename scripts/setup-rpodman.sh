@@ -111,9 +111,9 @@ ensure_ssh_key() {
 
   install -d -m 0700 -o "$USER" -g "$USER" "$SSH_DIR"
 
-  local tmpkey
+  local tmpkey=""
   tmpkey="$(mktemp)"
-  trap 'rm -f "$tmpkey"' RETURN
+  trap '[[ -n "${tmpkey:-}" ]] && rm -f "$tmpkey"' RETURN
 
   curl -fsSL "$PUBKEY_URL" -o "$tmpkey"
 
@@ -121,6 +121,8 @@ ensure_ssh_key() {
 
   if ! grep -Fqx "$(cat "$tmpkey")" "$AUTH_KEYS"; then
     cat "$tmpkey" >>"$AUTH_KEYS"
+    # optional: newline sicherstellen
+    tail -c 1 "$AUTH_KEYS" | read -r _ || echo >>"$AUTH_KEYS"
   fi
 
   chown "$USER:$USER" "$AUTH_KEYS"
