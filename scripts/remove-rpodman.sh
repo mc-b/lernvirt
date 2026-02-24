@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Entfernt den User rpodman inkl. Podman-Objekte und Artefakte.
-# Idempotent: kann mehrfach laufen.
-
 USER="rpodman"
 RSHELL="/usr/local/bin/rpodman-rbash"
 RBIN_BASE="/usr/local/rpodman"
@@ -15,84 +12,91 @@ need_root() {
   fi
 }
 
-have_user() {
-  id "$USER" >/dev/null 2>&1
+cmd_exists() { command -v "$1" >/dev/null 2>&1; }
+have_user() { id "$USER" >/dev/null 2>&1; }
+
+get_user_uid_home() {
+  local line uid home
+  line="$(getent passwd "$USER" || true)"
+  [[ -n "$line" ]] || return 1
+  uid="$(awk -F: '{print $3}' <<<"$line")"
+  home="$(awk -F: '{print $6}' <<<"$line")"
+  printf "%s %s\n" "$uid" "$home"
 }
 
-cmd_exists() {
-  command -v "$1" >/dev/null 2>&1
-}
+rootless_cleanup_only() {
+  local uid="$1" home="$2"
 
-cleanup_podman_rootless() {
-  # Nur wenn User existiert und podman vorhanden ist.
-  if ! have_user; then
-    return 0
-  fi
-  if ! cmd_exists podman; then
-    return 0
+  if cmd_exists podman; then
+    # Rootless Podman aufräumen (nur für diesen User)
+    sudo -u "$USER" env \
+      XDG_RUNTIME_DIR="/run/user/${uid}" \
+      HOME="${home}" \
+      podman stop -a >/dev/null 2>&1 || true
+
+    sudo -u "$USER" env \
+      XDG_RUNTIME_DIR="/run/user/${uid}" \
+      HOME="${home}" \
+      podman rm -a -f >/dev/null 2>&1 || true
+
+    # Löscht ALLE rootless Volumes dieses Users (aber keine systemweiten rootful Volumes)
+    sudo -u "$USER" env \
+      XDG_RUNTIME_DIR="/run/user/${uid}" \
+      HOME="${home}" \
+      podman volume rm -a >/dev/null 2>&1 || true
+
+    # Optional: härterer Reset nur im rootless Kontext des Users
+    sudo -u "$USER" env \
+      XDG_RUNTIME_DIR="/run/user/${uid}" \
+      HOME="${home}" \
+      podman system reset -f >/dev/null 2>&1 || true
   fi
 
-  # Podman-Objekte als rpodman entfernen (best effort).
-  sudo -u "$USER" podman stop -a >/dev/null 2>&1 || true
-  sudo -u "$USER" podman rm -a >/dev/null 2>&1 || true
-  sudo -u "$USER" podman volume rm -a >/dev/null 2>&1 || true
+  # Rootless Storage-Verzeichnisse des Users entfernen (nur dessen Home)
+  rm -rf "${home}/.local/share/containers" 2>/dev/null || true
+  rm -rf "${home}/.cache/containers" 2>/dev/null || true
+  rm -rf "${home}/.config/containers" 2>/dev/null || true
+  rm -rf "/run/user/${uid}/containers" 2>/dev/null || true
 }
 
 kill_user_procs() {
-  if ! have_user; then
-    return 0
-  fi
-
-  # Prozesse beenden (best effort).
-  if cmd_exists pkill; then
-    pkill -u "$USER" >/dev/null 2>&1 || true
-  fi
+  pkill -u "$USER" >/dev/null 2>&1 || true
 }
 
-remove_user() {
-  if have_user; then
-    userdel -r "$USER" >/dev/null 2>&1 || userdel "$USER" >/dev/null 2>&1 || true
-  fi
-}
+remove_user_and_local_artifacts() {
+  # User löschen
+  userdel -r "$USER" >/dev/null 2>&1 || userdel "$USER" >/dev/null 2>&1 || true
 
-remove_subids() {
-  # subordinate IDs entfernen, falls vorhanden
-  if [[ -f /etc/subuid ]]; then
-    sed -i "/^${USER}:/d" /etc/subuid
-  fi
-  if [[ -f /etc/subgid ]]; then
-    sed -i "/^${USER}:/d" /etc/subgid
-  fi
-}
+  # subordinate IDs entfernen (falls vorhanden)
+  [[ -f /etc/subuid ]] && sed -i "/^${USER}:/d" /etc/subuid || true
+  [[ -f /etc/subgid ]] && sed -i "/^${USER}:/d" /etc/subgid || true
 
-remove_local_artifacts() {
+  # lokale Artefakte
   rm -rf "$RBIN_BASE" || true
   rm -f "$RSHELL" || true
-
-  # Shell aus /etc/shells entfernen
-  if [[ -f /etc/shells ]]; then
-    sed -i "\|^${RSHELL}$|d" /etc/shells || true
-  fi
-}
-
-remove_runtime_dir() {
-  # Optional: /run/user/<uid> entfernen, falls es noch existiert und eindeutig ist.
-  # Wir ermitteln die UID aus dem (ggf. noch vorhandenen) Home/Passwd-Eintrag nicht mehr, da User weg ist.
-  # Daher nur „best effort“ für den Standardpfad /run/user/1002, aber NUR wenn leer/ungefährlich.
-  # Empfehlung: lieber weglassen, ausser du bist sicher.
-  :
+  [[ -f /etc/shells ]] && sed -i "\|^${RSHELL}$|d" /etc/shells || true
 }
 
 main() {
   need_root
 
-  cleanup_podman_rootless
-  kill_user_procs
-  remove_user
-  remove_subids
-  remove_local_artifacts
+  if ! have_user; then
+    # Wenn der User schon weg ist: nur noch lokale Artefakte entfernen.
+    rm -rf "$RBIN_BASE" || true
+    rm -f "$RSHELL" || true
+    [[ -f /etc/shells ]] && sed -i "\|^${RSHELL}$|d" /etc/shells || true
+    echo "OK: '$USER' existiert nicht mehr; Artefakte entfernt (best effort)."
+    exit 0
+  fi
 
-  echo "OK: '$USER' entfernt (sofern vorhanden)."
+  local uid home
+  read -r uid home < <(get_user_uid_home)
+
+  rootless_cleanup_only "$uid" "$home"
+  kill_user_procs
+  remove_user_and_local_artifacts
+
+  echo "OK: '$USER' (rootless) Container/Volumes/Storage entfernt; systemweite rootful Volumes bleiben erhalten."
 }
 
 main "$@"
