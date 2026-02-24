@@ -240,7 +240,21 @@ Token und minimale KUBECONFIG erzeugen
     kubectl get dv,vmi
     
 **ACHTUNG**: dadurch sehen die Lernenden auch die VMs und Default Passwörter der anderen Klassen.    
-    
+
+---
+
+### DNS Namensauflösung nach reboot VM
+
+> **Warum findet nach einem Reboot des VM Hosts die VMs den Gateway nicht mehr**
+
+Die Datei `/etc/resolv.conf` wird falsch wiederhergestellt der letzte Eintrag fehlt bzw. ist falsch:
+
+    nameserver 127.0.0.53
+    options edns0 trust-ad
+    search aiaas.svc.cluster.local svc.cluster.local cluster.local
+
+Lösung Namensauflösung mittels Kubernetes wieder aktivieren. Kubernetes Namespace hier `aiaas` beachten.
+   
 ---
 
 ### Multi Arch Container Images
