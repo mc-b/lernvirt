@@ -50,3 +50,43 @@ Der Build erfolgt **ohne Helm-Overrides** und ohne Template-Logik in `values.yam
 Der Parameter <environment> muss einem Dateinamen unter env/ entsprechen:
 
     ./script/build.sh lernmaas 
+    
+## rpodman Umgebung
+
+`rpodman` ist ein dedizierter, eingeschränkter System-User für den Betrieb von rootless Podman-Containern. Ziel ist eine kontrollierte Container-Sandbox ohne Root-Rechte, ohne Host-Dateisystem-Mounts und mit klar definierter Befehlsschnittstelle.
+
+Setup (z.B. als User `ubuntu`)
+
+    git clone https://github.com/mc-b/lernvirt
+    sudo bash lernvirt/scripts/setup-rpodman.sh
+
+Architektur
+
+* Eigener Linux-User (`rpodman`)
+* Rootless Podman (keine Root-Daemon-Instanz)
+* Restricted Bash als Login-Shell
+* Fixierter PATH mit Whitelist von erlaubten Binaries
+* Optionaler Podman-Wrapper zur Verhinderung von Host-Bind-Mounts
+* Eigene containers.conf (z.B. cgroupfs, userns=auto)
+* SSH-Zugang mit dediziertem Public Key
+
+Sicherheitsmodell
+
+* Container laufen im User-Namespace des Users.
+* Kein Zugriff auf Root-Rechte.
+* Kein Zugriff auf Systempfade ausserhalb der normalen User-Rechte.
+* Host-Bind-Mounts können unterbunden werden.
+* Nur definierte Kommandos stehen zur Verfügung.
+* Umgebung ist klar vom restlichen System getrennt.
+
+Das Remove-Script (`sudo lernvirt/scripts/remove-podman.sh`) entfernt vollständig:
+
+* User `rpodman`
+* dessen Home-Verzeichnis
+* rootless Container, Images, Volumes
+* Konfigurations- und Runtime-Daten
+
+Systemweite (rootful) Podman-Instanzen bleiben unangetastet.
+
+
+    
