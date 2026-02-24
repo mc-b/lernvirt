@@ -97,7 +97,7 @@ ensure_user_shell() {
 ensure_containers_conf() {
   install -d -m 0700 -o "$USER" -g "$USER" "$CONTAINERS_CONF_DIR"
 
-  local desired=$'[engine]\ncgroup_manager = "cgroupfs"\n'
+  local desired=$'[engine]\ncgroup_manager = "cgroupfs"\n\n[containers]\nuserns = "auto"\n'
 
   if [[ ! -f "$CONTAINERS_CONF_FILE" ]] || ! cmp -s <(printf "%s" "$desired") "$CONTAINERS_CONF_FILE"; then
     printf "%s" "$desired" >"$CONTAINERS_CONF_FILE"
