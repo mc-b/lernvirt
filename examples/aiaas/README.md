@@ -79,6 +79,10 @@ Die KI läuft auf dem Server, erscheint für Continue jedoch als lokaler Dienst.
 
 **Hinweis**: für die Einrichtung der Server Seite siehe [FAQ - SSH nur Port Weiterleitung](https://github.com/mc-b/lernvirt/blob/main/FAQ.md#ssh-nur-port-weiterleitung-ohne-shell)
 
+**Links**:
+
+* [Vibe Coding in VS Code](https://build.nvidia.com/spark/vibe-coding/instructions)
+
 ---
 
 ## Jupyter Lab
