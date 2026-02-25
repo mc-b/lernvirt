@@ -42,7 +42,7 @@ Bei Verwendung einer NVIDIA-GPU kann der Container mit GPU-Zugriff wie folgt ges
       ghcr.io/open-webui/open-webui:ollama
 
 Nach der Installation ist Open WebUI mittels Port 3000 erreichbar.
-Die OpenAI-kompatible API von Ollama steht auf Port 11434 zur Verfügung (muss noch im UI freigeschaltet werden).
+Die OpenAI-kompatible API von Ollama steht auf Port 11434 zur Verfügung.
 
 Folgende Modelle laden `llama3.1:8b-instruct-q4_K_M` und `gemma3:12b`
 
@@ -75,11 +75,16 @@ Testen der Kommunikationsverbindung
 
 vLLM ist eine schnelle und einfach zu nutzende Bibliothek für die Inferenz und das Bereitstellen (Serving) grosser Sprachmodelle. Sie optimiert die Ausführung auf GPUs durch effizientes Speichermanagement (z. B. PagedAttention) und ermöglicht hohe Durchsätze bei geringer Latenz, sowohl im Batch- als auch im Online-Betrieb.
 
-    podman run --device nvidia.com/gpu=all \
-    -p 8000:8000 \
-    --ipc=host \
-    docker.io/vllm/vllm-openai:cu130-nightly \
-    --model Qwen/Qwen2.5-0.5B-Instruct
+    podman run -d --device nvidia.com/gpu=all \
+      -p 8000:8000 \
+      --ipc=host \
+      docker.io/vllm/vllm-openai:cu130-nightly \
+      --model Qwen/Qwen2.5-0.5B-Instruct \
+      --gpu-memory-utilization 0.30 \
+      --max-model-len 8192 \
+      --max-num-seqs 16 \
+      --max-num-batched-tokens 8192 \
+      --enable-chunked-prefill
     
 Die OpenAI-kompatible API von vLLM steht auf Port 8000 zur Verfügung    
 
