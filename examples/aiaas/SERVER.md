@@ -95,7 +95,76 @@ Weitere vLLM-taugliche Kandidaten:
 **Hinweis**: Das starten von vLLM kann mehrere Minuten dauern.   
 
 **Links**:
-
 * [Using Docker](https://docs.vllm.ai/en/stable/deployment/docker/#pre-built-images)
+* [Install and use vLLM on DGX Spark](https://build.nvidia.com/spark/vllm/overview)
 
- 
+---
+
+### SGLang 
+
+NVIDIA-optimierter Container explizit für DGX Spark.
+
+NVIDIA bietet für DGX Spark/Blackwell einen “optimierten SGLang NGC Container” und dokumentiert das als empfohlenes Setup für einen einzelnen Spark-Node.
+
+Wenn du viel mit Chat-Serving/Tool-Use/Control-Flows arbeitest, ist SGLang oft sehr angenehm, und hier hast du den Bonus “NVIDIA-tuned for Spark”.
+
+Launch container with GPU support and port mapping
+
+    podman run -it --rm \
+      --device nvidia.com/gpu=all \
+      -p 30000:30000 \
+      -v /tmp:/tmp \
+      lmsysorg/sglang:spark \
+      bash
+
+Start the SGLang inference server
+
+    # Start the inference server with DeepSeek-V2-Lite model
+    python3 -m sglang.launch_server \
+      --model-path deepseek-ai/DeepSeek-V2-Lite \
+      --host 0.0.0.0 \
+      --port 30000 \
+      --trust-remote-code \
+      --tp 1 \
+      --attention-backend flashinfer \
+      --mem-fraction-static 0.75 &
+    
+Einfache Abfrage in einem zweiten Terminal
+   
+    curl -X POST http://localhost:30000/generate \
+      -H "Content-Type: application/json" \
+      -d '{
+          "text": "What does NVIDIA love?",
+          "sampling_params": {
+              "temperature": 0.7,
+              "max_new_tokens": 100
+          }
+      }'
+      
+Abfragen mittels OpenAPI API sind ebenfalls möglich.      
+
+
+**Links**:
+* [Install and use SGLang on DGX Spark](https://build.nvidia.com/spark/sglang/overview)
+
+---
+
+### NVIDIA NIM 
+
+NIM ist im Prinzip ein vorkonfigurierter, vereinheitlichter Deployment-Weg, der u.a. auf Triton basiert und je nach Modell/Setup TensorRT bzw. vLLM als Backend nutzt.
+
+Auf neuer Hardware wie GB10 ist das oft der pragmatischste Weg, weil Container/Abhängigkeiten kuratiert sind.
+
+**Links**:
+* [Deploy a NIM on Spark](https://build.nvidia.com/spark/nim-llm)
+
+---
+
+### TensorRT-LLM 
+
+Für maximale Inference-Performance auf NVIDIA-Hardware ist TensorRT-LLM typischerweise die erste Wahl: optimierte Attention-Kernels, In-flight Batching, KV-Cache, Quantisierung bis FP8/FP4/INT4 usw.
+
+Am GB10 ist das besonders attraktiv, weil NVIDIA TensorRT/TensorRT-LLM aktiv für Blackwell pflegt (MHA/FP8-Verbesserungen sind explizit in den Release Notes erwähnt)
+
+**Links**:
+* [Install and use TensorRT-LLM on DGX Spark](https://build.nvidia.com/spark/trt-llm)
