@@ -111,6 +111,14 @@ echo "sind strikt untersagt und werden protokolliert."
 echo "------------------------------------------------------------"
 echo
 
+# Username & Hostname holen
+user="$(/usr/bin/id -un)"
+host="$(/bin/hostname -s 2>/dev/null || /bin/hostname 2>/dev/null || echo unknown)"
+
+# Prompt setzen (z.B. user@host:rpodman$)
+# \w = aktuelles Verzeichnis
+export PS1="[$user@$host \w]$ "
+
 exec /bin/bash --restricted --noprofile --norc -i
 EOF
 
