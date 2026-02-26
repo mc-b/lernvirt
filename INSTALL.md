@@ -13,7 +13,66 @@ Bei einer neu Installation auf Bare Metal [autoinstall](autoinstall/README.md) v
 
 **Alternative**:
 
+### 3.0 Vorbereitungsarbeiten
+
+Wenn der User `ubuntu` fehlt, ist dieser zuerst anzulegen
+
+    sudo apt update
+    sudo apt install ssh-import-id
+    
+    adduser --gecos "" ubuntu
+    usermod -aG docker,sudo ubuntu
+    
+    printf "ubuntu ALL=(ALL:ALL) NOPASSWD:ALL\n" > /etc/sudoers.d/90-ubuntu-nopasswd
+    chmod 0440 /etc/sudoers.d/90-ubuntu-nopasswd
+    visudo -cf /etc/sudoers.d/90-ubuntu-nopasswd
+    
+Als User `ubuntu` - ssh Key eintragen von Github
+
+    ssh-import-id gh:mc-b
+    
+Falls WireGuard benötigt wird (Werte entsprechend anpassen):
+
+    sudo apt-get install -y wireguard
+    cat <<EOF | sudo tee /etc/wireguard/wg0.conf
+    [Interface]
+    Address = 10.10.1.10/24
+    PrivateKey = ...
+        
+    [Peer]
+    PublicKey = ...
+    Endpoint = cloud.wireguard.ch:51820
+    
+    AllowedIPs = 10.10.1.0/24
+    
+    # This is for if you're behind a NAT and
+    # want the connection to be kept alive.
+    PersistentKeepalive = 25
+    EOF    
+    
+    sudo systemctl enable wg-quick@wg0.service
+    sudo systemctl start  wg-quick@wg0.service
+
 ### 3.1 Kubernetes & Infrastruktur installieren
+
+**Alle Befehle inkl. Dashboard zusammen**:
+
+    curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/scripts/install-lernvirt.sh | bash -
+    curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -
+    sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -"
+    microk8s kubectl -n kubevirt patch kubevirt kubevirt --type=merge --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":false}}}}'
+    microk8s enable metrics-server
+    microk8s enable rbac
+    microk8s kubectl apply -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/addons/dashboard-readonly.yaml
+    microk8s kubectl apply -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/addons/dashboard-rbac.yaml 
+    
+Das Kubernetes Dashboard ist mittels Port 30443 erreichbar. Für den Zugriff braucht es einen Token welche wie folgt generiert werden kann:
+
+    kubectl -n kubernetes-dashboard create token dashboard-readonly --duration=8h 
+
+weiter bei Punkt 3.5.
+
+**Und die Befehle im Detail**:
 
 Auf dem Bare-Metal-Host werden zuerst eine zentrale Dateiablage (NFS) und microk8s installiert.
 
@@ -40,7 +99,8 @@ Metrics Server um die Auslastung anzeigen zu können `kubectl top nodes`
     
 Rollenbasierter Access um unerlaubte Zugriffe zu unterbinden, aktiveren:
     
-    microk8s enable rbac      
+    microk8s enable rbac  
+
 
 ### 3.3 VM-Images vorbereiten (optional, empfohlen)
 
