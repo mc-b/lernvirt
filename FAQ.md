@@ -110,6 +110,31 @@ Zertifikat neu erstellen
 
 Perfekt – auf dieser Basis habe ich dir den Text entsprechend angepasst und etwas verfeinert:
 
+### Kubernetes max Pods
+
+Per Default sind pro Kubernetes Node in der Regel max. 110 Pods möglich.
+
+Prüfen
+
+    microk8s kubectl get node -o jsonpath='{range .items[*]}{.metadata.name}{"  pods-capacity="}{.status.capacity.pods}{"\n"}{end}'
+    
+Um die Anzahl Pods zu erhöhen in der Datei `/var/snap/microk8s/current/args/kubelet` den untenstehenden Eintrag ergänzen
+
+    FILE="/var/snap/microk8s/current/args/kubelet"
+    VALUE="250"
+    
+    if ! grep -qE '^--max-pods=' "$FILE"; then
+        echo "--max-pods=$VALUE" | sudo tee -a "$FILE" >/dev/null
+        echo "Added --max-pods=$VALUE"
+    else
+        sudo sed -i -E "s/^--max-pods=.*/--max-pods=$VALUE/" "$FILE"
+        echo "Updated --max-pods to $VALUE"
+    fi      
+
+`microk8s` neu starten
+    
+    sudo snap restart microk8s    
+
 ---
 
 ### 🔀 Port Weiterleitung
