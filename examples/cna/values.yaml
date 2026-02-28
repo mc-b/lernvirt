@@ -1,0 +1,26 @@
+#
+# Erstellt eine Control Plane Node und zwei Worker Nodes
+#
+
+vm:
+  count: 3
+  ports:
+    - 16443
+  
+  # Worker Nodes
+  cpu: 4
+  memory: 6Gi
+  storage: 32Gi
+  userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/cna/cloud-init-worker.yaml
+
+# Master
+vm-0:
+  cpu: 8
+  memory: 12Gi
+  storage: 48Gi  
+  userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/cna/cloud-init-control.yaml
+  ports:
+    - 16443
+    - 32188
+    - 30443
+   
