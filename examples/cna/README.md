@@ -33,6 +33,11 @@ Kontrolle
 
     kubectl get sc,pv,pvc,dv,vm,vmi -n cna
     
+WireGuard aktivieren und dann sind die AI Notebooks und das CNA README wie folgt erreichbar:
+
+* [AI Notebooks](http://10.10.1.10:32188/lab)
+* [CNA README](http://10.10.1.10:32188/lab/tree/CnA/2_Unterrichtsressourcen/A-infra/README.ipynb )    
+    
 Löschen
 
     helm uninstall cna -n cna && kubectl delete ns cna    
