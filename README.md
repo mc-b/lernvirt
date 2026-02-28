@@ -37,6 +37,7 @@ Aufbau Helm Instanz Namen: [Modul]-[Klasse]-[Lehrerkürzel]
 **Weitere**
 
 * [Alpine Linux](examples/alpine/README.md)
+* [Modul CNA (K3s, Docker, PodMan, KubeVirt, Longhorn, Cert-Manager, Harbor, Istio, K-native, IIoT)](examples/cna/README.md)
 * [Docker, Podman und Kubernetes](examples/duk/README.md)
 * [GNS3 Labor](examples/gns3/README.md)
 * [Windows 10](examples/win10/README.md)
