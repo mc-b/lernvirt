@@ -3,22 +3,31 @@ Cloud-native Umgebung
 
 ### Beinhaltet
 
+* Juypter Lab inkl. AI Notebooks
+* K3s - Control Plane Node und 2 Worker Nodes
 * Docker
 * Podman
-* K3s - Control Plane Node und 2 Worker Nodes
 * Cert Manager
 * Istio
 * K-native
+* KubeVirt
 * Longhorn
 * ArgoCD
-* AutoShop inkl. IIoT
-* Juypter Notebooks
+* IIoT Custom Resource Definitions und Operator
 
 ### Installation
 
+Host spezifische Werte festlegen
+
     HELM_VALUES_HOST=hosts/<host>.yaml
     
+Minimale Umgebung (k3s, JupyterLab, docker, podman, istio)
+    
     helm install cna . -n cna --create-namespace -f ${HELM_VALUES_HOST} -f examples/cna/values.yaml 
+    
+Komplette Umgebung inkl. aller Produkte oben   
+    
+    helm install cna . -n cna --create-namespace -f ${HELM_VALUES_HOST} -f examples/cna/values-full.yaml     
     
 Kontrolle
 

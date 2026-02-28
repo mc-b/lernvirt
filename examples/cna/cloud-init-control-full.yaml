@@ -38,15 +38,10 @@ runcmd:
   - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -"
   - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/longhorn.sh | bash -" 
   - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/argocd.sh | bash -"  
-  - sudo su - ubuntu -c "kubectl apply -f https://gitlab.com/ch-mc-b/autoshop-ms/infra/argocd/-/raw/main/autoshop.yaml"    
   # IIoT Deklarationen und Operator
   - sudo su - ubuntu -lc |
       kubectl apply -f https://gitlab.com/ch-mc-b/autoshop-ms/infra/argocd/-/raw/main/iiot-crd.yaml &&
       kubectl apply -f https://gitlab.com/ch-mc-b/autoshop-ms/infra/argocd/-/raw/main/iiot-m5stack.yaml &&
       kubectl apply -f https://gitlab.com/ch-mc-b/autoshop-ms/infra/argocd/-/raw/main/iiot-operator.yaml &&
-      kubectl apply -f https://gitlab.com/ch-mc-b/autoshop-ms/infra/argocd/-/raw/main/iiot-ui.yaml
-  # IIoT Devices
-  - sleep 10
-  - sudo su - ubuntu -c "kubectl apply -f https://gitlab.com/ch-mc-b/autoshop-ms/infra/argocd/-/raw/main/iiot-m5stack-mqtt.yaml"
   - echo "✅ [INFO] Alle Installationen abgeschlossen."
     

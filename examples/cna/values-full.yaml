@@ -9,14 +9,14 @@ vm:
   
   # Worker Nodes
   cpu: 4
-  memory: 8Gi
+  memory: 6Gi
   storage: 32Gi
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/cna/cloud-init-worker.yaml
 
 # Master
 vm-0:
-  cpu: 4
-  memory: 8Gi
+  cpu: 8
+  memory: 12Gi
   storage: 48Gi  
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/cna/cloud-init-control-full.yaml
   ports:
