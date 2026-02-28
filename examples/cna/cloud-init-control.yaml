@@ -42,6 +42,7 @@ runcmd:
   - systemctl daemon-reexec
   - systemctl daemon-reload
   - systemctl restart ollama
+  - sleep 10  
   - sudo -u ubuntu bash -lc "ollama pull llama3.1:8b-instruct-q4_K_M"
   - sudo -u ubuntu bash -lc "ollama pull qwen2.5:7b-instruct-q4_K_M"   
   - echo "✅ [INFO] Alle Installationen abgeschlossen."
