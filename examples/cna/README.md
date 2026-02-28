@@ -14,6 +14,7 @@ Cloud-native Umgebung
 * Longhorn
 * ArgoCD
 * IIoT Custom Resource Definitions und Operator
+* Ollama AI Inference Server
 
 ### Installation
 
