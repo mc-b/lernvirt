@@ -18,7 +18,7 @@ vm-0:
   cpu: 4
   memory: 8Gi
   storage: 64Gi  
-  userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/cna/cloud-init-control-full.yaml
+  userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/cna/cloud-init-control.yaml
   ports:
     - 16443
     - 32188
