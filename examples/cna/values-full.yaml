@@ -9,7 +9,7 @@ vm:
   
   # Worker Nodes
   cpu: 4
-  memory: 6Gi
+  memory: 4Gi
   storage: 32Gi
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/cna/cloud-init-worker.yaml
 
