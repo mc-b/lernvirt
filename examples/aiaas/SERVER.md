@@ -39,6 +39,8 @@ Bei Verwendung einer NVIDIA-GPU kann der Container mit GPU-Zugriff wie folgt ges
       -v open-webui:/app/backend/data \
       -e OLLAMA_HOST=0.0.0.0:11434 \
       --name open-webui --restart=always \
+      --ulimit memlock=-1 \
+      --ulimit stack=67108864 \
       ghcr.io/open-webui/open-webui:ollama
 
 Nach der Installation ist Open WebUI mittels Port 3000 erreichbar.
@@ -62,8 +64,8 @@ Direktes Laden eines Modells in Ollama und Prompt
     
 Testen der Kommunikationsverbindung
 
-    curl -sS http://10.3.24.13:11434/api/tags
-    curl -sS http://10.3.24.13:11434/v1/models    
+    curl -sS http://localhost:11434/api/tags
+    curl -sS http://localhost:11434/v1/models    
 
 **Links**:
 
@@ -75,9 +77,12 @@ Testen der Kommunikationsverbindung
 
 vLLM ist eine schnelle und einfach zu nutzende Bibliothek für die Inferenz und das Bereitstellen (Serving) grosser Sprachmodelle. Sie optimiert die Ausführung auf GPUs durch effizientes Speichermanagement (z. B. PagedAttention) und ermöglicht hohe Durchsätze bei geringer Latenz, sowohl im Batch- als auch im Online-Betrieb.
 
-    podman run -d --device nvidia.com/gpu=all \
+    podman run --device nvidia.com/gpu=all \
       -p 8000:8000 \
       --ipc=host \
+      --name vllm \
+      --ulimit memlock=-1 \
+      --ulimit stack=67108864 \
       docker.io/vllm/vllm-openai:cu130-nightly \
       --model Qwen/Qwen2.5-0.5B-Instruct \
       --gpu-memory-utilization 0.30 \
@@ -92,7 +97,21 @@ Weitere vLLM-taugliche Kandidaten:
 * Orion-zhen/Qwen3-0.6B-AWQ (4-bit AWQ)
 * JunHowie/Qwen3-0.6B-GPTQ-Int4
     
-**Hinweis**: Das starten von vLLM kann mehrere Minuten dauern.   
+**Hinweis**: Das starten von vLLM kann mehrere Minuten dauern. 
+
+**Testen der vLLM Container Umgebung**
+
+Ausgabe der GPU Devices
+
+    podman exec -it vllm bash -lc 'ls -l /dev/nvidia* 2>/dev/null || true; ls -l /dev/dri 2>/dev/null || true'
+
+Ausgabe des gecachten Models (`hf` ist das Hugging Face CLI)
+
+    podman exec -it vllm hf cache scan
+    
+Testen der Kommunikationsverbindung
+
+    curl -sS http://localhost:8000/v1/models           
 
 **Links**:
 * [Using Docker](https://docs.vllm.ai/en/stable/deployment/docker/#pre-built-images)
