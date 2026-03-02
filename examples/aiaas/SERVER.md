@@ -174,8 +174,20 @@ NIM ist im Prinzip ein vorkonfigurierter, vereinheitlichter Deployment-Weg, der 
 
 Auf neuer Hardware wie GB10 ist das oft der pragmatischste Weg, weil Container/Abhängigkeiten kuratiert sind.
 
+    podman run --rm \
+      --device nvidia.com/gpu=all \
+      docker.io/nvidia/cuda:13.0.0-base-ubuntu22.04 \
+      bash
+      
+Im Container
+
+    nividia-smi
+    
+          
+
 **Links**:
 * [Deploy a NIM on Spark](https://build.nvidia.com/spark/nim-llm)
+* [NVIDIA NIM for Developers](https://developer.nvidia.com/nim?sortBy=developer_learning_library)
 
 ---
 
