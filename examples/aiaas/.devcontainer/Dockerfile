@@ -71,11 +71,11 @@ RUN python3 -m venv /opt/mcp \
 # Agent Kernel
 # -------------------------
 # LlamaIndex als separater Kernel (Agent)
-RUN python3 -m venv /opt/agent \
-    && /opt/agent/bin/pip install llama-index \
-    && /opt/agent/bin/pip install llama-index-llms-ollama llama-index-embeddings-huggingface \
-    && /opt/agent/bin/pip install ipykernel \
-    && /opt/agent/bin/pip install nbconvert \
-    && /opt/agent/bin/python -m ipykernel install \
-       --sys-prefix --name=agent --display-name "Python (agent)"
+#RUN python3 -m venv /opt/agent \
+#    && /opt/agent/bin/pip install llama-index \
+#    && /opt/agent/bin/pip install llama-index-llms-ollama llama-index-embeddings-huggingface \
+#    && /opt/agent/bin/pip install ipykernel \
+#    && /opt/agent/bin/pip install nbconvert \
+#    && /opt/agent/bin/python -m ipykernel install \
+#       --sys-prefix --name=agent --display-name "Python (agent)"
 
