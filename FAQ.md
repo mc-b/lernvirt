@@ -268,6 +268,22 @@ Token und minimale KUBECONFIG erzeugen
 
 ---
 
+### Podman - Container werden automatisch beendet
+
+> **Warum werden die mit Podman gestarten Container nach einen Logout beendet?**
+
+Damit nicht zu viele Container gleichzeitig ausgeführt werden und den begrenzten Arbeitsspeicher des DGX Spark belegen.
+
+Falls auf ein automatisches Beenden verzichtet werden soll, kann Linger für den entsprechenden Benutzer aktiviert werden.
+
+Beispiel:
+
+    loginctl enable-linger username
+    
+Dadurch bleibt die systemd-User-Instanz des Benutzers auch ohne aktive Anmeldung bestehen.
+
+---
+
 ### DNS Namensauflösung nach reboot VM
 
 > **Warum findet nach einem Reboot des VM Hosts die VMs den Gateway nicht mehr**
