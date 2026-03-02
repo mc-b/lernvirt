@@ -45,7 +45,7 @@ RUN python3 -m venv /opt/jupyter \
 # -------------------------
 RUN python3 -m venv /opt/ai \
  && /opt/ai/bin/pip install --upgrade pip \
- && /opt/ai/bin/pip install openai ipykernel nbconvert \
+ && /opt/ai/bin/pip install openai ipykernel nbconvert requests \
  && /opt/ai/bin/python -m ipykernel install \
       --sys-prefix --name=ai --display-name="Python (ai)"
 
