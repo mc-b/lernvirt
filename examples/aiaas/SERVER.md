@@ -134,6 +134,72 @@ Testen der Kommunikationsverbindung
 
 ---
 
+### NVIDIA NIM 
+
+NIM ist im Prinzip ein vorkonfigurierter, vereinheitlichter Deployment-Weg, der u.a. auf Triton basiert und je nach Modell/Setup TensorRT bzw. vLLM als Backend nutzt.
+
+Modell + optimierte Inference-Engine + API-Schicht + CUDA/TensorRT-Stack sind in einem getesteten Container gebündelt 
+
+Modell:
+NVIDIA NIM gemma-3-1b-it
+
+Ziel: gemma-3-1b-it als NIM Microservice auf einer DGX Spark mit Podman starten. Der Modell-Cache wird als Podman Volume persistiert.
+
+1. Login bei NGC
+
+    podman login nvcr.io
+    Username: $oauthtoken
+    Password: <NGC_API_KEY>
+
+2. Container Image laden
+
+    podman pull nvcr.io/nim/meta/llama-3.1-8b-instruct:latest
+
+3. Persistentes Volume für Modell-Cache anlegen
+
+    podman volume create nim-cache
+
+Das Volume wird im Container nach /opt/nim/.cache gemountet. Dadurch bleibt das Modell nach Container-Neustarts erhalten.
+
+4. Container starten 
+
+    podman run --rm -it \
+        --name gemma-3-1b-it \
+        --ulimit memlock=-1 \
+        --ulimit stack=67108864 \
+        --shm-size=8g \
+        --device nvidia.com/gpu=all \
+        -e NGC_API_KEY=<DEIN_KEY> \
+        -v nim-cache:/opt/nim/.cache \
+        -p 8010:8000 \
+        nvcr.io/nim/meta/llama-3.1-8b-instruct:latest
+        
+**ACHTUNG**: braucht den kompletten Speicher, alle anderen Container vorher beenden!     
+                
+Beim ersten Start wird das Modell in das Volume geladen. Weitere Starts erfolgen ohne erneuten Download.
+
+5. Funktionstest
+
+Der Service stellt eine OpenAI-kompatible REST API bereit:
+
+    curl [http://localhost:8010/v1/chat/completions](http://localhost:8000/v1/chat/completions) 
+    -H "Content-Type: application/json" 
+    -d '{
+    "model": "gemma-3-1b-it",
+    "messages": [
+    {"role": "user", "content": "Erkläre kurz was eine GPU ist."}
+    ]
+    }'
+
+**Links**:
+* [Overview of NVIDIA NIM for Large Language Models (LLMs)](https://docs.nvidia.com/nim/large-language-models/latest/introduction.html)
+* [A Simple Guide to Deploying Generative AI with NVIDIA NIM](https://developer.nvidia.com/blog/a-simple-guide-to-deploying-generative-ai-with-nvidia-nim/)
+* [Deploy a NIM on Spark](https://build.nvidia.com/spark/nim-llm)
+* [NVIDIA NIM for Developers](https://developer.nvidia.com/nim?sortBy=developer_learning_library)
+* [NGC Catalog](https://catalog.ngc.nvidia.com/)
+
+---
+
 ### SGLang 
 
 NVIDIA-optimierter Container explizit für DGX Spark.
@@ -180,29 +246,6 @@ Abfragen mittels OpenAPI API sind ebenfalls möglich.
 
 **Links**:
 * [Install and use SGLang on DGX Spark](https://build.nvidia.com/spark/sglang/overview)
-
----
-
-### NVIDIA NIM 
-
-NIM ist im Prinzip ein vorkonfigurierter, vereinheitlichter Deployment-Weg, der u.a. auf Triton basiert und je nach Modell/Setup TensorRT bzw. vLLM als Backend nutzt.
-
-Auf neuer Hardware wie GB10 ist das oft der pragmatischste Weg, weil Container/Abhängigkeiten kuratiert sind.
-
-    podman run --rm \
-      --device nvidia.com/gpu=all \
-      docker.io/nvidia/cuda:13.0.0-base-ubuntu22.04 \
-      bash
-      
-Im Container
-
-    nividia-smi
-    
-          
-
-**Links**:
-* [Deploy a NIM on Spark](https://build.nvidia.com/spark/nim-llm)
-* [NVIDIA NIM for Developers](https://developer.nvidia.com/nim?sortBy=developer_learning_library)
 
 ---
 
