@@ -93,6 +93,10 @@ Die KI läuft auf dem Server, erscheint für Continue jedoch als lokaler Dienst.
 
 Im JupyterLab stehen einige Notebooks zur Verfügung, die zur Demonstration der AI-Lernumgebung dienen.
 
+**Diese sollten regelmässig aktualisiert werden**.
+
+    cd data && curl -L https://github.com/mc-b/lernvirt/archive/refs/heads/main.tar.gz | tar xz --strip-components=3 lernvirt-main/examples/aiaas --exclude='*/'
+
 Die JupyterLab Umgebung läuft auf dem Port **32188**.
 
 Neben der Standard Jupyter Umgebung, stehen folgende weitere zur Verfügung:
@@ -101,7 +105,7 @@ Neben der Standard Jupyter Umgebung, stehen folgende weitere zur Verfügung:
 * `~/.mcp` - MCP - Model Context Protocol (Libraries: mcp requests openai)
 * `~/.agent` - Agenten-Workflows - LlamaIndex (Libraries: llama-index llama-index-llms-ollama llama-index-embeddings-huggingface)
 
-Fehlende Libraries können, in der Shell, wie folgt Nachinstalliert werden:
+Fehlende Libraries können, in der Shell, wie folgt Nachinstalliert werden, z.B.:
 
     source ~/.ai/bin/activate
     pip install requests
