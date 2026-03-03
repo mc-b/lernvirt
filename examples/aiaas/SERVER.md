@@ -246,6 +246,8 @@ Abfragen mittels OpenAPI API sind ebenfalls möglich.
 
 **Links**:
 * [Install and use SGLang on DGX Spark](https://build.nvidia.com/spark/sglang/overview)
+* [Homepage](https://docs.sglang.io/)
+* [Container Image Beschreibung](https://docs.nvidia.com/deeplearning/frameworks/sglang-release-notes/rel-26-02.html)
 
 ---
 
