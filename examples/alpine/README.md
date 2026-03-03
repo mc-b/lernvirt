@@ -17,9 +17,13 @@ Zusätzlich:
 
 Weitere Software wird unter Alpine einfach über den Paketmanager **`apk`** installiert, z. B. mit `apk add <paketname>`. 
 
+Host spezifische Werte festlegen
+
+    HELM_VALUES_HOST=hosts/<host>.yaml
+    
 Installation
 
-    helm install alpine . -n alpine --create-namespace -f examples/alpine/values.yaml
+    helm install alpine . -n alpine --create-namespace -f examples/alpine/values.yaml -f ${HELM_VALUES_HOST}
     
 Kontrolle
 

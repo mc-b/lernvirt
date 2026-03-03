@@ -12,9 +12,13 @@
 
 ### Installation nur als Gateway
 
-   Im gewünschten Namespace (oder `default`) das Chart mit der Gateway-Values-Datei installieren:
+Host spezifische Werte festlegen
 
-    helm install gw . -f examples/gateway/values.yaml
+    HELM_VALUES_HOST=hosts/<host>.yaml
+
+Im gewünschten Namespace (oder `default`) das Chart mit der Gateway-Values-Datei installieren:
+
+    helm install gw . -f examples/gateway/values.yaml -f ${HELM_VALUES_HOST}
 
 Mit dieser Konfiguration werden keine VMs erzeugt, sondern nur der WireGuard-Gateway (Deployment + Service + Secrets).
 

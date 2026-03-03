@@ -17,7 +17,11 @@ Docker, PodMan und Kubernetes Umgebung
     
 ### Installation
 
-    helm install lab . -n duk --create-namespace -f examples/duk/values.yaml
+Host spezifische Werte festlegen
+
+    HELM_VALUES_HOST=hosts/<host>.yaml
+    
+    helm install lab . -n duk --create-namespace -f examples/duk/values.yaml -f ${HELM_VALUES_HOST}
     
 Kontrolle
 

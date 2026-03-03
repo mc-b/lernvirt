@@ -13,9 +13,13 @@ Alle weiteren virtuellen Maschinen dienen als **Client-Umgebungen**. Sie enthalt
 
 Dieses Setup trennt **KI-Infrastruktur** und **Anwendungsentwicklung** klar voneinander und eignet sich besonders fuer Schulungs- und Laborumgebungen.
 
+Host spezifische Werte festlegen
+
+    HELM_VALUES_HOST=hosts/<host>.yaml
+
 Installation
 
-    helm install aiaas . -n aiaas --create-namespace -f examples/aiaas/values.yaml
+    helm install aiaas . -n aiaas --create-namespace -f examples/aiaas/values.yaml -f ${HELM_VALUES_HOST}
     
 Kontrolle
 

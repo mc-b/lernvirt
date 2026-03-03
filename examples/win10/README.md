@@ -12,9 +12,14 @@ Funktionieren mit KVM, QEmu, Proxmoxx etc.
 Siehe
 * https://github.com/mc-b/terra/tree/main/01-5-packer-windows
 
+
+Host spezifische Werte festlegen
+
+    HELM_VALUES_HOST=hosts/<host>.yaml
+
 Installation
 
-    helm install lab . -n win10 --create-namespace -f examples/win10/values.yaml
+    helm install lab . -n win10 --create-namespace -f examples/win10/values.yaml -f ${HELM_VALUES_HOST}
     
 Kontrolle
 
