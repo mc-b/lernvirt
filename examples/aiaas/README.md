@@ -130,6 +130,9 @@ RAG (Retrieval Augmented Generation) ist ein Ansatz in der KI, bei dem ein Sprac
 * [data/rag/rag_ollama_chroma.ipynb](rag/rag_ollama_chroma.ipynb) - Bereitet ein Mouser Magazine als RAG Inhalt auf
 * [data/rag/openai-vectorstore.ipynb](rag/openai-vectorstore.ipynb) - Bereitet das Projekt lernmaas für RAG auf und stellt gezielt Fragen.
 
+**Links**:
+
+* [Docling](https://www.docling.ai/)
 
 ### MCP - Model Context Protocol
 
@@ -145,6 +148,9 @@ Ollama liefert dabei nur die Text-Generierung; Kontext, Tools und Ressourcen kom
 * [data/mcp/mcp-server.ipynb](mcp/mcp-server.ipynb) - MCP Server Applikation, zuerst starten
 * [data/mcp/mcp-client.ipynb](mcp/mcp-client.ipynb) - einfacher MCP Client ohne AI.
 * [data/mcp/mcp-ai-client.ipynb](mcp/mcp-ai-client.ipynb) - MCP Client in Kombination mit AI
+
+**Links:**
+* [5 MCP-Server für mehr Cloud Automation](https://www.computerwoche.de/article/4133146/5-mcp-server-fur-mehr-cloud-automation.html)
 
 ---
 
