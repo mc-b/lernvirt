@@ -2,6 +2,19 @@
 
 **Damit AI Server und die Client Notebooks zusammen sauber funktionieren, sollten diese auf dem Client regelmässig aktualisiert werden, siehe [Jupyter Lab](https://github.com/mc-b/lernvirt/tree/main/examples/aiaas#jupyter-lab).**
 
+### rPodman Sandbox
+
+![](../images/rpodman.png)
+
+- - -
+
+Diese rpodman Container-Sandbox stellt eine kontrollierte, auf Ubuntu 24.04.4 LTS basierende Laufzeitumgebung mit klar definiertem Befehlssatz dar, die der isolierten und überwachten Ausführung von Container-Workloads mittels `podman` dient.
+
+Neben dem bewusst eingeschränkten Befehlssatz sind keine direkten Filesystem-Mounts zulässig; persistente oder gemeinsam genutzte Daten werden stattdessen über dedizierte Volumes eingebunden.
+
+    podman volume create mydata
+    podman run --rm -v mydata:/app/data ubuntu ls -l /app/data
+
 ### GPU-Schnelltest
 
 Zur Verifikation, dass die GPU korrekt erkannt und angesprochen werden kann, sollten folgende Tests durchgeführt werden.
