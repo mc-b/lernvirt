@@ -38,6 +38,15 @@ Wenn hier bereits ein Fehler erscheint, liegt das Problem beim Treiber und nicht
 
 **Hinweis**: nvidia-smi (NVIDIA System Management Interface) ist ein CLI-Werkzeug zur Abfrage des Zustands und der Auslastung von NVIDIA-GPUs über den installierten Treiber.
 
+### LLMFit
+
+Systemcheck für KI: Dieses Tool zeigt dir, welches Sprachmodell auf deiner Hardware läuft.
+
+**Links**::
+* [GitHub LMMFit](https://github.com/AlexsJones/llmfit) 
+* [Container](https://github.com/AlexsJones/llmfit/pkgs/container/llmfit)
+* [Artikel](https://t3n.de/news/systemcheck-ki-tool-welches-sprachmodell-laeuft-auf-deiner-hardware-1731942/)
+
 ---
 
 ### Open WebUI mit integriertem Ollama-Support
