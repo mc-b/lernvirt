@@ -116,10 +116,6 @@ vLLM ist eine schnelle und einfach zu nutzende Bibliothek für die Inferenz und 
       --enable-chunked-prefill
     
 Die OpenAI-kompatible API von vLLM steht auf Port 8000 zur Verfügung    
-
-Weitere vLLM-taugliche Kandidaten:
-* Orion-zhen/Qwen3-0.6B-AWQ (4-bit AWQ)
-* JunHowie/Qwen3-0.6B-GPTQ-Int4
     
 **Hinweis**: Das starten von vLLM kann mehrere Minuten dauern. 
 
@@ -170,10 +166,14 @@ Ziel: gemma-3-1b-it als NIM Microservice auf einer DGX Spark mit Podman starten.
 
 Das Volume wird im Container nach /opt/nim/.cache gemountet. Dadurch bleibt das Modell nach Container-Neustarts erhalten.
 
-4. Container starten 
+4. Prüfen ob das Container Image für ARM64 Architektur verfügbar ist
 
-    podman run --rm -it \
-        --name gemma-3-1b-it \
+    podman manifest inspect nvcr.io/nim/meta/llama-3.1-8b-instruct-dgx-spark:latest
+
+5. Container starten 
+
+    podman run --rm -d \
+        --name nvidia-nim \
         --ulimit memlock=-1 \
         --ulimit stack=67108864 \
         --shm-size=8g \
@@ -181,24 +181,19 @@ Das Volume wird im Container nach /opt/nim/.cache gemountet. Dadurch bleibt das 
         -e NGC_API_KEY=<DEIN_KEY> \
         -v nim-cache:/opt/nim/.cache \
         -p 8010:8000 \
-        nvcr.io/nim/meta/llama-3.1-8b-instruct:latest
+        nvcr.io/nim/meta/llama-3.1-8b-instruct-dgx-spark:latest
         
-**ACHTUNG**: braucht den kompletten Speicher, alle anderen Container vorher beenden!     
+Das Model lässt sich über Port 8010 und mit Namen `meta/llama-3.1-8b-instruct` ansprechen.
+        
+**ACHTUNG**: braucht 60 GB RAM!     
                 
 Beim ersten Start wird das Modell in das Volume geladen. Weitere Starts erfolgen ohne erneuten Download.
 
-5. Funktionstest
+6. Funktionstest
 
-Der Service stellt eine OpenAI-kompatible REST API bereit:
-
-    curl [http://localhost:8010/v1/chat/completions](http://localhost:8000/v1/chat/completions) 
-    -H "Content-Type: application/json" 
-    -d '{
-    "model": "gemma-3-1b-it",
-    "messages": [
-    {"role": "user", "content": "Erkläre kurz was eine GPU ist."}
-    ]
-    }'
+    curl -sS http://localhost:8010/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{ "model": "meta/llama-3.1-8b-instruct", "messages": [ {"role": "user", "content": "Erkläre kurz was eine GPU ist."} ] }'
 
 **Links**:
 * [Overview of NVIDIA NIM for Large Language Models (LLMs)](https://docs.nvidia.com/nim/large-language-models/latest/introduction.html)
