@@ -69,11 +69,11 @@ chmod 777 /data/storage || warn "Konnte Berechtigungen für /data/storage nicht 
 cat >/etc/exports <<EOF
 # /etc/exports: NFS Export-Konfiguration
 # Storage RW
-/data/storage *(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
+/data/storage *(rw,sync,no_subtree_check,fsid=1,all_squash,anonuid=1000,anongid=1000)
 # Templates RO
-/data/templates *(ro,sync,no_subtree_check)
+/data/templates *(ro,sync,no_subtree_check,fsid=2)
 # Config RO
-/data/config *(ro,sync,no_subtree_check)
+/data/config *(ro,sync,no_subtree_check,fsid=3)
 EOF
 
 if ! exportfs -ra; then
