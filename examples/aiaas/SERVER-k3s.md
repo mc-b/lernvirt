@@ -8,12 +8,24 @@ Für die Funktionsfähigkeit der beschriebenen Konfigurationen kann keine Gewäh
 
 Am einfachsten das Installationsscript [k3scontrol.sh](https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k3scontrol.sh) verwenden.
 
-    sudo -i
-    curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k3scontrol.sh | bash
+    sudo curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k3scontrol.sh | bash
     
 Kontrolle
 
     kubectl get nodes -o wide
+    
+**Optional**
+
+Zugriff von `rPodman Sandbox` freischalten
+
+    sudo ln -s $(which kubectl) /usr/local/rpodman/rbin/
+    
+WireGuard Zugriff freischalten
+
+    sudo mkdir -p /etc/rancher/k3s
+    hostname -I | awk '{print "tls-san:\n  - "$1"\n  - "$2}' | sudo tee /etc/rancher/k3s/config.yaml
+    sudo systemctl restart k3s   
+    sudo chmod +r /etc/rancher/k3s/k3s.yaml          
     
 ### Nvidia GPU Operator
 

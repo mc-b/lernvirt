@@ -86,6 +86,8 @@ Dann erweiterst du deine `.bashrc` (unter Git Bash auf Windows oder auch unter L
 
 > **Wie kann ich weitere Server oder IP für den Kubernetes Cluster zulassen, z.B. für Zugriff via WireGuard?**
 
+**microk8s**
+
 Öffne die Datei:
 
     sudo vi /var/snap/microk8s/current/certs/csr.conf.template
@@ -107,8 +109,18 @@ Zertifikat neu erstellen
 `~/.kube/config` neu erstellen
 
     microk8s config >~/.kube/config
+    
+**k3s**
 
-Perfekt – auf dieser Basis habe ich dir den Text entsprechend angepasst und etwas verfeinert:
+IPs nachtragen
+
+    sudo mkdir -p /etc/rancher/k3s
+    hostname -I | awk '{print "tls-san:\n  - "$1"\n  - "$2}' | sudo tee /etc/rancher/k3s/config.yaml
+
+Zertifikate nachführen und Zugriff via `kubectl` freischalten
+
+    sudo systemctl restart k3s   
+    sudo chmod +r /etc/rancher/k3s/k3s.yaml     
 
 ### Kubernetes max Pods
 
