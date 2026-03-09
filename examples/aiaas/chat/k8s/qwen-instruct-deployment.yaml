@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qwen-instruct-model
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qwen-instruct-model
+  template:
+    metadata:
+      labels:
+        app: text
+    spec:
+      containers:
+        - name: sglang
+          image: docker.io/lmsysorg/sglang:v0.5.9-cu130-arm64-runtime
+          args:
+            - python3
+            - -m
+            - sglang.launch_server
+            - --model-path
+            - Qwen/Qwen2.5-3B-Instruct
+            - --host
+            - 0.0.0.0
+            - --port
+            - "30000"
+            - --mem-fraction-static
+            - "0.10"
+            - --max-running-requests
+            - "2"
+            - --chunked-prefill-size
+            - "1024"
+          ports:
+            - containerPort: 30000
+          resources:
+            limits:
+              cpu: "4"
+              memory: "16Gi"
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: "2"
+              memory: "8Gi"

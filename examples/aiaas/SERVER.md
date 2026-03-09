@@ -2,13 +2,22 @@
 
 **Damit AI Server und die Client Notebooks zusammen sauber funktionieren, sollten diese auf dem Client regelmässig aktualisiert werden, siehe [Jupyter Lab](https://github.com/mc-b/lernvirt/tree/main/examples/aiaas#jupyter-lab).**
 
+### Kubernetes
+
+* [k3s](Server-k3s.md)
+* [microk8s](Server-microk8s.md)
+
+**ACHTUNG**: es funktioniert nur jeweils eine Variante, d.h. `k3s` oder `microk8s`.
+
+Die `rPodman Sandbox` kann parallel zu Kubernetes betrieben werden.
+
 ### rPodman Sandbox
 
 ![](../images/rpodman.png)
 
 - - -
 
-Diese rpodman Container-Sandbox stellt eine kontrollierte, auf Ubuntu 24.04.4 LTS basierende Laufzeitumgebung mit klar definiertem Befehlssatz dar, die der isolierten und überwachten Ausführung von Container-Workloads mittels `podman` dient.
+Diese rpodman Container-Sandbox stellt eine kontrollierte, auf Ubuntu basierende Laufzeitumgebung mit klar definiertem Befehlssatz dar, die der isolierten und überwachten Ausführung von Container-Workloads mittels `podman` dient.
 
 Neben dem bewusst eingeschränkten Befehlssatz sind keine direkten Filesystem-Mounts zulässig; persistente oder gemeinsam genutzte Daten werden stattdessen über dedizierte Volumes eingebunden.
 
@@ -54,7 +63,11 @@ Systemcheck für KI: Dieses Tool zeigt dir, welches Sprachmodell auf deiner Hard
 Open WebUI ist eine browserbasierte Oberfläche zur Interaktion mit lokalen oder zentral betriebenen Large-Language-Models und stellt eine OpenAI-kompatible API-Anbindung bereit.
 
 Diese Installationsmethode verwendet ein einzelnes Container-Image, das Open WebUI und Ollama gemeinsam bereitstellt. Dadurch ist eine vereinfachte Einrichtung mit einem einzigen Befehl möglich. Je nach Hardware-Konfiguration ist der passende Befehl zu wählen.
+
 Bei Verwendung einer NVIDIA-GPU kann der Container mit GPU-Zugriff wie folgt gestartet werden. Zusätzlich wird neben dem WebUI-Port (3000) auch der OpenAI-/Ollama-API-Port (11434) weitergeleitet:
+
+    podman volume create ollama
+    podman volume create open-webui
 
     podman rm -f open-webui
     podman run -d -p 3000:8080 -p 11434:11434 \
@@ -94,6 +107,146 @@ Testen der Kommunikationsverbindung
 **Links**:
 
 * [Installing Open WebUI with Bundled Ollama Support](https://github.com/open-webui/open-webui?tab=readme-ov-file#installing-open-webui-with-bundled-ollama-support)
+---
+
+### SGLang 
+
+NVIDIA-optimierter Container explizit für DGX Spark.
+
+NVIDIA bietet für DGX Spark/Blackwell einen “optimierten SGLang NGC Container” und dokumentiert das als empfohlenes Setup für einen einzelnen Spark-Node.
+
+Wenn du viel mit Chat-Serving/Tool-Use/Control-Flows arbeitest, ist SGLang oft sehr angenehm, und hier hast du den Bonus “NVIDIA-tuned for Spark”.
+
+Anbei Beispiele mit optimierten Parametern für DGX Spark. Die Erklärungen dazu findet ihr in den Notebooks
+
+    podman volume create sglang-cache
+
+    podman run -d --rm \
+      --device nvidia.com/gpu=all \
+      -p 30000:30000 \
+      -v sglang-cache:/root/.cache/huggingface \
+      -v /tmp:/tmp \
+      docker.io/lmsysorg/sglang:v0.5.9-cu130-arm64-runtime \
+      python3 -m sglang.launch_server \
+        --model-path Qwen/Qwen2.5-0.5B-Instruct \
+        --host 0.0.0.0 \
+        --port 30000 \
+        --trust-remote-code \
+        --tp 1 \
+        --attention-backend flashinfer \
+        --mem-fraction-static 0.10 \
+        --max-running-requests 1 \
+        --chunked-prefill-size 1 \
+        --cuda-graph-max-bs 1 \
+        --max-prefill-tokens 2048
+
+    podman volume create sglang-cache1
+        
+    podman run -d --rm \
+      --device nvidia.com/gpu=all \
+      -p 30001:30000 \
+      -v sglang-cache1:/root/.cache/huggingface \
+      -v /tmp:/tmp \
+      docker.io/lmsysorg/sglang:v0.5.9-cu130-arm64-runtime \
+      python3 -m sglang.launch_server \
+        --model-path HuggingFaceTB/SmolLM2-1.7B-Instruct \
+        --host 0.0.0.0 \
+        --port 30000 \
+        --trust-remote-code \
+        --tp 1 \
+        --attention-backend flashinfer \
+        --mem-fraction-static 0.10 \
+        --max-running-requests 1 \
+        --chunked-prefill-size 1 \
+        --cuda-graph-max-bs 1 \
+        --max-prefill-tokens 2048  
+        
+        
+    podman volume create sglang-cache2        
+    podman run -d --rm \
+      --device nvidia.com/gpu=all \
+      -p 30002:30000 \
+      -v sglang-cache2:/root/.cache/huggingface \
+      -v /tmp:/tmp \
+      docker.io/lmsysorg/sglang:v0.5.9-cu130-arm64-runtime \
+      python3 -m sglang.launch_server \
+        --model-path Qwen/Qwen2.5-Coder-0.5B \
+        --host 0.0.0.0 \
+        --port 30000 \
+        --trust-remote-code \
+        --tp 1 \
+        --attention-backend flashinfer \
+        --mem-fraction-static 0.10 \
+        --max-running-requests 1 \
+        --chunked-prefill-size 1 \
+        --cuda-graph-max-bs 1 \
+        --max-prefill-tokens 2048
+        
+    podman volume create sglang-cache3        
+    podman run -d --rm \
+      --device nvidia.com/gpu=all \
+      -p 30003:30000 \
+      -v sglang-cache3:/root/.cache/huggingface \
+      -v /tmp:/tmp \
+      docker.io/lmsysorg/sglang:v0.5.9-cu130-arm64-runtime \
+      python3 -m sglang.launch_server \
+        --model-path HuggingFaceTB/SmolLM2-135M-Instruct \
+        --host 0.0.0.0 \
+        --port 30000 \
+        --trust-remote-code \
+        --tp 1 \
+        --attention-backend flashinfer \
+        --mem-fraction-static 0.10 \
+        --max-running-requests 1 \
+        --chunked-prefill-size 1 \
+        --cuda-graph-max-bs 1 \
+        --max-prefill-tokens 2048 
+        
+        
+    podman volume create sglang-cache4       
+    podman run -d --rm \
+      --device nvidia.com/gpu=all \
+      -p 30004:30000 \
+      -v sglang-cache4:/root/.cache/huggingface \
+      -v /tmp:/tmp \
+      docker.io/lmsysorg/sglang:v0.5.9-cu130-arm64-runtime \
+      python3 -m sglang.launch_server \
+        --model-path TinyLlama/TinyLlama-1.1B-Chat-v1.0 \
+        --host 0.0.0.0 \
+        --port 30000 \
+        --trust-remote-code \
+        --tp 1 \
+        --attention-backend flashinfer \
+        --mem-fraction-static 0.10 \
+        --max-running-requests 1 \
+        --chunked-prefill-size 1 \
+        --cuda-graph-max-bs 1 \
+        --max-prefill-tokens 2048                
+    
+Einfache Abfrage in einem zweiten Terminal
+   
+    curl -X POST http://localhost:30000/generate \
+      -H "Content-Type: application/json" \
+      -d '{
+          "text": "What does NVIDIA love?",
+          "sampling_params": {
+              "temperature": 0.7,
+              "max_new_tokens": 100
+          }
+      }'
+
+**temperature**
+Dieser Wert bestimmt, wie kreativ oder vorhersehbar die Antwort des Modells ist: ein niedriger Wert führt zu eher sicheren, ähnlichen Antworten, ein höherer Wert zu abwechslungsreicheren und manchmal überraschenderen Formulierungen.
+
+**max_new_tokens**
+Dieser Wert legt fest, wie lang die Antwort maximal werden darf, indem er die Anzahl der neuen Wörter bzw. Wortteile begrenzt, die das Modell erzeugen darf.
+      
+Abfragen mittels OpenAPI API sind ebenfalls möglich.  
+
+**Links**:
+* [Install and use SGLang on DGX Spark](https://build.nvidia.com/spark/sglang/overview)
+* [Homepage](https://docs.sglang.io/)
+* [Container Image Beschreibung](https://docs.nvidia.com/deeplearning/frameworks/sglang-release-notes/rel-26-02.html)
 
 ---
 
@@ -101,18 +254,23 @@ Testen der Kommunikationsverbindung
 
 vLLM ist eine schnelle und einfach zu nutzende Bibliothek für die Inferenz und das Bereitstellen (Serving) grosser Sprachmodelle. Sie optimiert die Ausführung auf GPUs durch effizientes Speichermanagement (z. B. PagedAttention) und ermöglicht hohe Durchsätze bei geringer Latenz, sowohl im Batch- als auch im Online-Betrieb.
 
-    podman run --device nvidia.com/gpu=all \
+
+    podman volume create vllm-cache
+
+    podman run -it --rm --device nvidia.com/gpu=all \
       -p 8000:8000 \
       --ipc=host \
       --name vllm \
       --ulimit memlock=-1 \
       --ulimit stack=67108864 \
+      -v vllm-cache:/root/.cache/huggingface \
+      -v /tmp:/tmp \
       docker.io/vllm/vllm-openai:cu130-nightly \
-      --model Qwen/Qwen2.5-0.5B-Instruct \
-      --gpu-memory-utilization 0.30 \
-      --max-model-len 8192 \
+      --model Qwen/Qwen2.5-3B-Instruct \
+      --gpu-memory-utilization 0.10 \
+      --max-model-len 4096 \
       --max-num-seqs 16 \
-      --max-num-batched-tokens 8192 \
+      --max-num-batched-tokens 4096 \
       --enable-chunked-prefill
     
 Die OpenAI-kompatible API von vLLM steht auf Port 8000 zur Verfügung    
@@ -201,57 +359,6 @@ Beim ersten Start wird das Modell in das Volume geladen. Weitere Starts erfolgen
 * [Deploy a NIM on Spark](https://build.nvidia.com/spark/nim-llm)
 * [NVIDIA NIM for Developers](https://developer.nvidia.com/nim?sortBy=developer_learning_library)
 * [NGC Catalog](https://catalog.ngc.nvidia.com/)
-
----
-
-### SGLang 
-
-NVIDIA-optimierter Container explizit für DGX Spark.
-
-NVIDIA bietet für DGX Spark/Blackwell einen “optimierten SGLang NGC Container” und dokumentiert das als empfohlenes Setup für einen einzelnen Spark-Node.
-
-Wenn du viel mit Chat-Serving/Tool-Use/Control-Flows arbeitest, ist SGLang oft sehr angenehm, und hier hast du den Bonus “NVIDIA-tuned for Spark”.
-
-Launch container with GPU support and port mapping
-
-    podman run -it --rm \
-      --device nvidia.com/gpu=all \
-      -p 30000:30000 \
-      -v /tmp:/tmp \
-      lmsysorg/sglang:spark \
-      bash
-
-Start the SGLang inference server
-
-    # Start the inference server with DeepSeek-V2-Lite model
-    python3 -m sglang.launch_server \
-      --model-path deepseek-ai/DeepSeek-V2-Lite \
-      --host 0.0.0.0 \
-      --port 30000 \
-      --trust-remote-code \
-      --tp 1 \
-      --attention-backend flashinfer \
-      --mem-fraction-static 0.75 &
-    
-Einfache Abfrage in einem zweiten Terminal
-   
-    curl -X POST http://localhost:30000/generate \
-      -H "Content-Type: application/json" \
-      -d '{
-          "text": "What does NVIDIA love?",
-          "sampling_params": {
-              "temperature": 0.7,
-              "max_new_tokens": 100
-          }
-      }'
-      
-Abfragen mittels OpenAPI API sind ebenfalls möglich.      
-
-
-**Links**:
-* [Install and use SGLang on DGX Spark](https://build.nvidia.com/spark/sglang/overview)
-* [Homepage](https://docs.sglang.io/)
-* [Container Image Beschreibung](https://docs.nvidia.com/deeplearning/frameworks/sglang-release-notes/rel-26-02.html)
 
 ---
 
