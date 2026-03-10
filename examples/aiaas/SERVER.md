@@ -11,6 +11,10 @@
 
 Die `rPodman Sandbox` kann parallel zu Kubernetes betrieben werden.
 
+### Online GPUs Umgebungen
+
+* [Nvidia ab CHF 1.50 pro Stunde](https://brev.nvidia.com/) 
+
 ### rPodman Sandbox
 
 ![](../images/rpodman.png)
@@ -139,6 +143,28 @@ Anbei Beispiele mit optimierten Parametern für DGX Spark. Die Erklärungen dazu
         --chunked-prefill-size 1 \
         --cuda-graph-max-bs 1 \
         --max-prefill-tokens 2048
+    
+Einfache Abfrage in einem zweiten Terminal
+   
+    curl -X POST http://localhost:30000/generate \
+      -H "Content-Type: application/json" \
+      -d '{
+          "text": "What does NVIDIA love?",
+          "sampling_params": {
+              "temperature": 0.7,
+              "max_new_tokens": 100
+          }
+      }'
+
+temperature
+* Dieser Wert bestimmt, wie kreativ oder vorhersehbar die Antwort des Modells ist: ein niedriger Wert führt zu eher sicheren, ähnlichen Antworten, ein höherer Wert zu abwechslungsreicheren und manchmal überraschenderen Formulierungen.
+
+max_new_tokens
+* Dieser Wert legt fest, wie lang die Antwort maximal werden darf, indem er die Anzahl der neuen Wörter bzw. Wortteile begrenzt, die das Modell erzeugen darf.
+      
+Abfragen mittels OpenAPI API sind ebenfalls möglich.
+
+**Weiter Umgebungen/Modelle**          
 
     podman volume create sglang-cache1
         
@@ -221,27 +247,29 @@ Anbei Beispiele mit optimierten Parametern für DGX Spark. Die Erklärungen dazu
         --max-running-requests 1 \
         --chunked-prefill-size 1 \
         --cuda-graph-max-bs 1 \
-        --max-prefill-tokens 2048                
+        --max-prefill-tokens 2048   
+
+**Interaktive Umgebung**
+        
+    podman volume create sglang-cache5           
+    podman run -it --rm \
+      --device nvidia.com/gpu=all \
+      -p 30005:30000 \
+      -v sglang-cache5:/root/.cache/huggingface \
+      -v /tmp:/tmp \
+      docker.io/lmsysorg/sglang:v0.5.9-cu130-arm64-runtime \
+      bash  
+
+Im Container
+
+    git clone https://github.com/mjhermanson-nv/sglang-brevdev.git
+    cd sglang-brevdev
     
-Einfache Abfrage in einem zweiten Terminal
-   
-    curl -X POST http://localhost:30000/generate \
-      -H "Content-Type: application/json" \
-      -d '{
-          "text": "What does NVIDIA love?",
-          "sampling_params": {
-              "temperature": 0.7,
-              "max_new_tokens": 100
-          }
-      }'
+    pip install marimo
+    python3 01_send_request.py
+    
+Weitere [Dokumentation](https://github.com/mjhermanson-nv/sglang-brevdev).
 
-**temperature**
-Dieser Wert bestimmt, wie kreativ oder vorhersehbar die Antwort des Modells ist: ein niedriger Wert führt zu eher sicheren, ähnlichen Antworten, ein höherer Wert zu abwechslungsreicheren und manchmal überraschenderen Formulierungen.
-
-**max_new_tokens**
-Dieser Wert legt fest, wie lang die Antwort maximal werden darf, indem er die Anzahl der neuen Wörter bzw. Wortteile begrenzt, die das Modell erzeugen darf.
-      
-Abfragen mittels OpenAPI API sind ebenfalls möglich.  
 
 **Links**:
 * [Install and use SGLang on DGX Spark](https://build.nvidia.com/spark/sglang/overview)
