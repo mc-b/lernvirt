@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sglang-model.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "sglang-model.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "sglang-model.name" . }}
+    spec:
+{{- if .Values.runtimeClass.enabled }}
+      runtimeClassName: {{ .Values.runtimeClass.name }}
+{{- end }}
+      containers:
+        - name: sglang
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - python3
+            - -m
+            - sglang.launch_server
+            - --model-path
+            - {{ .Values.model.name }}
+            - --host
+            - 0.0.0.0
+            - --port
+            - "30000"
+            - --mem-fraction-static
+            - "0.10"
+            - --max-running-requests
+            - "2"
+            - --chunked-prefill-size
+            - "1024"
+          ports:
+            - containerPort: 30000
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+          volumeMounts:
+            - name: hf-cache
+              mountPath: /root/.cache/huggingface
+              subPath: {{ .Release.Name }}-{{ .Chart.Name }}
+      volumes:
+        - name: hf-cache
+          persistentVolumeClaim:
+            claimName: {{ include "sglang-model.fullname" . }}
