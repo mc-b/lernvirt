@@ -20,35 +20,21 @@ Installation der Packages
  
 Konfigurieren Sie die Container-Laufzeitumgebung mit folgendem nvidia-ctkBefehl:
 
-    sudo nvidia-ctk runtime configure --runtime=containerd
+    sudo nvidia-ctk runtime configure --runtime=containerd --config /var/snap/microk8s/current/args/containerd-template.toml 
     
 Standardmässig nvidia-ctk erstellt der Befehl eine `/etc/containerd/conf.d/99-nvidia.toml` Konfigurationsdatei und ändert (oder erstellt) `/etc/containerd/config.toml` diese, um sicherzustellen, dass die importsKonfigurationsoption entsprechend aktualisiert wird. Die Konfigurationsdatei gewährleistet, dass containerd die NVIDIA Container Runtime nutzen kann.
 
-containerd neu starten:
+Starte `containerd` und `microk8s` neu
 
-    sudo systemctl restart containerd    
+    sudo systemctl daemon-reload
+    sudo systemctl restart containerd
+    sudo snap restart microk8s      
     
-Starten des K8s Device Plugins
-
-    helm repo add nvidia https://helm.ngc.nvidia.com/nvidia && helm repo update
-      
-    helm install gpu-operator -n gpu-operator --create-namespace \
-      nvidia/gpu-operator $HELM_OPTIONS \
-        --version=v25.10.1 \
-        --set toolkit.env[0].name=CONTAINERD_CONFIG \
-        --set toolkit.env[0].value=/var/snap/microk8s/current/args/containerd-template.toml \
-        --set toolkit.env[1].name=CONTAINERD_SOCKET \
-        --set toolkit.env[1].value=/var/snap/microk8s/common/run/containerd.sock \
-        --set toolkit.env[2].name=RUNTIME_CONFIG_SOURCE \
-        --set-string toolkit.env[2].value=file=/var/snap/microk8s/current/args/containerd.toml    
-    
-Runtime in containerd auf nvidia umbenennen
-
 Bearbeite diese Datei (genau diese, nicht /etc/containerd/...):
 
     sudo vi /var/snap/microk8s/current/args/containerd-template.toml
 
-Entferne `-container-runtime` hinter `nvidia` in der plugins Zeile
+Entferne `-container-runtime` hinter `nvidia` in den Zeilen mit `[plugins....]`
 
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
       runtime_type = "${RUNTIME_TYPE}"
@@ -56,13 +42,18 @@ Entferne `-container-runtime` hinter `nvidia` in der plugins Zeile
       [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
         BinaryName = "nvidia-container-runtime"
 
-Starte `microk8s` neu
+Starte `containerd` und `microk8s` neu
 
-Prüfen ob GPU vorhanden ist:
-
-    kubectl get node -o jsonpath='{range .items[*]}{.metadata.name}{" allocatable="}{.status.allocatable.nvidia\.com/gpu}{"\n"}{end}'
+    sudo systemctl daemon-reload
+    sudo systemctl restart containerd
+    sudo snap restart microk8s    
     
-Weiter bei [K3s Nvidia GPU Operator](Server-k3s.md).
+**ACHTUNG**: bei allen Container welche die GPU nützen wollen muss `runtimeClassName: nvidia` gesetzt sein:
+
+    spec:
+      runtimeClassName: nvidia
+    
+Weiter geht es bei [k3s Nvidia GPU Operator](Server-k3s.md).
 
 **Links**
 
