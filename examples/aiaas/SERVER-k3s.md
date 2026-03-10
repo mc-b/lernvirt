@@ -93,6 +93,7 @@ Testen mit 8 Pods welche alle eine GPU brauchen
           labels:
             app: gpu-test
         spec:
+          runtimeClassName: nvidia
           containers:
           - name: cuda-test
             image: nvidia/cuda:12.4.1-base-ubuntu22.04
