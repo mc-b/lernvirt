@@ -32,17 +32,5 @@ runcmd:
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/containers.sh | bash -  
   - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/istio-zipkin.sh | bash -"
   - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/istio-patch.sh | bash -" 
-  - curl -fsSL https://ollama.com/install.sh | sh  
-  - mkdir -p /etc/systemd/system/ollama.service.d
-  - |
-    cat <<EOF > /etc/systemd/system/ollama.service.d/override.conf
-    [Service]
-    Environment="OLLAMA_HOST=0.0.0.0:11434"
-    EOF
-  - systemctl daemon-reexec
-  - systemctl daemon-reload
-  - systemctl restart ollama
-  - sleep 10  
-  - sudo -u ubuntu bash -lc "ollama pull llama3.1:8b-instruct-q4_K_M"
   - echo "✅ [INFO] Alle Installationen abgeschlossen."
     
