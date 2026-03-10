@@ -22,10 +22,6 @@ Chart direkt aus dem Verzeichnis installieren:
 
 ### Anderes Modell setzen
 
-    helm install qwen . --set model.name=Qwen/Qwen2.5-7B-Instruct
-
-### StorageClass setzen
-
     helm install smollm2 . --set model.name=HuggingFaceTB/SmolLM2-135M-Instruct
 
 
