@@ -16,6 +16,7 @@ spec:
       containers:
         - name: sglang
           image: docker.io/lmsysorg/sglang:v0.5.9-cu130-arm64-runtime
+          imagePullPolicy: IfNotPresent
           args:
             - python3
             - -m
