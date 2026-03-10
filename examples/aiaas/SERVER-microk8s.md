@@ -17,20 +17,27 @@ Installation der Packages
     sudo apt-get install nvidia-container-toolkit -y
     
 **containerd konfigurieren (für Kubernetes)**
+
+Überprüfen ob die Datei `/var/snap/microk8s/current/args/containerd-template.toml` bereits nvidia Einträge hat.
+
+    sudo grep nvidia /var/snap/microk8s/current/args/containerd-template.toml
  
-Konfigurieren Sie die Container-Laufzeitumgebung mit folgendem nvidia-ctkBefehl:
+**Wenn Nein**: Konfiguriere die Container-Laufzeitumgebung mit folgendem nvidia-ctk Befehl:
 
     sudo nvidia-ctk runtime configure --runtime=containerd --config /var/snap/microk8s/current/args/containerd-template.toml 
     
-Standardmässig nvidia-ctk erstellt der Befehl eine `/etc/containerd/conf.d/99-nvidia.toml` Konfigurationsdatei und ändert (oder erstellt) `/etc/containerd/config.toml` diese, um sicherzustellen, dass die importsKonfigurationsoption entsprechend aktualisiert wird. Die Konfigurationsdatei gewährleistet, dass containerd die NVIDIA Container Runtime nutzen kann.
+**Nvidia Operator** installieren 
 
-Starte `containerd` und `microk8s` neu
-
-    sudo systemctl daemon-reload
-    sudo systemctl restart containerd
-    sudo snap restart microk8s      
+    helm repo add nvidia https://helm.ngc.nvidia.com/nvidia && helm repo update
     
-Bearbeite diese Datei (genau diese, nicht /etc/containerd/...):
+    helm upgrade --install gpu-operator nvidia/gpu-operator \
+      --version=v25.10.1 \
+      --namespace gpu-operator \
+      --create-namespace \
+      --set driver.enabled=false \
+      --set toolkit.enabled=false    
+    
+Wenn das fehlschlägt, bzw. die Init-Container nicht starten, bearbeite diese Datei (genau diese, nicht /etc/containerd/...):
 
     sudo vi /var/snap/microk8s/current/args/containerd-template.toml
 
