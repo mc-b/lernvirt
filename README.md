@@ -26,11 +26,11 @@ Die Umgebung eignet sich besonders für:
 
 Modul M122 - Automatisieren mit Skripten. Cloud-init Deklaration von [https://github.com/tbz-it/M122](https://github.com/tbz-it/M122) wird verwendet
 
-    helm install m122-ap21a-ben -n ap21a --create-namespace 
+    helm install m122-ap21a-ben . -n ap21a --create-namespace 
     
 Modul M169 Services mit Containern bereitstellen. Cloud-init Script von [lernmaas]() wird verwendet.
 
-    helm install m169k3s-ap21a-ben -n ap21a --create-namespace 
+    helm install m169k3s-ap21a-ben . -n ap21a --create-namespace 
   
 Aufbau Helm Instanz Namen: [Modul]-[Klasse]-[Lehrerkürzel]
     
