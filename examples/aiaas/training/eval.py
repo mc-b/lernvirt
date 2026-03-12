@@ -12,10 +12,10 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 DEFAULT_PROMPTS = [
-    "Was macht das Projekt LernMAAS",
-    "LernMAAS verwendet die Produkte",
-    "GNS3 und LernMAAS sind",
-    "Ist MAAS.io Bestandteil von LernMAAS",
+    "Was wird im Modul CNA Unterrichtet",
+    "Was wird im Modul IACA Unterrichtet",
+    "Was verwende ich um ein Windows Image zu erstellen",
+    "Wie installiere ich istio",
 ]
 
 

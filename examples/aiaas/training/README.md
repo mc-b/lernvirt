@@ -11,11 +11,12 @@ Der Ablauf ist bewusst in zwei Phasen getrennt:
 
 Dieses Projekt ist für **Continued Pretraining**, nicht für klassisches Chat-Finetuning. Verwende daher ein **Base-Modell** und kein Instruct-Modell, wenn du die Gewichte im Vortrainingsstil weiter verschieben willst.
 
-## 1) Container mit Python und GPU Unterstützung starten
+## Container mit Python und GPU Unterstützung starten
 
     podman volume create llm-training
     
-    podman run --rm -it \
+    podman rm -f llm-training
+    podman run -it \
       --device nvidia.com/gpu=all \
       --name llm-training \
       -v llm-training:/llm-training \
@@ -23,21 +24,26 @@ Dieses Projekt ist für **Continued Pretraining**, nicht für klassisches Chat-F
       bash
     
 Im Container
+
+    pip install -U datasets pyarrow huggingface_hub fsspec transformers accelerate
   
+    cd /llm-training
     git clone https://github.com/mc-b/lernvirt
     cd lernvirt/examples/aiaas/training
     
-    pip install -U datasets pyarrow huggingface_hub fsspec transformers accelerate
+## Repositories lokal vorbereiten
 
-## 2) Konfiguration anlegen
-
-    cp config.example.yaml config.yaml
-
-## 3)Repositories lokal vorbereiten
+    mkdir -p repos
+    cd repos
+    git clone https://gitlab.com/ch-tbz-wb/stud/cna
+    git clone https://gitlab.com/ch-tbz-wb/stud/iaca
+    git clone https://github.com/mc-b/terra    
+    
+    # weitere Repositories
 
     python prepare_repos.py --config config.yaml
 
-## 4) Training starten
+## Training starten
 
     python train.py --config config.yaml
 
@@ -62,7 +68,7 @@ Oder ab bestimmtem Checkpoint:
 python train.py --config config.yaml --resume ./outputs/wiki-cpt/checkpoint-1000
 ```
 
-## 5) Evaluation
+## Evaluation
 
 Schnelle Textausgabe vor/nach dem Training:
 

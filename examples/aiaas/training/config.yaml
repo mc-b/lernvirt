@@ -15,7 +15,7 @@ dataset:
   seed: 42
   
 repos:
-  root_dir: /ws/lernmaas
+  root_dir: ./repos
   output_dir: ./dataset
   mode: full
   max_chars: 4000
@@ -24,7 +24,7 @@ repos:
 
 paths:
   dataset_dir: ./dataset
-  output_dir: ./outputs/wiki-cpt
+  output_dir: ./outputs/model
   cache_dir: null
 
 training:
