@@ -1,10 +1,9 @@
 # Wikipedia Continued Pretraining für DGX Spark
 
-Dieses Projekt baut ein kleines, reproduzierbares Setup für **Continued Pretraining** eines bestehenden Causal-LM-Base-Modells auf dem Hugging-Face-Dataset `wikimedia/wikipedia`.
-
+Dieses Projekt baut ein kleines, reproduzierbares Setup für **Continued Pretraining** eines bestehenden Causal-LM-Base-Modells auf dem einen eigen Produzierten DataSet.
 Der Ablauf ist bewusst in zwei Phasen getrennt:
 
-1. `prepare_dataset.py` oder `prepare_repos.py` lädt und bereinigt Wikipedia-Artikel oder Repositories und schreibt ein lokales Arrow-Dataset.
+1. `prepare_repos.py` lädt und bereinigt Repositories und schreibt ein lokales Arrow-Dataset.
 2. `train.py` tokenisiert dieses lokale Dataset, baut Token-Blöcke und trainiert das Modell weiter.
 3. `eval.py` prüft das Resultat mit wenigen Textgenerierungen und optionaler Perplexity auf einem Holdout-Split.
 
@@ -14,44 +13,33 @@ Dieses Projekt ist für **Continued Pretraining**, nicht für klassisches Chat-F
 
 ## 1) Container mit Python und GPU Unterstützung starten
 
-    docker run --rm -it \
-      --gpus all \
-      --network host \
-      --ipc host \
-      -v $PWD:/training \
-      -w /training \
+    podman volume create llm-training
+    
+    podman run --rm -it \
+      --device nvidia.com/gpu=all \
+      --name llm-training \
+      -v llm-training:/llm-training \
       nvcr.io/nvidia/pytorch:25.11-py3 \
       bash
+    
+Im Container
+  
+    git clone https://github.com/mc-b/lernvirt
+    cd lernvirt/examples/aiaas/training
+    
+    pip install -U datasets pyarrow huggingface_hub fsspec transformers accelerate
 
 ## 2) Konfiguration anlegen
 
     cp config.example.yaml config.yaml
 
-Danach in `config.yaml` die wichtigsten Werte prüfen:
+## 3)Repositories lokal vorbereiten
 
-- `model.name`
-- `dataset.wikipedia_config`
-- `paths.dataset_dir`
-- `paths.output_dir`
-
-## 3) Wikipedia oder Repositories lokal vorbereiten
-
-    python prepare_dataset.py --config config.yaml
-
-Das Script:
-
-- streamt `wikimedia/wikipedia`
-- filtert kurze oder leere Artikel
-- macht nur eine grobe Textbereinigung
-- schreibt ein lokales Dataset nach `paths.dataset_dir`
-
-
+    python prepare_repos.py --config config.yaml
 
 ## 4) Training starten
 
-```bash
-python train.py --config config.yaml
-```
+    python train.py --config config.yaml
 
 Wichtige Eigenschaften:
 
@@ -78,18 +66,14 @@ python train.py --config config.yaml --resume ./outputs/wiki-cpt/checkpoint-1000
 
 Schnelle Textausgabe vor/nach dem Training:
 
-```bash
-python generate.py \
-  --model ./outputs/wiki-cpt/final \
-  --prompt "Die Geschichte der Schweiz ist" \
-  --max-new-tokens 160
-```
+    python generate.py \
+      --model ./outputs/wiki-cpt/final \
+      --prompt "Funktioniert lernMAAS zusammen mit GNS3" \
+      --max-new-tokens 80
 
 Perplexity und Beispielgenerationen:
 
-```bash
-python eval.py --config config.yaml --model-path ./outputs/wiki-cpt/final
-```
+    python eval.py --config config.yaml --model-path ./outputs/wiki-cpt/final
 
 ## Typische Anpassungen für DGX Spark
 
@@ -128,23 +112,18 @@ Für Qwen2.5 sind als Default-Targets im Beispiel gesetzt:
 
 Bei anderen Architekturen müssen diese Layernamen ggf. angepasst werden.
 
-## Hinweise zur Lizenz
-
-Wikipedia-Inhalte stehen nicht unter einer simplen Public-Domain-Lizenz. Prüfe die Bedingungen des verwendeten Datasets und der weiterverwendeten Modellartefakte separat, bevor du das Resultat extern verteilst oder kommerziell einsetzt.
 
 ## Beispielworkflow
 
-```bash
 cp config.example.yaml config.yaml
-python prepare_dataset.py --config config.yaml
+
+python prepare_repos.py --config config.yaml
 python train.py --config config.yaml
-python eval.py --config config.yaml --model-path ./outputs/wiki-cpt/final
-```
+python eval.py --config config.yaml --model-path ./outputs/final
 
 ## Bekannte praktische Grenzen
 
 - Das ist **kein** Full-Scale-Foundation-Pretraining ab Scratch.
-- Wikipedia allein ergibt kein starkes Chatmodell.
 - Nach Continued Pretraining ist oft ein nachgelagertes Instruction-Tuning sinnvoll.
 - Perplexity auf Wikipedia ist nützlich, aber nicht hinreichend als Qualitätsmass.
 

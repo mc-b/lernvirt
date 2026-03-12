@@ -12,10 +12,10 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 DEFAULT_PROMPTS = [
-    "Die Geschichte der Schweiz ist",
-    "Albert Einstein war ein Physiker, der",
-    "Die Bundesverfassung der Schweiz regelt",
-    "Wikipedia ist eine Online-Enzyklopädie, die",
+    "Was macht das Projekt LernMAAS",
+    "LernMAAS verwendet die Produkte",
+    "GNS3 und LernMAAS sind",
+    "Ist MAAS.io Bestandteil von LernMAAS",
 ]
 
 

@@ -15,12 +15,12 @@ dataset:
   seed: 42
   
 repos:
-  root_dir: ~/ws
+  root_dir: /ws/lernmaas
   output_dir: ./dataset
-  mode: docs+comments
+  mode: full
   max_chars: 4000
   overlap: 300
-  min_chars: 200  
+  min_chars: 200
 
 paths:
   dataset_dir: ./dataset
