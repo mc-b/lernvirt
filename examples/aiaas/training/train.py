@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import yaml
-from datasets import DatasetDict, load_from_disk
+from datasets import Dataset, DatasetDict, load_from_disk
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -32,21 +32,55 @@ def resolve_resume_path(resume_arg: Optional[str], output_dir: Path) -> Optional
     return str(checkpoints[-1])
 
 
-def build_splits(cfg: Dict):
+def ensure_text_column(ds, split_name: str) -> None:
+    if "text" not in ds.column_names:
+        raise ValueError(
+            f"Dataset-Split '{split_name}' enthält keine Spalte 'text'. "
+            f"Vorhandene Spalten: {ds.column_names}"
+        )
+
+
+def build_splits(cfg: Dict) -> DatasetDict:
     dataset_dir = Path(cfg["paths"]["dataset_dir"]).expanduser().resolve()
     raw_ds = load_from_disk(str(dataset_dir))
 
     val_ratio = float(cfg["dataset"].get("val_ratio", 0.01))
     seed = int(cfg["dataset"].get("seed", 42))
 
-    if val_ratio > 0.0:
-        split_ds = raw_ds.train_test_split(test_size=val_ratio, seed=seed)
-        return DatasetDict({"train": split_ds["train"], "validation": split_ds["test"]})
-    return DatasetDict({"train": raw_ds})
+    # Fall 1: einzelnes Dataset
+    if isinstance(raw_ds, Dataset):
+        ensure_text_column(raw_ds, "train")
+        if val_ratio > 0.0:
+            split_ds = raw_ds.train_test_split(test_size=val_ratio, seed=seed)
+            return DatasetDict({"train": split_ds["train"], "validation": split_ds["test"]})
+        return DatasetDict({"train": raw_ds})
+
+    # Fall 2: DatasetDict
+    if isinstance(raw_ds, DatasetDict):
+        if "train" not in raw_ds:
+            raise ValueError(
+                f"DatasetDict enthält keinen 'train'-Split. Vorhandene Splits: {list(raw_ds.keys())}"
+            )
+
+        ensure_text_column(raw_ds["train"], "train")
+
+        if "validation" in raw_ds:
+            ensure_text_column(raw_ds["validation"], "validation")
+            return raw_ds
+
+        if val_ratio > 0.0:
+            split_ds = raw_ds["train"].train_test_split(test_size=val_ratio, seed=seed)
+            return DatasetDict({"train": split_ds["train"], "validation": split_ds["test"]})
+
+        return DatasetDict({"train": raw_ds["train"]})
+
+    raise TypeError(f"Nicht unterstützter Dataset-Typ: {type(raw_ds)}")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Continued pretraining on local Wikipedia dataset.")
+    parser = argparse.ArgumentParser(
+        description="Continued pretraining on local text dataset (Wikipedia, repos, etc.)."
+    )
     parser.add_argument("--config", required=True, help="Path to YAML config")
     parser.add_argument("--resume", default=None, help="Checkpoint path or 'auto'")
     args = parser.parse_args()
@@ -68,11 +102,20 @@ def main() -> None:
         trust_remote_code=model_cfg.get("trust_remote_code", False),
         cache_dir=paths_cfg.get("cache_dir"),
     )
+
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
+    max_model_length = getattr(tokenizer, "model_max_length", None)
+    if not isinstance(max_model_length, int) or max_model_length <= 0 or max_model_length > 10_000_000:
+        max_model_length = None
+
     def tokenize_fn(batch):
-        return tokenizer(batch["text"])
+        kwargs = {}
+        if max_model_length:
+            kwargs["truncation"] = True
+            kwargs["max_length"] = max_model_length
+        return tokenizer(batch["text"], **kwargs)
 
     tokenized = ds.map(
         tokenize_fn,
@@ -84,9 +127,16 @@ def main() -> None:
     block_size = int(train_cfg.get("block_size", 1024))
 
     def group_texts(examples):
-        concatenated = {k: sum(examples[k], []) for k in examples.keys()}
+        concatenated = {}
+        for k in examples.keys():
+            merged = []
+            for seq in examples[k]:
+                merged.extend(seq)
+            concatenated[k] = merged
+
         total_length = len(concatenated["input_ids"])
         total_length = (total_length // block_size) * block_size
+
         result = {
             k: [v[i:i + block_size] for i in range(0, total_length, block_size)]
             for k, v in concatenated.items()
@@ -94,7 +144,11 @@ def main() -> None:
         result["labels"] = result["input_ids"].copy()
         return result
 
-    lm_ds = tokenized.map(group_texts, batched=True, desc=f"Grouping into blocks of {block_size}")
+    lm_ds = tokenized.map(
+        group_texts,
+        batched=True,
+        desc=f"Grouping into blocks of {block_size}",
+    )
 
     if train_cfg.get("max_eval_samples_blocks") and "validation" in lm_ds:
         max_eval = int(train_cfg["max_eval_samples_blocks"])
@@ -128,12 +182,11 @@ def main() -> None:
 
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
-    training_args = TrainingArguments(
+    training_args_kwargs = dict(
         output_dir=str(output_dir),
         num_train_epochs=float(train_cfg.get("num_train_epochs", 1)),
         learning_rate=float(train_cfg.get("learning_rate", 2e-5)),
         weight_decay=float(train_cfg.get("weight_decay", 0.01)),
-        warmup_ratio=float(train_cfg.get("warmup_ratio", 0.03)),
         per_device_train_batch_size=int(train_cfg.get("per_device_train_batch_size", 1)),
         per_device_eval_batch_size=int(train_cfg.get("per_device_eval_batch_size", 1)),
         gradient_accumulation_steps=int(train_cfg.get("gradient_accumulation_steps", 16)),
@@ -142,7 +195,7 @@ def main() -> None:
         save_steps=int(train_cfg.get("save_steps", 250)),
         save_total_limit=int(train_cfg.get("save_total_limit", 2)),
         dataloader_num_workers=int(train_cfg.get("dataloader_num_workers", 2)),
-        bf16=bool(train_cfg.get("bf16", True)),
+        bf16=bool(train_cfg.get("bf16", False)),
         fp16=bool(train_cfg.get("fp16", False)),
         gradient_checkpointing=bool(train_cfg.get("gradient_checkpointing", True)),
         max_grad_norm=float(train_cfg.get("max_grad_norm", 1.0)),
@@ -153,20 +206,28 @@ def main() -> None:
         logging_strategy="steps",
     )
 
+    # bevorzugt warmup_steps, warmup_ratio nur als Fallback
+    if "warmup_steps" in train_cfg and train_cfg["warmup_steps"] is not None:
+        training_args_kwargs["warmup_steps"] = int(train_cfg["warmup_steps"])
+    elif "warmup_ratio" in train_cfg and train_cfg["warmup_ratio"] is not None:
+        training_args_kwargs["warmup_ratio"] = float(train_cfg["warmup_ratio"])
+
+    training_args = TrainingArguments(**training_args_kwargs)
+
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=lm_ds["train"],
-        eval_dataset=lm_ds.get("validation"),
-        processing_class=tokenizer,
+        eval_dataset=lm_ds["validation"] if "validation" in lm_ds else None,
         data_collator=data_collator,
     )
 
     resume_path = resolve_resume_path(args.resume, output_dir)
     train_result = trainer.train(resume_from_checkpoint=resume_path)
 
-    trainer.save_model(str(output_dir / "final"))
-    tokenizer.save_pretrained(str(output_dir / "final"))
+    final_dir = output_dir / "final"
+    trainer.save_model(str(final_dir))
+    tokenizer.save_pretrained(str(final_dir))
 
     metrics = train_result.metrics
     if train_cfg.get("do_eval", True) and "validation" in lm_ds:

@@ -4,7 +4,7 @@ Dieses Projekt baut ein kleines, reproduzierbares Setup für **Continued Pretrai
 
 Der Ablauf ist bewusst in zwei Phasen getrennt:
 
-1. `prepare_dataset.py` lädt und bereinigt Wikipedia-Artikel und schreibt ein lokales Arrow-Dataset.
+1. `prepare_dataset.py` oder `prepare_repos.py` lädt und bereinigt Wikipedia-Artikel oder Repositories und schreibt ein lokales Arrow-Dataset.
 2. `train.py` tokenisiert dieses lokale Dataset, baut Token-Blöcke und trainiert das Modell weiter.
 3. `eval.py` prüft das Resultat mit wenigen Textgenerierungen und optionaler Perplexity auf einem Holdout-Split.
 
@@ -12,44 +12,20 @@ Der Ablauf ist bewusst in zwei Phasen getrennt:
 
 Dieses Projekt ist für **Continued Pretraining**, nicht für klassisches Chat-Finetuning. Verwende daher ein **Base-Modell** und kein Instruct-Modell, wenn du die Gewichte im Vortrainingsstil weiter verschieben willst.
 
-Ein guter Start auf einer DGX Spark ist:
+## 1) Container mit Python und GPU Unterstützung starten
 
-- Modell: `Qwen/Qwen2.5-1.5B`
-- Wikipedia-Snapshot: `20231101.de`
-- Block Size: `1024`
-- `per_device_train_batch_size: 1`
-- `gradient_accumulation_steps: 16`
-- `bf16: true`
-
-## Verzeichnisstruktur
-
-```text
-.
-├── config.example.yaml
-├── eval.py
-├── generate.py
-├── prepare_dataset.py
-├── README.md
-├── requirements.txt
-└── train.py
-```
-
-## 1) Umgebung vorbereiten
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -U pip
-pip install -r requirements.txt
-```
-
-Falls `torch` auf deiner DGX Spark bereits über NVIDIA/PyTorch-Container oder System-Stack sauber vorhanden ist, kannst du `requirements.txt` bei Bedarf anpassen.
+    docker run --rm -it \
+      --gpus all \
+      --network host \
+      --ipc host \
+      -v $PWD:/training \
+      -w /training \
+      nvcr.io/nvidia/pytorch:25.11-py3 \
+      bash
 
 ## 2) Konfiguration anlegen
 
-```bash
-cp config.example.yaml config.yaml
-```
+    cp config.example.yaml config.yaml
 
 Danach in `config.yaml` die wichtigsten Werte prüfen:
 
@@ -58,11 +34,9 @@ Danach in `config.yaml` die wichtigsten Werte prüfen:
 - `paths.dataset_dir`
 - `paths.output_dir`
 
-## 3) Wikipedia lokal vorbereiten
+## 3) Wikipedia oder Repositories lokal vorbereiten
 
-```bash
-python prepare_dataset.py --config config.yaml
-```
+    python prepare_dataset.py --config config.yaml
 
 Das Script:
 
@@ -70,6 +44,8 @@ Das Script:
 - filtert kurze oder leere Artikel
 - macht nur eine grobe Textbereinigung
 - schreibt ein lokales Dataset nach `paths.dataset_dir`
+
+
 
 ## 4) Training starten
 

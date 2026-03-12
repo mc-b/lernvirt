@@ -13,9 +13,17 @@ dataset:
   max_articles: 50000
   val_ratio: 0.01
   seed: 42
+  
+repos:
+  root_dir: ~/ws
+  output_dir: ./dataset
+  mode: docs+comments
+  max_chars: 4000
+  overlap: 300
+  min_chars: 200  
 
 paths:
-  dataset_dir: ./data/wiki_de_20231101
+  dataset_dir: ./dataset
   output_dir: ./outputs/wiki-cpt
   cache_dir: null
 
