@@ -58,15 +58,8 @@ Wichtige Eigenschaften:
 
 Explizites Resume:
 
-```bash
-python train.py --config config.yaml --resume auto
-```
+    python train.py --config config.yaml --resume auto
 
-Oder ab bestimmtem Checkpoint:
-
-```bash
-python train.py --config config.yaml --resume ./outputs/wiki-cpt/checkpoint-1000
-```
 
 ## Evaluation
 
@@ -79,7 +72,7 @@ Schnelle Textausgabe vor/nach dem Training:
 
 Perplexity und Beispielgenerationen:
 
-    python eval.py --config config.yaml --model-path ./outputs/wiki-cpt/final
+    python eval.py --config config.yaml --model-path ./outputs/model/final
 
 ## Typische Anpassungen für DGX Spark
 
