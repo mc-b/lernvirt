@@ -18,16 +18,19 @@ Chart direkt aus dem Verzeichnis installieren:
     cd examples/aiaas/helm/sglang
     helm install qwen .
 
-## Konfiguration
+## Weitere Modell starten
 
-### Anderes Modell setzen
+    helm install smollm2 .      --set model.name=HuggingFaceTB/SmolLM2-1.7B-Instruct
+    helm install smollm2-135m . --set model.name=HuggingFaceTB/SmolLM2-135M-Instruct
+    
+    helm install qwen-coder .   --set model.name=Qwen/Qwen2.5-Coder-0.5B
 
-    helm install smollm2 . --set model.name=HuggingFaceTB/SmolLM2-1.7B-Instruct
-
+    helm install tiny-llama .   --set model.name=TinyLlama/TinyLlama-1.1B-Chat-v1.0
 
 ## Deinstallation
 
     helm uninstall qwen
+    etc.
 
 ## Hinweise
 
