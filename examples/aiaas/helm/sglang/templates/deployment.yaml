@@ -15,6 +15,7 @@ spec:
 {{- if .Values.runtimeClass.enabled }}
       runtimeClassName: {{ .Values.runtimeClass.name }}
 {{- end }}
+      hostIPC: true
       containers:
         - name: sglang
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -30,7 +31,7 @@ spec:
             - --port
             - "30000"
             - --mem-fraction-static
-            - "0.10"
+            -   {{ .Values.model.memFraction | quote }}
             - --max-running-requests
             - "2"
             - --chunked-prefill-size

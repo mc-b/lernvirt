@@ -7,6 +7,7 @@ image:
 
 model:
   name: Qwen/Qwen2.5-0.5B-Instruct
+  memFraction: 0.10
 
 service:
   type: NodePort
