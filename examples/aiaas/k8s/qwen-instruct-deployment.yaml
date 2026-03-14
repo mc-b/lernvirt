@@ -22,7 +22,7 @@ spec:
             - -m
             - sglang.launch_server
             - --model-path
-            - Qwen/Qwen2.5-3B-Instruct
+            - Qwen/Qwen2.5-0.5B-Instruct
             - --host
             - 0.0.0.0
             - --port

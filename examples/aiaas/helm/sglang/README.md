@@ -22,7 +22,7 @@ Chart direkt aus dem Verzeichnis installieren:
 
 ### Anderes Modell setzen
 
-    helm install smollm2 . --set model.name=HuggingFaceTB/SmolLM2-135M-Instruct
+    helm install smollm2 . --set model.name=HuggingFaceTB/SmolLM2-1.7B-Instruct
 
 
 ## Deinstallation
