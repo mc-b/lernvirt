@@ -407,7 +407,7 @@ Dadurch dauert der erste Start einiges länger, der zweite dauert aber nur halb 
     
     podman volume create trt-cache
     
-    podman rm -f HuggingFaceTB 2>/dev/null || true
+    podman rm -f qwen 2>/dev/null || true
     podman run -d --rm \
       --name HuggingFaceTB \
       --device nvidia.com/gpu=all \
@@ -427,7 +427,7 @@ Dadurch dauert der erste Start einiges länger, der zweite dauert aber nur halb 
       enable_padding: true
     EOF
     
-        trtllm-serve HuggingFaceTB/SmolLM2-1.7B-Instruct \
+        trtllm-serve Qwen/Qwen2.5-0.5B-Instruct \
           --backend pytorch \
           --host 0.0.0.0 \
           --port 8000 \
@@ -488,3 +488,4 @@ Funktionstest
 
 **Links**:
 * [Install and use TensorRT-LLM on DGX Spark](https://build.nvidia.com/spark/trt-llm)
+* [NVIDIA TensorRT-LLM (TRT-LLM) Playbooks](https://github.com/NVIDIA/dgx-spark-playbooks/tree/main/nvidia/trt-llm)
