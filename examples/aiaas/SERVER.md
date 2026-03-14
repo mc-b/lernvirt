@@ -394,7 +394,97 @@ Beim ersten Start wird das Modell in das Volume geladen. Weitere Starts erfolgen
 
 Für maximale Inference-Performance auf NVIDIA-Hardware ist TensorRT-LLM typischerweise die erste Wahl: optimierte Attention-Kernels, In-flight Batching, KV-Cache, Quantisierung bis FP8/FP4/INT4 usw.
 
-Am GB10 ist das besonders attraktiv, weil NVIDIA TensorRT/TensorRT-LLM aktiv für Blackwell pflegt (MHA/FP8-Verbesserungen sind explizit in den Release Notes erwähnt)
+Am GB10 ist das besonders attraktiv, weil NVIDIA TensorRT/TensorRT-LLM aktiv für Blackwell pflegt (MHA/FP8-Verbesserungen sind explizit in den Release Notes erwähnt).
+
+Unterschiede: sglang lädt HF-Modelle direkt zur Laufzeit, während TensorRT-LLM normalerweise:
+* Modell von Hugging Face laden
+* TensorRT Engine bauen (trtllm-build)
+* Danach Server starten
+
+Dadurch dauert der erste Start einiges länger, der zweite dauert aber nur halb so lang wie sglang.
+
+    export HF_TOKEN="..."
+    
+    podman volume create trt-cache
+    
+    podman rm -f HuggingFaceTB 2>/dev/null || true
+    podman run -d --rm \
+      --name HuggingFaceTB \
+      --device nvidia.com/gpu=all \
+      --ipc=host \
+      -p 30000:8000 \
+      -e HF_TOKEN="$HF_TOKEN" \
+      -v trtllm-cache:/root/.cache/huggingface \
+      -v /tmp:/tmp \
+      nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc7 \
+      bash -lc '
+        cat > /tmp/extra-llm-api-config.yml <<EOF
+    print_iter_log: false
+    kv_cache_config:
+      dtype: "auto"
+      free_gpu_memory_fraction: 0.5
+    cuda_graph_config:
+      enable_padding: true
+    EOF
+    
+        trtllm-serve HuggingFaceTB/SmolLM2-1.7B-Instruct \
+          --backend pytorch \
+          --host 0.0.0.0 \
+          --port 8000 \
+          --max_batch_size 1 \
+          --max_num_tokens 2048 \
+          --max_seq_len 512 \
+          --extra_llm_api_options /tmp/extra-llm-api-config.yml
+      '
+
+**Weiter Umgebungen/Modelle**  
+
+    podman volume create trt-cache1
+    
+    podman rm -f trtllm-smollm2 2>/dev/null || true
+    podman run -it --rm \
+      --name trtllm-smollm2 \
+      --device nvidia.com/gpu=all \
+      --ipc=host \
+      -p 30001:8000 \
+      -e HF_TOKEN="$HF_TOKEN" \
+      -v trtllm-cache1:/root/.cache/huggingface \
+      -v /tmp:/tmp \
+      nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc7 \
+      bash -lc '
+        cat > /tmp/extra-llm-api-config.yml <<EOF
+    print_iter_log: false
+    kv_cache_config:
+      dtype: "auto"
+      free_gpu_memory_fraction: 0.5
+    cuda_graph_config:
+      enable_padding: true
+    EOF
+    
+        trtllm-serve HuggingFaceTB/SmolLM2-1.7B-Instruct \
+          --backend pytorch \
+          --host 0.0.0.0 \
+          --port 8000 \
+          --max_batch_size 1 \
+          --max_num_tokens 2048 \
+          --max_seq_len 512 \
+          --extra_llm_api_options /tmp/extra-llm-api-config.yml
+      '
+
+etc.  
+
+Funktionstest  
+  
+    curl -X POST http://localhost:30001/v1/chat/completions \
+        -H "Content-Type: application/json" \
+        -H "Accept: application/json" \
+        -d '{
+            "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+            "messages":[{"role": "system", "content": "You are a helpful assistant."},
+                        {"role": "user", "content": "Where is New York? Tell me in a single sentence."}],
+            "max_tokens": 32,
+            "temperature": 0
+        }'    
 
 **Links**:
 * [Install and use TensorRT-LLM on DGX Spark](https://build.nvidia.com/spark/trt-llm)
