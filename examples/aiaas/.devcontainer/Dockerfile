@@ -37,8 +37,7 @@ RUN apt-get update \
 RUN python3 -m venv /opt/jupyter \
  && /opt/jupyter/bin/pip install --upgrade pip \
  && /opt/jupyter/bin/pip install jupyterlab ipykernel \
- && /opt/jupyter/bin/python -m ipykernel install \
-      --sys-prefix --name=jupyter --display-name="Python (jupyter)"
+ && /opt/jupyter/bin/python -m ipykernel install --sys-prefix --name=jupyter --display-name="Python (jupyter)"
 
 # -------------------------
 # AI Kernel
@@ -46,17 +45,15 @@ RUN python3 -m venv /opt/jupyter \
 RUN python3 -m venv /opt/ai \
  && /opt/ai/bin/pip install --upgrade pip \
  && /opt/ai/bin/pip install openai ipykernel nbconvert requests \
- && /opt/ai/bin/python -m ipykernel install \
-      --sys-prefix --name=ai --display-name="Python (ai)"
+ && /opt/ai/bin/python -m ipykernel install --sys-prefix --name=ai --display-name="Python (ai)"
 
 # -------------------------
 # Hugging Face Kernel
 # -------------------------
 RUN python3 -m venv /opt/hf \
  && /opt/hf/bin/pip install --upgrade pip \
- && /opt/hf/bin/pip install -U datasets pyarrow huggingface_hub fsspec transformers accelerate ipywidgets sentence-transformers sentencepiece peft pypdf requests tqdm numpy einops \
- && /opt/hf/bin/python -m ipykernel install \
-      --sys-prefix --name=hf --display-name="Python (hf)"
+ && /opt/hf/bin/pip install -U ipykernel ipywidgets datasets pyarrow huggingface_hub fsspec transformers accelerate sentence-transformers sentencepiece peft pypdf requests tqdm numpy einops \
+ && /opt/hf/bin/python -m ipykernel install --sys-prefix --name=hf --display-name="Python (hf)"
 
 # -------------------------
 # MCP Kernel
@@ -64,8 +61,7 @@ RUN python3 -m venv /opt/hf \
 RUN python3 -m venv /opt/mcp \
  && /opt/mcp/bin/pip install --upgrade pip \
  && /opt/mcp/bin/pip install ipykernel mcp requests openai \
- && /opt/mcp/bin/python -m ipykernel install \
-      --sys-prefix --name=mcp --display-name="Python (mcp)"
+ && /opt/mcp/bin/python -m ipykernel install --sys-prefix --name=mcp --display-name="Python (mcp)"
 
 # -------------------------
 # Agent Kernel
