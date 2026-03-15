@@ -50,20 +50,11 @@ RUN python3 -m venv /opt/ai \
       --sys-prefix --name=ai --display-name="Python (ai)"
 
 # -------------------------
-# RAG Kernel
-# -------------------------
-RUN python3 -m venv /opt/rag \
- && /opt/rag/bin/pip install --upgrade pip \
- && /opt/rag/bin/pip install ipykernel chromadb pypdf requests tqdm \
- && /opt/rag/bin/python -m ipykernel install \
-      --sys-prefix --name=rag --display-name="Python (rag)"
-
-# -------------------------
 # Hugging Face Kernel
 # -------------------------
 RUN python3 -m venv /opt/hf \
  && /opt/hf/bin/pip install --upgrade pip \
- && /opt/hf/bin/pip install -U ipykernel datasets pyarrow huggingface_hub fsspec transformers accelerate ipywidgets sentence-transformers sentencepiece peft \
+ && /opt/hf/bin/pip install -U datasets pyarrow huggingface_hub fsspec transformers accelerate ipywidgets sentence-transformers sentencepiece peft pypdf requests tqdm numpy einops \
  && /opt/hf/bin/python -m ipykernel install \
       --sys-prefix --name=hf --display-name="Python (hf)"
 
