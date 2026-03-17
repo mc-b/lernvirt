@@ -52,7 +52,7 @@ autoinstall:
       - echo "ubuntu:insecure' | chpasswd
       - sudo su - ubuntu -lc | 
             helm repo add nvidia https://helm.ngc.nvidia.com/nvidia && helm repo update
-            helm upgrade --install gpu-operator nvidia/gpu-operator \
+            helm upgrade --install gpu-operator nvidia/gpu-operator --wait \
               --version=v25.10.1 \
               --namespace gpu-operator \
               --create-namespace \
