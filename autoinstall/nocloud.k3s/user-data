@@ -10,7 +10,7 @@ autoinstall:
   timezone: Europe/Zurich
 
   identity:
-    hostname: k3sontrol
+    hostname: k3sws
     username: ubuntu
     password: "$6$jr7iRqqy6HZabA/3$Ix1PUMpe5IUlJ8pyNI8jp7b/4GvFFCBSFVqQUUYQEaGbElNsrCrqCHdEDKmegLQbEOMET0n.Dog4vPfuBHmQp0"
 
@@ -43,16 +43,18 @@ autoinstall:
       - net-tools
       - nmap      
     runcmd:
+      - echo "ubuntu:insecure" | chpasswd
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/issue-patch.sh | bash -
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsshare.sh | bash -  
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k3scontrol.sh | bash -
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k3scontroladdons.sh | bash - 
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/nvidia-gpu-operator.sh | bash -
+      - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -"
+      - sudo su - ubuntu -c "kubectl -n kubevirt patch kubevirt kubevirt --type=merge --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":false}}}}'"
       - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/jupyter-lab.sh | bash -"
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -    
-      - echo "ubuntu:insecure" | chpasswd
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/xfce4.sh | bash -     
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/vscode.sh | bash -        
-      
-      
-                                  
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/cloud-cli.sh | bash -        
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k8stools.sh | bash -
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -    
+                                
