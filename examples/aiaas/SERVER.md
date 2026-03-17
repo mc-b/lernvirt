@@ -130,7 +130,7 @@ Anbei Beispiele mit optimierten Parametern für DGX Spark. Die Erklärungen dazu
       -p 30000:30000 \
       -v sglang-cache:/root/.cache/huggingface \
       -v /tmp:/tmp \
-      docker.io/lmsysorg/sglang:v0.5.9-cu130-arm64-runtime \
+      docker.io/lmsysorg/sglang:v0.5.9-cu130-runtime \
       python3 -m sglang.launch_server \
         --model-path Qwen/Qwen2.5-0.5B-Instruct \
         --host 0.0.0.0 \
@@ -173,7 +173,7 @@ Abfragen mittels OpenAPI API sind ebenfalls möglich.
       -p 30001:30000 \
       -v sglang-cache1:/root/.cache/huggingface \
       -v /tmp:/tmp \
-      docker.io/lmsysorg/sglang:v0.5.9-cu130-arm64-runtime \
+      docker.io/lmsysorg/sglang:v0.5.9-cu130-runtime \
       python3 -m sglang.launch_server \
         --model-path HuggingFaceTB/SmolLM2-1.7B-Instruct \
         --host 0.0.0.0 \
@@ -194,7 +194,7 @@ Abfragen mittels OpenAPI API sind ebenfalls möglich.
       -p 30002:30000 \
       -v sglang-cache2:/root/.cache/huggingface \
       -v /tmp:/tmp \
-      docker.io/lmsysorg/sglang:v0.5.9-cu130-arm64-runtime \
+      docker.io/lmsysorg/sglang:v0.5.9-cu130-runtime \
       python3 -m sglang.launch_server \
         --model-path Qwen/Qwen2.5-Coder-0.5B \
         --host 0.0.0.0 \
@@ -214,7 +214,7 @@ Abfragen mittels OpenAPI API sind ebenfalls möglich.
       -p 30003:30000 \
       -v sglang-cache3:/root/.cache/huggingface \
       -v /tmp:/tmp \
-      docker.io/lmsysorg/sglang:v0.5.9-cu130-arm64-runtime \
+      docker.io/lmsysorg/sglang:v0.5.9-cu130-runtime \
       python3 -m sglang.launch_server \
         --model-path HuggingFaceTB/SmolLM2-135M-Instruct \
         --host 0.0.0.0 \
@@ -235,7 +235,7 @@ Abfragen mittels OpenAPI API sind ebenfalls möglich.
       -p 30004:30000 \
       -v sglang-cache4:/root/.cache/huggingface \
       -v /tmp:/tmp \
-      docker.io/lmsysorg/sglang:v0.5.9-cu130-arm64-runtime \
+      docker.io/lmsysorg/sglang:v0.5.9-cu130-runtime \
       python3 -m sglang.launch_server \
         --model-path TinyLlama/TinyLlama-1.1B-Chat-v1.0 \
         --host 0.0.0.0 \
@@ -257,7 +257,7 @@ Abfragen mittels OpenAPI API sind ebenfalls möglich.
       -p 30005:30000 \
       -v sglang-cache5:/root/.cache/huggingface \
       -v /tmp:/tmp \
-      docker.io/lmsysorg/sglang:v0.5.9-cu130-arm64-runtime \
+      docker.io/lmsysorg/sglang:v0.5.9-cu130-runtime \
       bash  
 
 Im Container
