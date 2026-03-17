@@ -1,0 +1,85 @@
+#cloud-config
+autoinstall:
+  version: 1
+
+  locale: de_CH.UTF-8
+
+  keyboard:
+    layout: ch
+
+  timezone: Europe/Zurich
+
+  identity:
+    hostname: k3sontrol
+    username: ubuntu
+    password: "$6$jr7iRqqy6HZabA/3$Ix1PUMpe5IUlJ8pyNI8jp7b/4GvFFCBSFVqQUUYQEaGbElNsrCrqCHdEDKmegLQbEOMET0n.Dog4vPfuBHmQp0"
+
+  ssh:
+    install-server: true
+    allow-pw: false
+    authorized-keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDUHol1mBvP5Nwe3Bzbpq4GsHTSw96phXLZ27aPiRdrzhnQ2jMu4kSgv9xFsnpZgBsQa84EhdJQMZz8EOeuhvYuJtmhAVzAvNjjRak+bpxLPdWlox1pLJTuhcIqfTTSfBYJYB68VRAXJ29ocQB7qn7aDj6Cuw3s9IyXoaKhyb4n7I8yI3r0U30NAcMjyvV3LYOXx/JQbX+PjVsJMzp2NlrC7snz8gcSKxUtL/eF0g+WnC75iuhBbKbNPr7QP/ItHaAh9Tv5a3myBLNZQ56SgnSCgmS0EUVeMNsO8XaaKr2H2x5592IIoz7YRyL4wlOmj35bQocwdahdOCFI7nT9fr6f insecure@lerncloud
+
+  storage:
+    layout:
+      name: direct
+      
+  # Diese Befehle laufen NOCH VOR dem Reboot am Ende der Installation
+  late-commands:
+    - curtin in-target --target=/target -- touch /boot/lernvirt-installed           
+
+  user-data:
+    users:
+      - default
+      - name: ubuntu
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        groups: users, admin 
+    disable_root: true
+    packages:
+      - jq
+      - curl
+      - git
+      - wget
+      - net-tools
+      - nmap      
+    runcmd:
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/issue-patch.sh | bash -
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsshare.sh | bash -  
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k3scontrol.sh | bash -
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k3scontroladdons.sh | bash - 
+      - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/jupyter-lab.sh | bash -"
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -    
+      - echo "ubuntu:insecure' | chpasswd
+      - sudo su - ubuntu -lc | 
+            helm repo add nvidia https://helm.ngc.nvidia.com/nvidia && helm repo update
+            helm upgrade --install gpu-operator nvidia/gpu-operator \
+              --version=v25.10.1 \
+              --namespace gpu-operator \
+              --create-namespace \
+              --set driver.enabled=false \
+              --set toolkit.enabled=false
+              kubectl apply -f - <<EOF
+              apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: time-slicing-config
+                namespace: gpu-operator
+              data:
+                any: |-
+                  version: v1
+                  flags:
+                    migStrategy: none
+                  sharing:
+                    timeSlicing:
+                      resources:
+                      - name: nvidia.com/gpu
+                        replicas: 16     
+              EOF
+              helm upgrade --install gpu-operator nvidia/gpu-operator \
+                --version=v25.10.1 \
+                --namespace gpu-operator \
+                --create-namespace \
+                --set driver.enabled=false \
+                --set toolkit.enabled=false \
+                --set devicePlugin.config.name=time-slicing-config \
+                --set devicePlugin.config.default=any                                     
