@@ -50,6 +50,7 @@ autoinstall:
       - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/jupyter-lab.sh | bash -"
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -    
       - echo "ubuntu:insecure' | chpasswd
+      - sudo apt-get install nvidia-container-toolkit -y
       - sudo su - ubuntu -lc | 
             helm repo add nvidia https://helm.ngc.nvidia.com/nvidia && helm repo update
             helm upgrade --install gpu-operator nvidia/gpu-operator --wait \
