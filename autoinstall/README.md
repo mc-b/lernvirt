@@ -55,6 +55,7 @@ auf so etwas ändern:
       -map nocloud.gui /nocloud.gui \
       -map nocloud.worker /nocloud.worker \
       -map nocloud.maas /nocloud.maas \
+      -map nocloud.k3s /nocloud.k3s \
       -map boot/grub/grub.cfg /boot/grub/grub.cfg \
       -boot_image any replay
 
