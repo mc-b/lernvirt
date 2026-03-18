@@ -53,6 +53,7 @@ auf so etwas ändern:
       -map nocloud.control /nocloud.control \
       -map nocloud.min /nocloud.min \
       -map nocloud.gui /nocloud.gui \
+      -map nocloud.gui /nocloud.gpu \
       -map nocloud.worker /nocloud.worker \
       -map nocloud.maas /nocloud.maas \
       -map nocloud.k3s /nocloud.k3s \
