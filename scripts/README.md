@@ -88,5 +88,17 @@ Das Remove-Script (`sudo lernvirt/scripts/remove-podman.sh`) entfernt vollständ
 
 Systemweite (rootful) Podman-Instanzen bleiben unangetastet.
 
+## lerncloud Scripts
+
+Nach einer minimalen Installation können die lerncloud Scripte ausgeführt werden.
+
+Anzeigen was ausgeführt wird
+
+    sudo ./lerncloud-setup.sh --dry-run
+    
+Alles ausführen
+
+    sudo ./lerncloud-setup.sh    
+
 
     
