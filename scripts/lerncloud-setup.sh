@@ -168,8 +168,11 @@ main() {
 
   if [[ "$RUN_KUBEVIRT" == true ]]; then
     run_cmd \
+      "Disable Ingress" \
+      bash -lc 'microk8s disable ingress'          
+    run_cmd \
       "Installiere lernvirt Umgebung" \
-      bash -lc 'curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/scripts/install-lernvirt.sh | bash -'  
+      bash -lc 'curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/scripts/install-lernvirt.sh | bash -'
     run_as_ubuntu \
       "Installiere KubeVirt" \
       "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -"
