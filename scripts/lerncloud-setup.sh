@@ -110,7 +110,6 @@ run_as_ubuntu() {
   log "$description"
   sudo su - "$UBUNTU_USER" -c "$command"
 }
-}
 
 parse_args() {
   while [[ $# -gt 0 ]]; do
