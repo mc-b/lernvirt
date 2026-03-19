@@ -205,7 +205,7 @@ Diese ist vor der Installation herunterzuladen:
 Die Modulumgebung wird mit <code>helm</code> installiert.
 Dabei wird die host-spezifische Konfiguration explizit eingebunden:
 </p>
-<pre><code>helm install m122 oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace -f ${HOSTNAME}.yaml</code></pre>
+<pre><code>helm install m122 oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace -f /var/www/html/lernvirt/hosts/${HOSTNAME}.yaml</code></pre>
 
 <p>
 Während der Installation gibt <code>helm</code> den Status der erstellten Ressourcen aus.
@@ -217,7 +217,7 @@ Diese Ausgaben sind Bestandteil des normalen Installationsablaufs.
 Standardmässig werden virtuelle Maschinen mit 2 vCPU und 2&nbsp;GiB Arbeitsspeicher erstellt.
 Diese Werte können bei Bedarf überschrieben werden, zum Beispiel:
 </p>
-<pre><code>helm install m122 oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace -f ${HOSTNAME}.yaml --set vm.memory=4Gi</code></pre>
+<pre><code>helm install m122 oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace -f /var/www/html/lernvirt/hosts/${HOSTNAME}.yaml --set vm.memory=4Gi</code></pre>
 
 <h2>cloud-init und Fallback-Mechanismus</h2>
 <p>
