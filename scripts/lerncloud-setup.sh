@@ -167,7 +167,7 @@ main() {
   log "Benutzer für User-Kommandos: $UBUNTU_USER"
 
   if [[ "$RUN_KUBEVIRT" == true ]]; then
-    run_as_ubuntu \
+    run_cmd \
       "Installiere lernvirt Umgebung" \
       "curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/scripts/install-lernvirt.sh | bash -"  
     run_as_ubuntu \
