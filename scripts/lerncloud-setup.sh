@@ -11,7 +11,7 @@ set -Eeuo pipefail
 # Einzelne Schritte deaktivieren:
 #   sudo bash ./lerncloud-setup.sh --no-kubevirt
 #   sudo bash ./lerncloud-setup.sh --no-kubevirt-patch --no-jupyter
-#   sudo bash ./lerncloud-setup.sh --no-kubevirt --no-kubevirt-patch --no-xfce4 --no-vscode --no-cloud-cli --no-k8stools
+#   sudo bash ./lerncloud-setup.sh --no-kubevirt --no-kubevirt-patch --no-xfce4 --no-vscode --no-cloud-cli --no-k8stools --no-pxe
 #
 # Nur anzeigen, was ausgeführt würde:
 #   sudo bash ./lerncloud-setup.sh --dry-run
@@ -31,6 +31,7 @@ RUN_XFCE4=true
 RUN_VSCODE=true
 RUN_CLOUD_CLI=true
 RUN_K8STOOLS=true
+RUN_PXE=true
 DRY_RUN=false
 
 UBUNTU_USER="ubuntu"
@@ -60,6 +61,7 @@ Optionen:
   --no-vscode           vscode.sh nicht ausführen
   --no-cloud-cli        cloud-cli.sh nicht ausführen
   --no-k8stools         k8stools.sh nicht ausführen
+  --no-pxe              PXE Boot Manager nicht aktivieren
   --dry-run             nur anzeigen, was ausgeführt würde
   -h, --help            Hilfe anzeigen
 
@@ -135,6 +137,9 @@ parse_args() {
       --no-k8stools)
         RUN_K8STOOLS=false
         ;;
+      --no-pxe)
+        RUN_PXE=false
+        ;;        
       --dry-run)
         DRY_RUN=true
         ;;
@@ -216,6 +221,15 @@ main() {
   else
     warn "Überspringe Kubernetes Tools"
   fi
+  
+  if [[ "$RUN_PXE" == true ]]; then
+    run_cmd \
+      "Installiere PXE Management" \
+      bash -lc 'curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-pxe.sh | bash -'
+      bash -lc 'curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-alpine.sh | bash -'
+  else
+    warn "Überspringe Kubernetes Tools"
+  fi  
 
   log "Setup abgeschlossen"
 }
