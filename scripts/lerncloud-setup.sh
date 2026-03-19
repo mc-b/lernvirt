@@ -228,7 +228,7 @@ main() {
       bash -lc 'curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-pxe.sh | bash -'
       bash -lc 'curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-alpine.sh | bash -'
   else
-    warn "Überspringe Kubernetes Tools"
+    warn "Überspringe PXE Management"
   fi  
 
   log "Setup abgeschlossen"
