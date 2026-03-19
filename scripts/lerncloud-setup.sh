@@ -168,6 +168,9 @@ main() {
 
   if [[ "$RUN_KUBEVIRT" == true ]]; then
     run_as_ubuntu \
+      "Installiere lernvirt Umgebung" \
+      "curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/scripts/install-lernvirt.sh | bash -"  
+    run_as_ubuntu \
       "Installiere KubeVirt" \
       "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -"
   else
@@ -226,6 +229,8 @@ main() {
     run_cmd \
       "Installiere PXE Management" \
       bash -lc 'curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-pxe.sh | bash -'
+    run_cmd \
+      "Installiere Alpine Templates" \
       bash -lc 'curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-alpine.sh | bash -'
   else
     warn "Überspringe PXE Management"
