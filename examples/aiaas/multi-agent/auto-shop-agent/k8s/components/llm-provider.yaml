@@ -1,0 +1,17 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: llm-provider
+  namespace: autoshop
+spec:
+  type: conversation.openai
+  version: v1
+  metadata:
+    - name: key
+      secretKeyRef:
+        name: llm-secrets
+        key: api-key
+    - name: model
+      value: gpt-4.1-nano
+    - name: endpoint
+      value: https://api.openai.com/v1
