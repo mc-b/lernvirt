@@ -94,11 +94,11 @@ Nach einer minimalen Installation können die lerncloud Scripte ausgeführt werd
 
 Anzeigen was ausgeführt wird
 
-    sudo ./lerncloud-setup.sh --dry-run
+    sudo bash ./lerncloud-setup.sh --dry-run
     
 Alles ausführen
 
-    sudo ./lerncloud-setup.sh    
+    sudo bash ./lerncloud-setup.sh    
 
 
     

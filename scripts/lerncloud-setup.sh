@@ -6,15 +6,15 @@ set -Eeuo pipefail
 # ============================================================
 #
 # Verwendung:
-#   sudo ./lerncloud-setup.sh
+#   sudo bash ./lerncloud-setup.sh
 #
 # Einzelne Schritte deaktivieren:
-#   sudo ./lerncloud-setup.sh --no-kubevirt
-#   sudo ./lerncloud-setup.sh --no-kubevirt-patch --no-jupyter
-#   sudo ./lerncloud-setup.sh --no-xfce4 --no-vscode --no-cloud-cli --no-k8stools
+#   sudo bash ./lerncloud-setup.sh --no-kubevirt
+#   sudo bash ./lerncloud-setup.sh --no-kubevirt-patch --no-jupyter
+#   sudo bash ./lerncloud-setup.sh --no-kubevirt --no-kubevirt-patch --no-xfce4 --no-vscode --no-cloud-cli --no-k8stools
 #
 # Nur anzeigen, was ausgeführt würde:
-#   sudo ./lerncloud-setup.sh --dry-run
+#   sudo bash ./lerncloud-setup.sh --dry-run
 #
 # Hilfe:
 #   ./lerncloud-setup.sh --help
@@ -103,12 +103,13 @@ run_as_ubuntu() {
 
   if [[ "$DRY_RUN" == true ]]; then
     echo "[DRY-RUN] $description"
-    echo "          sudo -u $UBUNTU_USER bash -lc '$command'"
+    echo "          sudo su - $UBUNTU_USER -c \"$command\""
     return 0
   fi
 
   log "$description"
-  sudo -u "$UBUNTU_USER" bash -lc "$command"
+  sudo su - "$UBUNTU_USER" -c "$command"
+}
 }
 
 parse_args() {
