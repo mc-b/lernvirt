@@ -1,0 +1,6 @@
+apiVersion: v2
+name: llama-server-intel
+description: Helm Chart für llama.cpp Server mit Intel GPU, Download des Vulkan-Binaries per initContainer
+type: application
+version: 0.1.0
+appVersion: "b8457"

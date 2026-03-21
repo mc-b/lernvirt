@@ -1,0 +1,100 @@
+replicaCount: 1
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  init:
+    repository: ubuntu
+    tag: "24.04"
+    pullPolicy: IfNotPresent
+  main:
+    repository: ubuntu
+    tag: "24.04"
+    pullPolicy: IfNotPresent
+
+download:
+  url: "https://github.com/ggml-org/llama.cpp/releases/download/b8457/llama-b8457-bin-ubuntu-vulkan-x64.tar.gz"
+  archiveName: "llama.tgz"
+  extractDir: "/work"
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  hfModel: "Qwen/Qwen2.5-0.5B-Instruct-GGUF:Q4_K_M"
+  gpuLayers: "all"
+  ctxSize: 1024
+  threads: 4
+  parallel: 1
+  extraArgs: []
+
+service:
+  type: NodePort
+  port: 8080
+  targetPort: 8080
+  nodePort: null
+
+resources:
+  limits:
+    cpu: "4"
+    memory: "8Gi"
+    gpu.intel.com/i915: "1"
+  requests:
+    cpu: "2"
+    memory: "4Gi"
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+initPackages:
+  - ca-certificates
+  - wget
+  - tar
+
+runtimePackages:
+  - ca-certificates
+  - libstdc++6
+  - libgomp1
+  - libvulkan1
+  - mesa-vulkan-drivers
+  - vulkan-tools
+  - libdrm2
+
+startupProbe:
+  enabled: false
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+
+livenessProbe:
+  enabled: false
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+readinessProbe:
+  enabled: false
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6

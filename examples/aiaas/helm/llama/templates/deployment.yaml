@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "llama-server-intel.fullname" . }}
+  labels:
+    {{- include "llama-server-intel.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "llama-server-intel.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "llama-server-intel.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: workdir
+          emptyDir: {}
+      initContainers:
+        - name: download-llama
+          image: "{{ .Values.image.init.repository }}:{{ .Values.image.init.tag }}"
+          imagePullPolicy: {{ .Values.image.init.pullPolicy }}
+          command: ["/bin/bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends {{ join " " .Values.initPackages }}
+              mkdir -p {{ .Values.download.extractDir | quote }}
+              wget -O {{ printf "%s/%s" .Values.download.extractDir .Values.download.archiveName | quote }} {{ .Values.download.url | quote }}
+              tar -xzf {{ printf "%s/%s" .Values.download.extractDir .Values.download.archiveName | quote }} -C {{ .Values.download.extractDir | quote }}
+              find {{ .Values.download.extractDir | quote }} -type f -name 'llama-server' -exec chmod +x {} \;
+          volumeMounts:
+            - name: workdir
+              mountPath: {{ .Values.download.extractDir | quote }}
+      containers:
+        - name: llama
+          image: "{{ .Values.image.main.repository }}:{{ .Values.image.main.tag }}"
+          imagePullPolicy: {{ .Values.image.main.pullPolicy }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          command: ["/bin/bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends {{ join " " .Values.runtimePackages }}
+
+              echo "=== /dev/dri ==="
+              ls -l /dev/dri || true
+
+              echo "=== Vulkan test ==="
+              vulkaninfo | sed -n '1,80p'
+
+              LLAMA_SERVER="$(find {{ .Values.download.extractDir | quote }} -type f -name 'llama-server' | head -n 1)"
+              test -n "${LLAMA_SERVER}"
+
+              exec "${LLAMA_SERVER}" \
+                --host {{ .Values.server.host | quote }} \
+                --port {{ .Values.server.port | quote }} \
+                --no-warmup \
+                --gpu-layers {{ .Values.server.gpuLayers | quote }} \
+                --ctx-size {{ .Values.server.ctxSize | quote }} \
+                --threads {{ .Values.server.threads | quote }} \
+                --parallel {{ .Values.server.parallel | quote }} \
+                -hf {{ .Values.server.hfModel | quote }}{{- range .Values.server.extraArgs }} \
+                {{ . | quote }}{{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.server.port }}
+              protocol: TCP
+          volumeMounts:
+            - name: workdir
+              mountPath: {{ .Values.download.extractDir | quote }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            {{- toYaml (omit .Values.startupProbe "enabled") | nindent 12 }}
+          {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            {{- toYaml (omit .Values.livenessProbe "enabled") | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            {{- toYaml (omit .Values.readinessProbe "enabled") | nindent 12 }}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

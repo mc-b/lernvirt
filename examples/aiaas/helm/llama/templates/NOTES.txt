@@ -1,0 +1,15 @@
+1. Deployment:
+   kubectl get deployment {{ include "llama-server-intel.fullname" . }}
+
+2. Pods:
+   kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+
+3. Logs:
+   kubectl logs deployment/{{ include "llama-server-intel.fullname" . }} -c llama
+
+4. Service:
+   kubectl get svc {{ include "llama-server-intel.fullname" . }}
+   
+5. GPU Usage 
+   sudo intel_gpu_top
+     
