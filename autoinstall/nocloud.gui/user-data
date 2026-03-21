@@ -43,13 +43,13 @@ autoinstall:
       - net-tools
       - nmap      
     runcmd:
+      - echo "ubuntu:insecure" | chpasswd
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/issue-patch.sh | bash -    
       - curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/scripts/install-lernvirt.sh | bash -
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/storage-patch.sh | bash -
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/xfce4.sh | bash -     
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/vscode.sh | bash -        
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/cloud-cli.sh | bash -        
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/nvidia-gpu-operator.sh | bash -
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/intel-gpu-operator.sh | bash -      
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k8stools.sh | bash -
       - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -"
       - microk8s kubectl -n kubevirt patch kubevirt kubevirt --type=merge --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":false}}}}'
@@ -57,7 +57,9 @@ autoinstall:
       - microk8s enable rbac
       - microk8s kubectl apply -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/addons/dashboard-readonly.yaml 
       - microk8s kubectl apply -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/addons/dashboard-rbac.yaml
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -    
-      - echo "ubuntu:$(head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 16)" | chpasswd
+      - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/jupyter-lab.sh | bash -"
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/xfce4.sh | bash -     
       - curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-pxe.sh | bash -     
       - curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-alpine.sh | bash - 
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -    
+      

@@ -43,7 +43,9 @@ autoinstall:
       - net-tools
       - nmap      
     runcmd:
+      - echo "ubuntu:insecure" | chpasswd
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/issue-patch.sh | bash -
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/nvidia-gpu-operator.sh | bash -
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/intel-gpu-operator.sh | bash -      
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -    
-      - echo "ubuntu:$(head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 16)" | chpasswd
       

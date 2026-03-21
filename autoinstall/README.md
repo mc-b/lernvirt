@@ -53,12 +53,10 @@ auf so etwas ändern:
       -map nocloud.control /nocloud.control \
       -map nocloud.min /nocloud.min \
       -map nocloud.gui /nocloud.gui \
-      -map nocloud.gpu /nocloud.gpu \
-      -map nocloud.k8sgpu /nocloud.k8sgpu \
+      -map nocloud.k8sws /nocloud.k8sws \
       -map nocloud.worker /nocloud.worker \
       -map nocloud.maas /nocloud.maas \
-      -map nocloud.k3sgpu /nocloud.k3sgpu \
-      -map nocloud.k3s /nocloud.k3s \
+      -map nocloud.k3sws /nocloud.k3sws \
       -map boot/grub/grub.cfg /boot/grub/grub.cfg \
       -boot_image any replay
 
