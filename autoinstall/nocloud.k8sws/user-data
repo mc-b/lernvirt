@@ -50,8 +50,6 @@ autoinstall:
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/nvidia-gpu-operator.sh | bash -
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/intel-gpu-operator.sh | bash -      
-      - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -"
-      - sudo su - ubuntu -c "kubectl -n kubevirt patch kubevirt kubevirt --type=merge --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":false}}}}'"
       - microk8s enable metrics-server
       - microk8s kubectl apply -f https://raw.githubusercontent.com/mc-b/lerncloud/master/addons/dashboard.yaml        
       - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/jupyter-lab.sh | bash -"
