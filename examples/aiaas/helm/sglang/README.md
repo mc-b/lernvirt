@@ -28,6 +28,8 @@ Chart direkt aus dem Verzeichnis installieren:
     helm install tiny-llama .   --set model.name=TinyLlama/TinyLlama-1.1B-Chat-v1.0
     
     helm install apertus .      --set model.name=swiss-ai/Apertus-8B-Instruct-2509 --set model.memFraction=0.40
+    
+    helm install qwen7b .      --set model.name=Qwen/Qwen2.5-7B-Instruct --set model.memFraction=0.40
 
 ## Deinstallation
 
