@@ -39,6 +39,7 @@ autoinstall:
       - jq
       - curl
       - git
+      - git-lfs
       - wget
     runcmd:
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/issue-patch.sh | bash -   

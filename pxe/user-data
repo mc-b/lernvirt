@@ -39,6 +39,7 @@ autoinstall:
       - jq
       - curl
       - git
+      - git-lfs
       - wget
     runcmd:
       - echo "ubuntu:$(head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 16)" | chpasswd         

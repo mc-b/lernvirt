@@ -39,6 +39,7 @@ autoinstall:
       - jq
       - curl
       - git
+      - git-lfs
       - wget
       - net-tools
       - nmap      

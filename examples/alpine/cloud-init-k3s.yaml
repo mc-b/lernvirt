@@ -17,6 +17,7 @@ packages:
   - ca-certificates
   - curl
   - git
+  - git-lfs
   - wget
   - openssl
   
