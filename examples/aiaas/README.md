@@ -5,6 +5,8 @@ AI as a Service
 
 ---
 
+
+
 Steht ein dedizierter AI-Rechner (z. B. NVIDIA DGX Spark) zur Verfügung, wird dieser gemäss [SERVER.md](SERVER.md) als zentraler KI-Server eingerichtet. Die KI-Dienste laufen dabei als Podman-Container mit direktem GPU-Zugriff. Die Installation wird anschliessend bei VSCode fortgesetzt.
 
 **Andernfalls** wird eine dedizierte virtuelle Maschine (AI-Server) bereitgestellt, welche den KI-Dienst in der VM betreibt. Auf dieser läuft Ollama als System-Service und verwaltet zwei KI-Modelle, die bedarfsgesteuert geladen und wieder entladen werden. 
@@ -91,6 +93,8 @@ Die KI läuft auf dem Server, erscheint für Continue jedoch als lokaler Dienst.
 
 ## Jupyter Lab
 
+**Hinweis**: Die folgenden Notebooks werden künftig nicht mehr weitergeführt.
+
 Im JupyterLab stehen einige Notebooks zur Verfügung, die zur Demonstration der AI-Lernumgebung dienen.
 
 **Diese sollten regelmässig aktualisiert werden**.
@@ -117,8 +121,8 @@ Fehlende Libraries können, in der Shell, wie folgt Nachinstalliert werden, z.B.
 ![](../images/chat.png)
 
 **Notebooks**: 
-* [data/chat/ollama.ipynb](chat/ollama.ipynb) - Einfacher Chat mit beiden Ollama LLM Modellen
-* [data/chat/openai.ipynb](chat/openai.ipynb) - Wir bauen eine kleine Webanwendung mittels dem OpenAI API
+* [data/chat/ollama.ipynb](chat/01-ollama.ipynb) - Einfacher Chat mit beiden Ollama LLM Modellen
+* [data/chat/openai.ipynb](chat/10-openai.ipynb) - Wir bauen eine kleine Webanwendung mittels dem OpenAI API
 
 ### RAG - Retrieval Augmented Generation 
 
@@ -129,8 +133,8 @@ RAG (Retrieval Augmented Generation) ist ein Ansatz in der KI, bei dem ein Sprac
 ---
 
 **Notebooks**: 
-* [data/rag/rag_ollama_chroma.ipynb](rag/rag_ollama_chroma.ipynb) - Bereitet ein Mouser Magazine als RAG Inhalt auf
-* [data/rag/openai-vectorstore.ipynb](rag/openai-vectorstore.ipynb) - Bereitet das Projekt lernmaas für RAG auf und stellt gezielt Fragen.
+* [data/rag/rag_ollama_chroma.ipynb](rag/06-hf-dataset-pdf.ipynb) - Bereitet ein Mouser Magazine als RAG Inhalt auf
+* [data/rag/openai-vectorstore.ipynb](rag/10-openai-vectorstore.ipynb) - Bereitet das Projekt lernmaas für RAG auf und stellt gezielt Fragen.
 
 **Links**:
 
@@ -147,9 +151,9 @@ Ollama liefert dabei nur die Text-Generierung; Kontext, Tools und Ressourcen kom
 ![](../images/mcp-chat.png)
 
 **Notebooks**:
-* [data/mcp/mcp-server.ipynb](mcp/mcp-server.ipynb) - MCP Server Applikation, zuerst starten
-* [data/mcp/mcp-client.ipynb](mcp/mcp-client.ipynb) - einfacher MCP Client ohne AI.
-* [data/mcp/mcp-ai-client.ipynb](mcp/mcp-ai-client.ipynb) - MCP Client in Kombination mit AI
+* [data/mcp/mcp-server.ipynb](mcp/01-mcp-server.ipynb) - MCP Server Applikation, zuerst starten
+* [data/mcp/mcp-client.ipynb](mcp/02-mcp-client.ipynb) - einfacher MCP Client ohne AI.
+* [data/mcp/mcp-ai-client.ipynb](mcp/03-mcp-ai-client.ipynb) - MCP Client in Kombination mit AI
 
 **Links:**
 * [5 MCP-Server für mehr Cloud Automation](https://www.computerwoche.de/article/4133146/5-mcp-server-fur-mehr-cloud-automation.html)
@@ -208,9 +212,9 @@ LlamaIndex ist ein Python-Framework zur Entwicklung von Retrieval-Augmented-Gene
         return response   
 
 **Notebooks**:
-* [data/agent/Basic.ipynb](agent/Basic.ipynb) - Einfacher Agent
-* [data/agent/ChatHistory.ipynb](agent/ChatHistory.ipynb) - Chat History
-* [data/agent/RAG.ipynb](agent/RAG.ipynb) - RAG Funktionen
+* [data/agent/Basic.ipynb](agent/01-basic.ipynb) - Einfacher Agent
+* [data/agent/ChatHistory.ipynb](agent/03-chat-history.ipynb) - Chat History
+* [data/agent/RAG.ipynb](agent/02-rag.ipynb) - RAG Funktionen
 
 ### Links
 
