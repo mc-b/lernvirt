@@ -205,19 +205,20 @@ Diese ist vor der Installation herunterzuladen:
 Die Modulumgebung wird mit <code>helm</code> installiert.
 Dabei wird die host-spezifische Konfiguration explizit eingebunden:
 </p>
-<pre><code>helm install m122 oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace -f /var/www/html/lernvirt/hosts/${HOSTNAME}.yaml</code></pre>
+<pre><code>helm install m122-ap21a-ben oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace -f /var/www/html/lernvirt/hosts/${HOSTNAME}.yaml</code></pre>
 
 <p>
 Während der Installation gibt <code>helm</code> den Status der erstellten Ressourcen aus.
-Diese Ausgaben sind Bestandteil des normalen Installationsablaufs.
 </p>
+<p><strong>Für die eindeutige Identifikation der VMs ist konsequent der Aufbau Modul, Klasse und Lehrerkürzel zu verwenden. Da bei mehreren Klassen mit demselben Modul (z. B. m122) sonst jeweils derselbe NFS-Mount-Point (/data/storage/m122) verwendet wird und dadurch Konflikte entstehen können.
+</strong></p>
 
 <h2>Ressourcenanpassungen</h2>
 <p>
 Standardmässig werden virtuelle Maschinen mit 2 vCPU und 2&nbsp;GiB Arbeitsspeicher erstellt.
 Diese Werte können bei Bedarf überschrieben werden, zum Beispiel:
 </p>
-<pre><code>helm install m122 oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace -f /var/www/html/lernvirt/hosts/${HOSTNAME}.yaml --set vm.memory=4Gi</code></pre>
+<pre><code>helm install m122-ap21a-ben oci://ghcr.io/mc-b/lernvirt -n ap21a --create-namespace -f /var/www/html/lernvirt/hosts/${HOSTNAME}.yaml --set vm.memory=4Gi</code></pre>
 
 <h2>cloud-init und Fallback-Mechanismus</h2>
 <p>
@@ -268,6 +269,14 @@ Das Skript erzeugt eine dedizierte <code>KUBECONFIG</code> basierend auf einem
 Lehrpersonen-Kürzel, zum Beispiel:
 </p>
 <pre><code>gen-kubeconfig.sh ben</code></pre>
+
+<h3>Kubernetes Dashboard</h3>
+<p>
+Das Kubernetes-Dashboard ist auf dem Server über <code>https</code> und Port <code>30443</code> erreichbar.
+Ein Zugriff ist mittels Token möglich. Dieses kann mit folgendem Befehl generiert werden:
+</p>
+<pre><code>kubectl -n kubernetes-dashboard create token dashboard-readonly --duration=8h</code></pre>
+
 
 <h3>PXE Boot (dnsmsaq)</h3>
 <p>
