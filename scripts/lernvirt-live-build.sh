@@ -203,9 +203,9 @@ update-initramfs -u -k all
 # SSH Host Keys beim ersten Boot neu generieren
 systemctl enable ssh || true
 
-# Cloud-init im Live-System grundsätzlich aktiviert lassen
+# Cloud-init im Live-System grundsätzlich deaktiviert lassen
 touch /etc/cloud/cloud-init.disabled || true
-rm -f /etc/cloud/cloud-init.disabled || true
+#rm -f /etc/cloud/cloud-init.disabled || true
 
 # Journald nicht persistieren
 mkdir -p /etc/systemd/journald.conf.d
