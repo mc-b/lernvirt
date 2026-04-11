@@ -132,6 +132,7 @@ iputils-ping
 isc-dhcp-client
 systemd-resolved
 systemd-timesyncd
+chromium
 EOF
 }
 
@@ -178,6 +179,9 @@ x11-xserver-utils
 mesa-utils
 fonts-dejavu
 gdm3
+chromium-browser
+keyboard-configuration
+console-setup
 EOF
 }
 
@@ -353,6 +357,25 @@ dns=systemd-resolved
 [ifupdown]
 managed=false
 NMEOF
+
+  # Tastatur: Schweiz / Deutsch
+  mkdir -p /etc/default
+  cat > /etc/default/keyboard <<'KBD'
+XKBLAYOUT="ch"
+XKBVARIANT="de"
+XKBMODEL="pc105"
+XKBOPTIONS=""
+BACKSPACE="guess"
+KBD
+
+  # Non-interactive Debconf-Vorgaben
+  echo 'keyboard-configuration  keyboard-configuration/layoutcode string ch' | debconf-set-selections
+  echo 'keyboard-configuration  keyboard-configuration/variantcode string de' | debconf-set-selections
+  echo 'keyboard-configuration  keyboard-configuration/modelcode string pc105' | debconf-set-selections
+
+  dpkg-reconfigure -f noninteractive keyboard-configuration || true
+  setupcon || true
+
 fi
 
 systemctl enable serial-getty@ttyS0.service || true
@@ -376,27 +399,75 @@ install_vscode_in_chroot() {
 
   cat > "$CHROOT_DIR/root/install-vscode.sh" <<'EOF'
 #!/usr/bin/env bash
-set -Eeuo pipefail
+set +e
 export DEBIAN_FRONTEND=noninteractive
 
-apt-get update
-apt-get install -y wget gpg apt-transport-https
+echo "[INFO] Installing Visual Studio Code"
 
-wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg
-install -D -o root -g root -m 644 /tmp/microsoft.gpg /usr/share/keyrings/microsoft.gpg
-rm -f /tmp/microsoft.gpg
+if [ -r /etc/os-release ]; then
+  . /etc/os-release
+  DISTRO="${NAME:-Unknown}"
+  CODENAME="${VERSION_CODENAME:-$(lsb_release -cs 2>/dev/null || echo noble)}"
+else
+  DISTRO="Unknown"
+  CODENAME="$(lsb_release -cs 2>/dev/null || echo noble)"
+fi
 
-cat > /etc/apt/sources.list.d/vscode.sources <<'SRC'
-Types: deb
-URIs: https://packages.microsoft.com/repos/code
-Suites: stable
-Components: main
-Architectures: amd64 arm64 armhf
-Signed-By: /usr/share/keyrings/microsoft.gpg
-SRC
+ARCH_DEB="$(dpkg --print-architecture 2>/dev/null || echo amd64)"
 
-apt-get update
-apt-get install -y code
+echo "[INFO] Distribution: ${DISTRO} (${CODENAME}), Architektur: ${ARCH_DEB}"
+
+apt-get update -y
+apt-get install -y \
+  ca-certificates \
+  curl \
+  gnupg \
+  apt-transport-https \
+  software-properties-common \
+  lsb-release || echo "[WARN] Einige Prerequisites konnten nicht installiert werden"
+
+if command -v code >/dev/null 2>&1; then
+  echo "[INFO] VS Code ist bereits installiert"
+  exit 0
+fi
+
+mkdir -p /etc/apt/keyrings
+
+curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+  | gpg --dearmor \
+  -o /etc/apt/keyrings/microsoft-vscode.gpg \
+  || echo "[WARN] Konnte VS Code GPG-Key nicht installieren"
+
+cat > /etc/apt/sources.list.d/vscode.list <<VSCODEEOF
+deb [arch=${ARCH_DEB} signed-by=/etc/apt/keyrings/microsoft-vscode.gpg] https://packages.microsoft.com/repos/code stable main
+VSCODEEOF
+
+apt-get update -y
+apt-get install -y code || echo "[WARN] Konnte VS Code nicht installieren"
+
+if [ -f /usr/share/code/chrome-sandbox ]; then
+  chown root:root /usr/share/code/chrome-sandbox
+  chmod 4755 /usr/share/code/chrome-sandbox
+fi
+
+# Workaround fuer Electron/GPU-Probleme im Live-System
+mkdir -p /etc/profile.d
+cat > /etc/profile.d/vscode-live.sh <<'ENVEOF'
+export ELECTRON_OZONE_PLATFORM_HINT=x11
+ENVEOF
+
+mkdir -p /usr/local/bin
+cat > /usr/local/bin/code-live <<'WRAPEOF'
+#!/usr/bin/env bash
+exec /usr/bin/code --disable-gpu --disable-software-rasterizer "$@"
+WRAPEOF
+chmod +x /usr/local/bin/code-live
+
+# Desktop-Launcher zusaetzlich auf die stabilere Variante biegen
+if [ -f /usr/share/applications/code.desktop ]; then
+  sed -i 's#^Exec=/usr/share/code/code --unity-launch %F#Exec=/usr/local/bin/code-live %F#' /usr/share/applications/code.desktop || true
+  sed -i 's#^Exec=/usr/share/code/code --new-window %F#Exec=/usr/local/bin/code-live %F#' /usr/share/applications/code.desktop || true
+fi
 
 apt-get clean
 rm -rf /var/lib/apt/lists/*
