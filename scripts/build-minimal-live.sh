@@ -2,30 +2,31 @@
 set -Eeuo pipefail
 
 # ============================================================================
-# Ubuntu Minimal Live ISO Builder + lerncloud Integration
-# - headless
-# - ohne GUI
-# - ohne Java
-# - ohne VS Code
-# - BIOS + UEFI bootfähig
-# - integriert lerncloud Skripte via First-Boot systemd Service
-# ============================================================================
+# Ubuntu Live ISO Builder + lerncloud Integration
+#
+# Profile:
+#   PROFILE=headless   -> minimale headless Live-ISO
+#   PROFILE=gui        -> GUI + Ubiquity + VS Code
 #
 # Verwendung:
-#   sudo bash build-minimal-live-lerncloud.sh
+#   chmod +x build-live-lerncloud.sh
+#   PROFILE=headless sudo ./build-live-lerncloud.sh
+#   PROFILE=gui      sudo ./build-live-lerncloud.sh
 #
 # Optional:
-#   UBUNTU_CODENAME=noble ISO_NAME=my-live.iso sudo bash build-minimal-live-lerncloud.sh
+#   WORKDIR="$(pwd)/build" ISO_NAME=my.iso PROFILE=gui sudo ./build-live-lerncloud.sh
 # ============================================================================
 
 UBUNTU_CODENAME="${UBUNTU_CODENAME:-noble}"
 ARCH="${ARCH:-amd64}"
 MIRROR="${MIRROR:-http://archive.ubuntu.com/ubuntu/}"
 
-WORKDIR="${WORKDIR:-$(pwd)/live-ubuntu-minimal}"
+PROFILE="${PROFILE:-headless}"
+
+WORKDIR="${WORKDIR:-$(pwd)/build}"
 CHROOT_DIR="$WORKDIR/chroot"
 IMAGE_DIR="$WORKDIR/image"
-ISO_NAME="${ISO_NAME:-ubuntu-minimal-live-${UBUNTU_CODENAME}-${ARCH}.iso}"
+ISO_NAME="${ISO_NAME:-ubuntu-${PROFILE}-live-${UBUNTU_CODENAME}-${ARCH}.iso}"
 ISO_PATH="$WORKDIR/$ISO_NAME"
 
 HOSTNAME_LIVE="${HOSTNAME_LIVE:-ubuntu-live}"
@@ -34,45 +35,6 @@ PASSWORD="${PASSWORD:-ubuntu}"
 
 LERNCLOUD_BASE="${LERNCLOUD_BASE:-https://raw.githubusercontent.com/mc-b/lerncloud/main/services}"
 LERNCLOUD_DIR_IN_IMAGE="/opt/lerncloud"
-
-EXTRA_PACKAGES="${EXTRA_PACKAGES:-\
-ubuntu-standard \
-casper \
-discover \
-laptop-detect \
-os-prober \
-network-manager \
-systemd-sysv \
-linux-generic \
-grub-common \
-grub-pc-bin \
-grub2-common \
-grub-efi-amd64-bin \
-grub-efi-amd64-signed \
-shim-signed \
-sudo \
-locales \
-nano \
-vim \
-less \
-curl \
-wget \
-ca-certificates \
-git \
-jq \
-iproute2 \
-iputils-ping \
-net-tools \
-dnsutils \
-openssh-server \
-isc-dhcp-client \
-systemd-resolved \
-systemd-timesyncd \
-wireguard \
-wireguard-tools \
-nfs-kernel-server \
-open-iscsi \
-multipath-tools}"
 
 log() {
   printf '\n[%s] %s\n' "$(date '+%F %T')" "$*"
@@ -84,7 +46,16 @@ die() {
 }
 
 require_root() {
-  [[ $EUID -eq 0 ]] || die "Bitte mit sudo oder als root ausführen."
+  [[ $EUID -eq 0 ]] || die "Bitte mit sudo oder als root ausfuehren."
+}
+
+validate_profile() {
+  case "$PROFILE" in
+    headless|gui) ;;
+    *)
+      die "Ungueltiges PROFILE: $PROFILE (erlaubt: headless|gui)"
+      ;;
+  esac
 }
 
 cleanup_mounts() {
@@ -107,8 +78,114 @@ cleanup_on_exit() {
 }
 trap cleanup_on_exit EXIT
 
+get_common_packages() {
+  cat <<'EOF'
+sudo
+ubuntu-standard
+casper
+locales
+curl
+wget
+ca-certificates
+git
+jq
+vim
+nano
+less
+openssh-server
+wireguard
+wireguard-tools
+nfs-kernel-server
+open-iscsi
+multipath-tools
+python3
+python3-venv
+python3-pip
+systemd-sysv
+linux-generic
+discover
+laptop-detect
+os-prober
+EOF
+}
+
+get_headless_packages() {
+  cat <<'EOF'
+network-manager
+net-tools
+dnsutils
+iproute2
+iputils-ping
+isc-dhcp-client
+systemd-resolved
+systemd-timesyncd
+grub-common
+grub-pc-bin
+grub2-common
+grub-efi-amd64-bin
+grub-efi-amd64-signed
+shim-signed
+EOF
+}
+
+get_gui_packages() {
+  cat <<'EOF'
+network-manager
+net-tools
+wireless-tools
+wpagui
+dnsutils
+iproute2
+iputils-ping
+isc-dhcp-client
+systemd-resolved
+systemd-timesyncd
+grub-common
+grub-gfxpayload-lists
+grub-pc
+grub-pc-bin
+grub2-common
+grub-efi-amd64-bin
+grub-efi-amd64-signed
+shim-signed
+mtools
+binutils
+apt-transport-https
+gpg
+ubiquity
+ubiquity-casper
+ubiquity-frontend-gtk
+ubiquity-slideshow-ubuntu
+ubiquity-ubuntu-artwork
+plymouth-themes
+ubuntu-gnome-desktop
+ubuntu-gnome-wallpapers
+dbus-x11
+xdg-utils
+x11-xserver-utils
+mesa-utils
+fonts-dejavu
+gdm3
+EOF
+}
+
+build_package_list() {
+  local pkgs
+  pkgs="$(get_common_packages)"
+
+  if [[ "$PROFILE" == "gui" ]]; then
+    pkgs="$pkgs $(get_gui_packages)"
+  else
+    pkgs="$pkgs $(get_headless_packages)"
+  fi
+
+  echo "$pkgs" | xargs
+}
+
+EXTRA_PACKAGES="$(build_package_list)"
+
 install_host_deps() {
-  log "Installiere Host-Abhängigkeiten"
+  log "Installiere Host-Abhaengigkeiten"
   apt-get update
   DEBIAN_FRONTEND=noninteractive apt-get install -y \
     debootstrap \
@@ -125,7 +202,10 @@ install_host_deps() {
     sed \
     gawk \
     coreutils \
-    findutils
+    findutils \
+    curl \
+    ca-certificates \
+    gpg
 }
 
 prepare_dirs() {
@@ -162,7 +242,8 @@ EOF
 }
 
 write_chroot_script() {
-  log "Erzeuge chroot-Konfiguration"
+  log "Erzeuge chroot-Konfiguration fuer Profil: $PROFILE"
+
   cat > "$CHROOT_DIR/root/configure-live.sh" <<EOF
 #!/usr/bin/env bash
 set -Eeuo pipefail
@@ -170,17 +251,24 @@ export DEBIAN_FRONTEND=noninteractive
 export HOME=/root
 export LC_ALL=C
 
-echo "$HOSTNAME_LIVE" > /etc/hostname
+PROFILE="$PROFILE"
+USERNAME="$USERNAME"
+PASSWORD="$PASSWORD"
+HOSTNAME_LIVE="$HOSTNAME_LIVE"
+EXTRA_PACKAGES="$EXTRA_PACKAGES"
+
+echo "\$HOSTNAME_LIVE" > /etc/hostname
 
 cat > /etc/hosts <<HOSTS
 127.0.0.1 localhost
-127.0.1.1 $HOSTNAME_LIVE
+127.0.1.1 \$HOSTNAME_LIVE
 ::1 localhost ip6-localhost ip6-loopback
 HOSTS
 
 apt-get update
-apt-get install -y libterm-readline-gnu-perl dbus
-apt-get install -y $EXTRA_PACKAGES
+apt-get install -y libterm-readline-gnu-perl dbus dialog
+apt-get -y upgrade
+apt-get install -y \$EXTRA_PACKAGES
 
 dbus-uuidgen > /etc/machine-id || true
 ln -sf /etc/machine-id /var/lib/dbus/machine-id
@@ -190,39 +278,23 @@ if [[ ! -L /sbin/initctl ]]; then
   ln -sf /bin/true /sbin/initctl
 fi
 
-sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen || true
 locale-gen
 update-locale LANG=en_US.UTF-8
 
-id -u $USERNAME >/dev/null 2>&1 || useradd -m -s /bin/bash $USERNAME
-echo '$USERNAME:$PASSWORD' | chpasswd
-usermod -aG sudo $USERNAME
+id -u "\$USERNAME" >/dev/null 2>&1 || useradd -m -s /bin/bash "\$USERNAME"
+echo "\$USERNAME:\$PASSWORD" | chpasswd
+usermod -aG sudo "\$USERNAME"
 passwd -d root || true
+
+mkdir -p /etc/sudoers.d
+cat > /etc/sudoers.d/90-\$USERNAME-nopasswd <<SUDOE
+\$USERNAME ALL=(ALL) NOPASSWD:ALL
+SUDOE
+chmod 0440 /etc/sudoers.d/90-\$USERNAME-nopasswd
 
 mkdir -p /var/run/sshd
 systemctl enable ssh || true
-
-systemctl enable systemd-networkd || true
-systemctl enable systemd-resolved || true
-ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-
-mkdir -p /etc/systemd/network
-cat > /etc/systemd/network/20-wired.network <<NETEOF
-[Match]
-Name=en* eth* wl* eth0 ens* enp*
-
-[Network]
-DHCP=yes
-IPv6AcceptRA=yes
-NETEOF
-
-systemctl enable serial-getty@ttyS0.service || true
-
-mkdir -p /etc/sudoers.d
-cat > /etc/sudoers.d/90-$USERNAME-nopasswd <<SUDOE
-$USERNAME ALL=(ALL) NOPASSWD:ALL
-SUDOE
-chmod 0440 /etc/sudoers.d/90-$USERNAME-nopasswd
 
 mkdir -p /etc/ssh/sshd_config.d
 cat > /etc/ssh/sshd_config.d/99-live.conf <<SSHEOF
@@ -230,6 +302,50 @@ PasswordAuthentication yes
 PermitRootLogin prohibit-password
 SSHEOF
 
+if [[ "\$PROFILE" == "gui" ]]; then
+  systemctl enable NetworkManager || true
+  systemctl enable systemd-resolved || true
+  systemctl disable systemd-networkd || true
+  systemctl disable systemd-networkd-wait-online.service || true
+  ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+
+  cat > /etc/NetworkManager/NetworkManager.conf <<'NMEOF'
+[main]
+rc-manager=none
+plugins=ifupdown,keyfile
+dns=systemd-resolved
+
+[ifupdown]
+managed=false
+NMEOF
+
+  mkdir -p /etc/gdm3
+  cat > /etc/gdm3/custom.conf <<GDMEOF
+[daemon]
+AutomaticLoginEnable=true
+AutomaticLogin=\$USERNAME
+WaylandEnable=false
+GDMEOF
+else
+  systemctl enable systemd-networkd || true
+  systemctl enable systemd-resolved || true
+  systemctl disable NetworkManager || true
+  ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+
+  mkdir -p /etc/systemd/network
+  cat > /etc/systemd/network/20-wired.network <<NETEOF
+[Match]
+Name=en* eth* wl* eth0 ens* enp*
+
+[Network]
+DHCP=yes
+IPv6AcceptRA=yes
+NETEOF
+fi
+
+systemctl enable serial-getty@ttyS0.service || true
+
+apt-get autoremove -y || true
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 rm -rf /tmp/*
@@ -239,8 +355,36 @@ EOF
 }
 
 run_chroot_config() {
-  log "Führe chroot-Konfiguration aus"
+  log "Fuehre chroot-Konfiguration aus"
   chroot "$CHROOT_DIR" /bin/bash /root/configure-live.sh
+}
+
+install_vscode_in_chroot() {
+  log "Installiere VS Code im chroot"
+
+  cat > "$CHROOT_DIR/root/install-vscode.sh" <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update
+apt-get install -y curl gpg apt-transport-https ca-certificates
+
+curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /root/microsoft.gpg
+install -o root -g root -m 644 /root/microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
+echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list
+rm -f /root/microsoft.gpg
+
+apt-get update
+apt-get install -y code
+
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+EOF
+
+  chmod +x "$CHROOT_DIR/root/install-vscode.sh"
+  chroot "$CHROOT_DIR" /bin/bash /root/install-vscode.sh
+  rm -f "$CHROOT_DIR/root/install-vscode.sh"
 }
 
 download_lerncloud_scripts() {
@@ -249,7 +393,9 @@ download_lerncloud_scripts() {
 
   local scripts=(
     nfsshare.sh
+    storage-patch.sh
     vpn.sh
+    cloud-cli.sh
     jupyter-lab.sh
   )
 
@@ -261,111 +407,120 @@ download_lerncloud_scripts() {
 
 write_firstboot_runner() {
   log "Erzeuge First-Boot Runner"
+
   mkdir -p "$CHROOT_DIR/usr/local/sbin" "$CHROOT_DIR/var/lib/lerncloud"
 
-  cat > "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh" <<'EOF'
+  cat > "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh" <<EOF
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+PROFILE="$PROFILE"
 LOGFILE="/var/log/lerncloud-firstboot.log"
 MARKER="/var/lib/lerncloud/firstboot.done"
 LERNCLOUD_DIR="/opt/lerncloud"
-USERNAME="ubuntu"
+USERNAME="$USERNAME"
 
-exec > >(tee -a "$LOGFILE") 2>&1
+exec > >(tee -a "\$LOGFILE") 2>&1
 
 log() {
-  printf '\n[%s] %s\n' "$(date '+%F %T')" "$*"
+  printf '\n[%s] %s\n' "\$(date '+%F %T')" "\$*"
 }
 
 run_script() {
-  local script="$1"
-  if [[ -x "$LERNCLOUD_DIR/$script" ]]; then
-    log "Starte $script"
-    bash "$LERNCLOUD_DIR/$script"
+  local script="\$1"
+  if [[ -x "\$LERNCLOUD_DIR/\$script" ]]; then
+    log "Starte \$script als root"
+    bash "\$LERNCLOUD_DIR/\$script"
   else
-    log "Überspringe $script, nicht gefunden"
+    log "Ueberspringe \$script, nicht gefunden"
   fi
 }
 
 wait_for_network() {
   log "Warte auf Netzwerk"
   local i
-  for i in $(seq 1 60); do
+  for i in \$(seq 1 60); do
     if ping -c1 -W2 1.1.1.1 >/dev/null 2>&1 || ping -c1 -W2 github.com >/dev/null 2>&1; then
-      log "Netzwerk verfügbar"
+      log "Netzwerk verfuegbar"
       return 0
     fi
     sleep 5
   done
-  log "Netzwerk nicht bestätigt, fahre trotzdem fort"
+  log "Netzwerk nicht bestaetigt, fahre trotzdem fort"
   return 0
 }
 
 wait_for_k3s() {
   log "Warte auf k3s API"
   export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-
   local i
-  for i in $(seq 1 90); do
+  for i in \$(seq 1 90); do
     if [[ -f /etc/rancher/k3s/k3s.yaml ]] && kubectl get nodes >/dev/null 2>&1; then
       log "k3s ist bereit"
       return 0
     fi
     sleep 5
   done
-
   log "k3s wurde nicht rechtzeitig bereit"
   return 1
 }
 
 main() {
-  if [[ -f "$MARKER" ]]; then
-    log "First-Boot wurde bereits ausgeführt"
+  if [[ -f "\$MARKER" ]]; then
+    log "First-Boot wurde bereits ausgefuehrt"
     exit 0
   fi
 
   mkdir -p /var/lib/lerncloud
-
   wait_for_network
 
-  # Systemnahe Teile zuerst
   run_script nfsshare.sh || true
   run_script storage-patch.sh || true
   run_script vpn.sh || true
 
-  # K3s aufsetzen
-  run_script k3scontrol.sh || true
+  run_script cloud-cli.sh || true
 
-  if wait_for_k3s; then
-    run_script k3scontroladdons.sh || true
+  if id -u "\$USERNAME" >/dev/null 2>&1; then
+    log "Starte jupyter-lab.sh als \$USERNAME"
+    sudo -Hiu "\$USERNAME" bash "\$LERNCLOUD_DIR/jupyter-lab.sh" || true
   else
-    log "Überspringe k3scontroladdons.sh, da k3s nicht bereit"
+    log "User \$USERNAME nicht gefunden, ueberspringe jupyter-lab.sh"
   fi
 
-  # Jupyter Lab als ubuntu User
-  if id -u "$USERNAME" >/dev/null 2>&1; then
-    log "Starte jupyter-lab.sh als $USERNAME"
-    su - "$USERNAME" -c "bash $LERNCLOUD_DIR/jupyter-lab.sh" || true
-  else
-    log "User $USERNAME nicht gefunden, überspringe jupyter-lab.sh"
-  fi
-
-  touch "$MARKER"
+  touch "\$MARKER"
   log "First-Boot abgeschlossen"
 }
 
-main "$@"
+main "\$@"
 EOF
 
   chmod +x "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh"
 }
 
 write_firstboot_service() {
-  log "Erzeuge systemd Service für First-Boot"
+  log "Erzeuge systemd Service fuer First-Boot"
   mkdir -p "$CHROOT_DIR/etc/systemd/system"
 
-  cat > "$CHROOT_DIR/etc/systemd/system/lerncloud-firstboot.service" <<'EOF'
+  if [[ "$PROFILE" == "gui" ]]; then
+    cat > "$CHROOT_DIR/etc/systemd/system/lerncloud-firstboot.service" <<'EOF'
+[Unit]
+Description=Lerncloud First Boot Initialisierung
+Wants=network-online.target
+After=network-online.target NetworkManager.service ssh.service
+ConditionPathExists=!/var/lib/lerncloud/firstboot.done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lerncloud-firstboot.sh
+RemainAfterExit=yes
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  else
+    cat > "$CHROOT_DIR/etc/systemd/system/lerncloud-firstboot.service" <<'EOF'
 [Unit]
 Description=Lerncloud First Boot Initialisierung
 Wants=network-online.target
@@ -382,6 +537,7 @@ StandardError=journal+console
 [Install]
 WantedBy=multi-user.target
 EOF
+  fi
 
   chroot "$CHROOT_DIR" systemctl enable lerncloud-firstboot.service
 }
@@ -405,25 +561,35 @@ prepare_image_tree() {
 }
 
 write_grub_cfg() {
-  log "Schreibe GRUB-Menü"
-  cat > "$IMAGE_DIR/isolinux/grub.cfg" <<'EOF'
+  log "Schreibe GRUB-Menue"
+
+  local menu_title splash_arg
+  if [[ "$PROFILE" == "gui" ]]; then
+    menu_title="Ubuntu GUI Live + lerncloud"
+    splash_arg="quiet splash"
+  else
+    menu_title="Ubuntu Minimal Live + lerncloud"
+    splash_arg="quiet"
+  fi
+
+  cat > "$IMAGE_DIR/isolinux/grub.cfg" <<EOF
 search --set=root --file /ubuntu
 
 insmod all_video
 set default=0
 set timeout=5
 
-menuentry "Ubuntu Minimal Live + lerncloud" {
-    linux /casper/vmlinuz boot=casper nopersistent quiet console=tty1 console=ttyS0 ---
+menuentry "$menu_title" {
+    linux /casper/vmlinuz boot=casper nopersistent $splash_arg console=tty1 console=ttyS0 ---
     initrd /casper/initrd
 }
 
-menuentry "Ubuntu Minimal Live + lerncloud (debug)" {
+menuentry "$menu_title (debug)" {
     linux /casper/vmlinuz boot=casper nopersistent debug systemd.log_level=debug console=tty1 console=ttyS0 ---
     initrd /casper/initrd
 }
 
-if [ "$grub_platform" = "efi" ]; then
+if [ "\$grub_platform" = "efi" ]; then
 menuentry "UEFI Firmware Settings" {
     fwsetup
 }
@@ -441,8 +607,16 @@ create_manifest() {
 
 write_diskdefines() {
   log "Schreibe README.diskdefines"
+
+  local diskname
+  if [[ "$PROFILE" == "gui" ]]; then
+    diskname="Ubuntu GUI Live lerncloud"
+  else
+    diskname="Ubuntu Minimal Live lerncloud"
+  fi
+
   cat > "$IMAGE_DIR/README.diskdefines" <<EOF
-#define DISKNAME  Ubuntu Minimal Live lerncloud
+#define DISKNAME  $diskname
 #define TYPE  binary
 #define TYPEbinary  1
 #define ARCH  $ARCH
@@ -521,6 +695,7 @@ create_bios_image() {
 cleanup_chroot_for_squashfs() {
   log "Bereinige chroot"
   rm -f "$CHROOT_DIR/root/configure-live.sh"
+  rm -f "$CHROOT_DIR/root/install-vscode.sh"
 
   truncate -s 0 "$CHROOT_DIR/etc/machine-id" || true
   rm -f "$CHROOT_DIR/var/lib/dbus/machine-id" || true
@@ -571,7 +746,7 @@ build_iso() {
       -as mkisofs \
       -iso-level 3 \
       -full-iso9660-filenames \
-      -volid "Ubuntu-Minimal-Live" \
+      -volid "Ubuntu-${PROFILE}-Live" \
       -output "$ISO_PATH" \
       -eltorito-boot isolinux/bios.img \
         -no-emul-boot \
@@ -588,6 +763,7 @@ build_iso() {
 
 main() {
   require_root
+  validate_profile
   install_host_deps
   prepare_dirs
   bootstrap_base_system
@@ -595,6 +771,11 @@ main() {
   write_sources_list
   write_chroot_script
   run_chroot_config
+
+  if [[ "$PROFILE" == "gui" ]]; then
+    install_vscode_in_chroot
+  fi
+
   download_lerncloud_scripts
   write_firstboot_runner
   write_firstboot_service
@@ -611,8 +792,9 @@ main() {
   build_iso
 
   log "Fertig"
+  echo "Profil: $PROFILE"
   echo "ISO erstellt: $ISO_PATH"
-  echo "First-Boot Log später im Live-System: /var/log/lerncloud-firstboot.log"
+  echo "First-Boot Log im Live-System: /var/log/lerncloud-firstboot.log"
 }
 
 main "$@"
