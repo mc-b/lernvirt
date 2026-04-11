@@ -116,7 +116,9 @@ rsync -aHAX \
   --exclude=/media/* \
   --exclude=/var/www/* \
   --exclude=/home/ubuntu/.* \
+  --exclude=/home/ubuntu/*.iso \
   --exclude=/lost+found \
+  --exclude=/swap.img \
   --exclude=/srv/* \
   --exclude="$WORKDIR/*" \
   / "$ROOTFS"/
