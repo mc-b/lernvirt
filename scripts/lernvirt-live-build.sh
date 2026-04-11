@@ -228,10 +228,13 @@ mkdir -p "$EXTRACT/casper"
 cp -f "$KERNEL_SRC" "$EXTRACT/casper/vmlinuz"
 cp -f "$INITRD_SRC" "$EXTRACT/casper/initrd"
 
-if [[ -L "$ROOTFS/etc/resolv.conf" || ! -e "$ROOTFS/etc/resolv.conf" ]]; then
-  rm -f "$ROOTFS/etc/resolv.conf"
-fi
-cp -L /etc/resolv.conf "$ROOTFS/etc/resolv.conf"
+# --- DNS fix für Live-System ---
+rm -f "$ROOTFS/etc/resolv.conf"
+
+cat > "$ROOTFS/etc/resolv.conf" <<EOF
+nameserver 1.1.1.1
+nameserver 8.8.8.8
+EOF
 
 chroot "$ROOTFS" dpkg-query -W --showformat='${Package} ${Version}\n' \
   | tee "$EXTRACT/casper/filesystem.manifest" >/dev/null
@@ -346,7 +349,7 @@ echo
 echo "Fertig: $OUT_ISO"
 echo
 echo "Zum Testen mit QEMU:"
-echo "  qemu-system-x86_64 -m 4096 -cdrom \"$OUT_ISO\" -nographic -serial mon:stdio"
+echo "  qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom \"$OUT_ISO\" -nographic -serial mon:stdio"
 echo
 echo "Zum Schreiben auf USB-Stick:"
 echo "  sudo dd if=\"$OUT_ISO\" of=/dev/sdX bs=4M status=progress oflag=sync"
