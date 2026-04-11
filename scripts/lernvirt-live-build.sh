@@ -204,7 +204,6 @@ apt-get update
 
 apt-get install -y \
   casper \
-  lupin-casper \
   discover \
   laptop-detect \
   os-prober \
