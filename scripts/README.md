@@ -101,4 +101,16 @@ Alles ausführen
     sudo bash ./lerncloud-setup.sh    
 
 
+## Live System
+
+**Build und Start**
+
+    sudo env PROFILE=headless bash ./scripts/build-minimal-live.sh
+    sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build/ubuntu-headless-live-noble-amd64.iso" -nographic -serial mon:stdio
+    
+    sudo env PROFILE=gui bash ./scripts/build-minimal-live.sh
+    sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build/ubuntu-headless-live-noble-amd64.iso"
+
+
+
     
