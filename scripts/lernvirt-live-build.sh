@@ -82,18 +82,6 @@ if [[ ! -f "$SOURCE_ISO" ]]; then
   exit 1
 fi
 
-if [[ "$ENABLE_NOCLOUD" == "1" && -z "$NOCLOUD_DIR" ]]; then
-  echo "ENABLE_NOCLOUD=1, aber NOCLOUD_DIR ist leer." >&2
-  exit 1
-fi
-
-if [[ "$ENABLE_NOCLOUD" == "1" ]]; then
-  if [[ ! -f "$NOCLOUD_DIR/user-data" || ! -f "$NOCLOUD_DIR/meta-data" ]]; then
-    echo "In NOCLOUD_DIR fehlen user-data und/oder meta-data: $NOCLOUD_DIR" >&2
-    exit 1
-  fi
-fi
-
 echo "==> Arbeitsverzeichnis vorbereiten"
 rm -rf "$WORKDIR"
 mkdir -p "$MNT" "$EXTRACT" "$ROOTFS" "$TMP"
