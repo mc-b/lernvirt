@@ -2,11 +2,23 @@
 set -Eeuo pipefail
 
 # ============================================================================
-# Ubuntu Live ISO Builder + lerncloud Integration
+# Ubuntu Live ISO Builder
 #
 # Profile:
 #   PROFILE=headless   -> minimale headless Live-ISO
 #   PROFILE=gui        -> GUI + Ubiquity + VS Code
+#
+# Integriert direkt ins Image:
+#   - AWS CLI v2
+#   - Azure CLI
+#   - Google Cloud CLI
+#   - Terraform
+#   - OpenTofu
+#
+# Optional als First-Boot root-Skripte:
+#   - nfsshare.sh
+#   - storage-patch.sh
+#   - vpn.sh
 #
 # Verwendung:
 #   chmod +x build-live-lerncloud.sh
@@ -21,7 +33,7 @@ UBUNTU_CODENAME="${UBUNTU_CODENAME:-noble}"
 ARCH="${ARCH:-amd64}"
 MIRROR="${MIRROR:-http://archive.ubuntu.com/ubuntu/}"
 
-PROFILE="${PROFILE:-headless}"
+PROFILE="${PROFILE:-gui}"
 
 WORKDIR="${WORKDIR:-$(pwd)/build}"
 CHROOT_DIR="$WORKDIR/chroot"
@@ -35,6 +47,8 @@ PASSWORD="${PASSWORD:-ubuntu}"
 
 LERNCLOUD_BASE="${LERNCLOUD_BASE:-https://raw.githubusercontent.com/mc-b/lerncloud/main/services}"
 LERNCLOUD_DIR_IN_IMAGE="/opt/lerncloud"
+
+ENABLE_FIRSTBOOT_SCRIPTS="${ENABLE_FIRSTBOOT_SCRIPTS:-yes}"
 
 log() {
   printf '\n[%s] %s\n' "$(date '+%F %T')" "$*"
@@ -106,6 +120,18 @@ linux-generic
 discover
 laptop-detect
 os-prober
+apt-transport-https
+gpg
+gnupg
+lsb-release
+software-properties-common
+unzip
+dnsutils
+iproute2
+iputils-ping
+isc-dhcp-client
+systemd-resolved
+systemd-timesyncd
 EOF
 }
 
@@ -113,12 +139,6 @@ get_headless_packages() {
   cat <<'EOF'
 network-manager
 net-tools
-dnsutils
-iproute2
-iputils-ping
-isc-dhcp-client
-systemd-resolved
-systemd-timesyncd
 grub-common
 grub-pc-bin
 grub2-common
@@ -134,12 +154,6 @@ network-manager
 net-tools
 wireless-tools
 wpagui
-dnsutils
-iproute2
-iputils-ping
-isc-dhcp-client
-systemd-resolved
-systemd-timesyncd
 grub-common
 grub-gfxpayload-lists
 grub-pc
@@ -150,8 +164,6 @@ grub-efi-amd64-signed
 shim-signed
 mtools
 binutils
-apt-transport-https
-gpg
 ubiquity
 ubiquity-casper
 ubiquity-frontend-gtk
@@ -327,20 +339,20 @@ AutomaticLogin=\$USERNAME
 WaylandEnable=false
 GDMEOF
 else
-  systemctl enable systemd-networkd || true
   systemctl enable systemd-resolved || true
-  systemctl disable NetworkManager || true
+  systemctl enable NetworkManager || true
+  systemctl disable systemd-networkd || true
   ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 
-  mkdir -p /etc/systemd/network
-  cat > /etc/systemd/network/20-wired.network <<NETEOF
-[Match]
-Name=en* eth* wl* eth0 ens* enp*
+  cat > /etc/NetworkManager/NetworkManager.conf <<'NMEOF'
+[main]
+rc-manager=none
+plugins=ifupdown,keyfile
+dns=systemd-resolved
 
-[Network]
-DHCP=yes
-IPv6AcceptRA=yes
-NETEOF
+[ifupdown]
+managed=false
+NMEOF
 fi
 
 systemctl enable serial-getty@ttyS0.service || true
@@ -368,12 +380,20 @@ set -Eeuo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
-apt-get install -y curl gpg apt-transport-https ca-certificates
+apt-get install -y wget gpg apt-transport-https
 
-curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /root/microsoft.gpg
-install -o root -g root -m 644 /root/microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
-echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list
-rm -f /root/microsoft.gpg
+wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg
+install -D -o root -g root -m 644 /tmp/microsoft.gpg /usr/share/keyrings/microsoft.gpg
+rm -f /tmp/microsoft.gpg
+
+cat > /etc/apt/sources.list.d/vscode.sources <<'SRC'
+Types: deb
+URIs: https://packages.microsoft.com/repos/code
+Suites: stable
+Components: main
+Architectures: amd64 arm64 armhf
+Signed-By: /usr/share/keyrings/microsoft.gpg
+SRC
 
 apt-get update
 apt-get install -y code
@@ -387,16 +407,178 @@ EOF
   rm -f "$CHROOT_DIR/root/install-vscode.sh"
 }
 
-download_lerncloud_scripts() {
-  log "Lade lerncloud Skripte ins Image"
+install_cloud_tools_in_chroot() {
+  log "Installiere Cloud-CLIs, Terraform und OpenTofu direkt im chroot"
+
+  cat > "$CHROOT_DIR/root/install-cloud-tools.sh" <<'EOF'
+#!/usr/bin/env bash
+set +e
+export DEBIAN_FRONTEND=noninteractive
+
+echo "[INFO] Installing AWS CLI + Azure CLI + Google Cloud CLI + Terraform + OpenTofu"
+
+if [ -r /etc/os-release ]; then
+  . /etc/os-release
+  DISTRO="${NAME:-Unknown}"
+  CODENAME="${VERSION_CODENAME:-$(lsb_release -cs 2>/dev/null || echo noble)}"
+else
+  DISTRO="Unknown"
+  CODENAME="$(lsb_release -cs 2>/dev/null || echo noble)"
+fi
+
+ARCH_DEB="$(dpkg --print-architecture 2>/dev/null || echo amd64)"
+ARCH_UNAME="$(uname -m)"
+
+echo "[INFO] Distribution: ${DISTRO} (${CODENAME}), Architektur: ${ARCH_DEB}/${ARCH_UNAME}"
+
+apt-get update -y
+apt-get install -y \
+  ca-certificates \
+  curl \
+  gnupg \
+  lsb-release \
+  apt-transport-https \
+  software-properties-common \
+  unzip \
+  wget \
+  gpg || echo "[WARN] Einige Prerequisites konnten nicht installiert werden"
+
+###########################################################
+# AWS CLI v2
+###########################################################
+echo ""
+echo "[INFO] Installing AWS CLI v2"
+
+if command -v aws >/dev/null 2>&1; then
+  echo "[INFO] AWS CLI ist bereits installiert"
+else
+  TMP_DIR="$(mktemp -d)"
+  AWS_ZIP="${TMP_DIR}/awscliv2.zip"
+
+  if [ "${ARCH_UNAME}" = "x86_64" ]; then
+    AWS_URL="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+  elif [ "${ARCH_UNAME}" = "aarch64" ] || [ "${ARCH_UNAME}" = "arm64" ]; then
+    AWS_URL="https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip"
+  else
+    echo "[WARN] Unbekannte Architektur (${ARCH_UNAME}), versuche x86_64 Installer"
+    AWS_URL="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+  fi
+
+  curl -fsSL "${AWS_URL}" -o "${AWS_ZIP}" || echo "[WARN] Download der AWS CLI fehlgeschlagen"
+  unzip -q "${AWS_ZIP}" -d "${TMP_DIR}" || echo "[WARN] Entpacken der AWS CLI fehlgeschlagen"
+  "${TMP_DIR}/aws/install" -i /usr/local/aws-cli -b /usr/local/bin || echo "[WARN] Installation der AWS CLI fehlgeschlagen"
+  rm -rf "${TMP_DIR}"
+fi
+
+###########################################################
+# Azure CLI
+###########################################################
+echo ""
+echo "[INFO] Installing Azure CLI"
+
+if command -v az >/dev/null 2>&1; then
+  echo "[INFO] Azure CLI ist bereits installiert"
+else
+  mkdir -p /etc/apt/keyrings
+
+  curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+    | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg \
+    || echo "[WARN] Konnte Azure CLI GPG-Key nicht installieren"
+
+  cat > /etc/apt/sources.list.d/azure-cli.sources <<AZSRC
+Types: deb
+URIs: https://packages.microsoft.com/repos/azure-cli/
+Suites: ${CODENAME}
+Components: main
+Architectures: ${ARCH_DEB}
+Signed-By: /etc/apt/keyrings/microsoft.gpg
+AZSRC
+
+  apt-get update -y
+  apt-get install -y azure-cli || echo "[WARN] Konnte Azure CLI nicht installieren"
+fi
+
+###########################################################
+# Google Cloud CLI
+###########################################################
+echo ""
+echo "[INFO] Installing Google Cloud CLI"
+
+if command -v gcloud >/dev/null 2>&1; then
+  echo "[INFO] Google Cloud CLI ist bereits installiert"
+else
+  curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+    | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
+    || echo "[WARN] Konnte Google Cloud GPG-Key nicht installieren"
+
+  cat > /etc/apt/sources.list.d/google-cloud-sdk.list <<'GCSRC'
+deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main
+GCSRC
+
+  apt-get update -y
+  apt-get install -y google-cloud-cli || echo "[WARN] Konnte Google Cloud CLI nicht installieren"
+fi
+
+###########################################################
+# Terraform
+###########################################################
+echo ""
+echo "[INFO] Installing Terraform"
+
+if command -v terraform >/dev/null 2>&1; then
+  echo "[INFO] Terraform ist bereits installiert"
+else
+  mkdir -p /etc/apt/keyrings
+
+  if [ ! -f /etc/apt/keyrings/hashicorp-archive-keyring.gpg ]; then
+    curl -fsSL https://apt.releases.hashicorp.com/gpg \
+      | gpg --dearmor \
+      -o /etc/apt/keyrings/hashicorp-archive-keyring.gpg \
+      || echo "[WARN] Konnte HashiCorp GPG-Key nicht installieren"
+  fi
+
+  cat > /etc/apt/sources.list.d/hashicorp.list <<HASHISRC
+deb [arch=${ARCH_DEB} signed-by=/etc/apt/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com ${CODENAME} main
+HASHISRC
+
+  apt-get update -y
+  apt-get install -y terraform || echo "[WARN] Konnte Terraform nicht installieren"
+fi
+
+###########################################################
+# OpenTofu
+###########################################################
+echo ""
+echo "[INFO] Installing OpenTofu"
+
+if command -v tofu >/dev/null 2>&1; then
+  echo "[INFO] OpenTofu ist bereits installiert"
+else
+  curl -fsSL https://get.opentofu.org/install-opentofu.sh \
+    | bash -s -- --install-method standalone \
+                 --opentofu-version latest \
+                 --install-path /opt/opentofu \
+                 --symlink-path /usr/local/bin \
+    || echo "[WARN] OpenTofu Installation fehlgeschlagen"
+fi
+
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+EOF
+
+  chmod +x "$CHROOT_DIR/root/install-cloud-tools.sh"
+  chroot "$CHROOT_DIR" /bin/bash /root/install-cloud-tools.sh
+  rm -f "$CHROOT_DIR/root/install-cloud-tools.sh"
+}
+
+download_root_firstboot_scripts() {
+  log "Lade optionale root-First-Boot Skripte ins Image"
   mkdir -p "$CHROOT_DIR$LERNCLOUD_DIR_IN_IMAGE"
 
   local scripts=(
     nfsshare.sh
     storage-patch.sh
     vpn.sh
-    cloud-cli.sh
-    jupyter-lab.sh
   )
 
   for s in "${scripts[@]}"; do
@@ -407,18 +589,15 @@ download_lerncloud_scripts() {
 
 write_firstboot_runner() {
   log "Erzeuge First-Boot Runner"
-
   mkdir -p "$CHROOT_DIR/usr/local/sbin" "$CHROOT_DIR/var/lib/lerncloud"
 
   cat > "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh" <<EOF
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-PROFILE="$PROFILE"
 LOGFILE="/var/log/lerncloud-firstboot.log"
 MARKER="/var/lib/lerncloud/firstboot.done"
-LERNCLOUD_DIR="/opt/lerncloud"
-USERNAME="$USERNAME"
+LERNCLOUD_DIR="$LERNCLOUD_DIR_IN_IMAGE"
 
 exec > >(tee -a "\$LOGFILE") 2>&1
 
@@ -450,21 +629,6 @@ wait_for_network() {
   return 0
 }
 
-wait_for_k3s() {
-  log "Warte auf k3s API"
-  export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-  local i
-  for i in \$(seq 1 90); do
-    if [[ -f /etc/rancher/k3s/k3s.yaml ]] && kubectl get nodes >/dev/null 2>&1; then
-      log "k3s ist bereit"
-      return 0
-    fi
-    sleep 5
-  done
-  log "k3s wurde nicht rechtzeitig bereit"
-  return 1
-}
-
 main() {
   if [[ -f "\$MARKER" ]]; then
     log "First-Boot wurde bereits ausgefuehrt"
@@ -478,15 +642,6 @@ main() {
   run_script storage-patch.sh || true
   run_script vpn.sh || true
 
-  run_script cloud-cli.sh || true
-
-  if id -u "\$USERNAME" >/dev/null 2>&1; then
-    log "Starte jupyter-lab.sh als \$USERNAME"
-    sudo -Hiu "\$USERNAME" bash "\$LERNCLOUD_DIR/jupyter-lab.sh" || true
-  else
-    log "User \$USERNAME nicht gefunden, ueberspringe jupyter-lab.sh"
-  fi
-
   touch "\$MARKER"
   log "First-Boot abgeschlossen"
 }
@@ -499,10 +654,10 @@ EOF
 
 write_firstboot_service() {
   log "Erzeuge systemd Service fuer First-Boot"
+
   mkdir -p "$CHROOT_DIR/etc/systemd/system"
 
-  if [[ "$PROFILE" == "gui" ]]; then
-    cat > "$CHROOT_DIR/etc/systemd/system/lerncloud-firstboot.service" <<'EOF'
+  cat > "$CHROOT_DIR/etc/systemd/system/lerncloud-firstboot.service" <<'EOF'
 [Unit]
 Description=Lerncloud First Boot Initialisierung
 Wants=network-online.target
@@ -519,25 +674,6 @@ StandardError=journal+console
 [Install]
 WantedBy=multi-user.target
 EOF
-  else
-    cat > "$CHROOT_DIR/etc/systemd/system/lerncloud-firstboot.service" <<'EOF'
-[Unit]
-Description=Lerncloud First Boot Initialisierung
-Wants=network-online.target
-After=network-online.target ssh.service systemd-networkd-wait-online.service
-ConditionPathExists=!/var/lib/lerncloud/firstboot.done
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/lerncloud-firstboot.sh
-RemainAfterExit=yes
-StandardOutput=journal+console
-StandardError=journal+console
-
-[Install]
-WantedBy=multi-user.target
-EOF
-  fi
 
   chroot "$CHROOT_DIR" systemctl enable lerncloud-firstboot.service
 }
@@ -565,10 +701,10 @@ write_grub_cfg() {
 
   local menu_title splash_arg
   if [[ "$PROFILE" == "gui" ]]; then
-    menu_title="Ubuntu GUI Live + lerncloud"
+    menu_title="Ubuntu GUI Live"
     splash_arg="quiet splash"
   else
-    menu_title="Ubuntu Minimal Live + lerncloud"
+    menu_title="Ubuntu Minimal Live"
     splash_arg="quiet"
   fi
 
@@ -610,9 +746,9 @@ write_diskdefines() {
 
   local diskname
   if [[ "$PROFILE" == "gui" ]]; then
-    diskname="Ubuntu GUI Live lerncloud"
+    diskname="Ubuntu GUI Live"
   else
-    diskname="Ubuntu Minimal Live lerncloud"
+    diskname="Ubuntu Minimal Live"
   fi
 
   cat > "$IMAGE_DIR/README.diskdefines" <<EOF
@@ -696,6 +832,7 @@ cleanup_chroot_for_squashfs() {
   log "Bereinige chroot"
   rm -f "$CHROOT_DIR/root/configure-live.sh"
   rm -f "$CHROOT_DIR/root/install-vscode.sh"
+  rm -f "$CHROOT_DIR/root/install-cloud-tools.sh"
 
   truncate -s 0 "$CHROOT_DIR/etc/machine-id" || true
   rm -f "$CHROOT_DIR/var/lib/dbus/machine-id" || true
@@ -776,9 +913,14 @@ main() {
     install_vscode_in_chroot
   fi
 
-  download_lerncloud_scripts
-  write_firstboot_runner
-  write_firstboot_service
+  install_cloud_tools_in_chroot
+
+  if [[ "$ENABLE_FIRSTBOOT_SCRIPTS" == "yes" ]]; then
+    download_root_firstboot_scripts
+    write_firstboot_runner
+    write_firstboot_service
+  fi
+
   prepare_image_tree
   write_grub_cfg
   create_manifest
@@ -794,7 +936,9 @@ main() {
   log "Fertig"
   echo "Profil: $PROFILE"
   echo "ISO erstellt: $ISO_PATH"
-  echo "First-Boot Log im Live-System: /var/log/lerncloud-firstboot.log"
+  if [[ "$ENABLE_FIRSTBOOT_SCRIPTS" == "yes" ]]; then
+    echo "First-Boot Log im Live-System: /var/log/lerncloud-firstboot.log"
+  fi
 }
 
 main "$@"
