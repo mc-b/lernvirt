@@ -28,7 +28,7 @@ OUT_ISO="${OUT_ISO:-$PWD/lernvirt-live.iso}"
 ISO_LABEL="${ISO_LABEL:-LERNVIRT_LIVE}"
 HOSTNAME_DEFAULT="${HOSTNAME_DEFAULT:-lernvirt-live}"
 NOCLOUD_DIR="${NOCLOUD_DIR:-}"      # optional, Pfad zu user-data/meta-data
-ENABLE_NOCLOUD="${ENABLE_NOCLOUD:-0}"  # 1 = nocloud einbetten
+ENABLE_NOCLOUD="${ENABLE_NOCLOUD:-1}"  # 1 = nocloud einbetten
 CLEAN_LOGS="${CLEAN_LOGS:-1}"
 RESET_MACHINE_ID="${RESET_MACHINE_ID:-1}"
 COMP="${COMP:-xz}"                  # xz, zstd, gzip, lz4, lzo...
@@ -126,7 +126,10 @@ rsync -aHAX \
   --exclude=/tmp/* \
   --exclude=/mnt/* \
   --exclude=/media/* \
+  --exclude=/var/www/* \
+  --exclude=/home/ubuntu/.* \
   --exclude=/lost+found \
+  --exclude=/srv/* \
   --exclude="$WORKDIR/*" \
   / "$ROOTFS"/
 
@@ -272,8 +275,22 @@ mkdir -p "$EXTRACT/boot/grub"
 
 if [[ "$ENABLE_NOCLOUD" == "1" ]]; then
   mkdir -p "$EXTRACT/nocloud"
-  cp -f "$NOCLOUD_DIR/user-data" "$EXTRACT/nocloud/user-data"
-  cp -f "$NOCLOUD_DIR/meta-data" "$EXTRACT/nocloud/meta-data"
+
+  cat > "$EXTRACT/nocloud/meta-data" <<'EOF'
+instance-id: lernvirt-live
+local-hostname: lernvirt-live
+EOF
+
+  cat > "$EXTRACT/nocloud/user-data" <<'EOF'
+#cloud-config
+users:
+  - default
+EOF
+
+  if [[ -n "${NOCLOUD_DIR:-}" ]]; then
+    [[ -f "$NOCLOUD_DIR/meta-data" ]] && cp -f "$NOCLOUD_DIR/meta-data" "$EXTRACT/nocloud/meta-data"
+    [[ -f "$NOCLOUD_DIR/user-data" ]] && cp -f "$NOCLOUD_DIR/user-data" "$EXTRACT/nocloud/user-data"
+  fi
 
   CLOUD_PARAM='ds=nocloud\;s=/cdrom/nocloud/'
 else
@@ -310,21 +327,30 @@ echo "==> altes Autoinstall-Verhalten neutralisieren, falls vorhanden"
 echo "==> ISO neu bauen mit originaler Bootstruktur"
 rm -f "$OUT_ISO"
 
-xorriso \
-  -indev "$SOURCE_ISO" \
-  -outdev "$OUT_ISO" \
-  -map "$EXTRACT/casper/vmlinuz" /casper/vmlinuz \
-  -map "$EXTRACT/casper/initrd" /casper/initrd \
-  -map "$EXTRACT/casper/filesystem.squashfs" /casper/filesystem.squashfs \
-  -map "$EXTRACT/casper/filesystem.manifest" /casper/filesystem.manifest \
-  -map "$EXTRACT/casper/filesystem.manifest-desktop" /casper/filesystem.manifest-desktop \
-  -map "$EXTRACT/casper/filesystem.size" /casper/filesystem.size \
-  -map "$EXTRACT/boot/grub/grub.cfg" /boot/grub/grub.cfg \
-  $( [[ "$ENABLE_NOCLOUD" == "1" ]] && printf '%q %q %q %q' -map "$EXTRACT/nocloud/user-data" /nocloud/user-data -map "$EXTRACT/nocloud/meta-data" /nocloud/meta-data ) \
-  -map "$EXTRACT/md5sum.txt" /md5sum.txt \
-  -volume_date all_file_dates "$(date -u +%Y%m%d%H%M%S)00" \
-  -volid "$ISO_LABEL" \
+XORRISO_ARGS=(
+  -indev "$SOURCE_ISO"
+  -outdev "$OUT_ISO"
+  -map "$EXTRACT/casper/vmlinuz" /casper/vmlinuz
+  -map "$EXTRACT/casper/initrd" /casper/initrd
+  -map "$EXTRACT/casper/filesystem.squashfs" /casper/filesystem.squashfs
+  -map "$EXTRACT/casper/filesystem.manifest" /casper/filesystem.manifest
+  -map "$EXTRACT/casper/filesystem.manifest-desktop" /casper/filesystem.manifest-desktop
+  -map "$EXTRACT/casper/filesystem.size" /casper/filesystem.size
+  -map "$EXTRACT/boot/grub/grub.cfg" /boot/grub/grub.cfg
+  -map "$EXTRACT/md5sum.txt" /md5sum.txt
+  -volume_date all_file_dates "$(date -u +%Y%m%d%H%M%S)00"
+  -volid "$ISO_LABEL"
   -boot_image any replay
+)
+
+if [[ "$ENABLE_NOCLOUD" == "1" ]]; then
+  XORRISO_ARGS+=(
+    -map "$EXTRACT/nocloud/user-data" /nocloud/user-data
+    -map "$EXTRACT/nocloud/meta-data" /nocloud/meta-data
+  )
+fi
+
+xorriso "${XORRISO_ARGS[@]}"
 
 echo
 echo "Fertig: $OUT_ISO"
