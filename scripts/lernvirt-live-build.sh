@@ -94,8 +94,8 @@ rsync -aHAX \
   --exclude=/tmp/* \
   --exclude=/mnt/* \
   --exclude=/media/* \
-  --exclude=/home/ubuntu/.* \  
-  --exclude=/home/ubuntu/lernvirt/* \  
+  --exclude=/home/ubuntu/.* \
+  --exclude=/home/ubuntu/lernvirt/* \
   --exclude=/var/tmp/* \
   --exclude=/var/cache/apt/archives/*.deb \
   --exclude=/var/lib/apt/lists/* \
