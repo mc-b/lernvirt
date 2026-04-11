@@ -22,7 +22,7 @@ UBUNTU_CODENAME="${UBUNTU_CODENAME:-noble}"
 ARCH="${ARCH:-amd64}"
 MIRROR="${MIRROR:-http://archive.ubuntu.com/ubuntu/}"
 
-WORKDIR="${WORKDIR:-$HOME/live-ubuntu-minimal}"
+WORKDIR="${WORKDIR:-$(pwd)/live-ubuntu-minimal}"
 CHROOT_DIR="$WORKDIR/chroot"
 IMAGE_DIR="$WORKDIR/image"
 ISO_NAME="${ISO_NAME:-ubuntu-minimal-live-${UBUNTU_CODENAME}-${ARCH}.iso}"
@@ -249,10 +249,7 @@ download_lerncloud_scripts() {
 
   local scripts=(
     nfsshare.sh
-    storage-patch.sh
     vpn.sh
-    k3scontrol.sh
-    k3scontroladdons.sh
     jupyter-lab.sh
   )
 
