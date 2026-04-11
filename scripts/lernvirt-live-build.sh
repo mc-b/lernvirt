@@ -335,17 +335,17 @@ if loadfont /boot/grub/font.pf2 ; then
 fi
 
 menuentry "lernvirt Live" {
-    linux /casper/vmlinuz boot=casper quiet splash noprompt noeject ---
+    linux /casper/vmlinuz boot=casper quiet splash noprompt noeject console=ttyS0 ---
     initrd /casper/initrd
 }
 
 menuentry "lernvirt Live (verbose)" {
-    linux /casper/vmlinuz boot=casper noprompt noeject systemd.log_level=info ---
+    linux /casper/vmlinuz boot=casper noprompt noeject systemd.log_level=info console=ttyS0 ---
     initrd /casper/initrd
 }
 
 menuentry "lernvirt Live (safe graphics)" {
-    linux /casper/vmlinuz boot=casper nomodeset noprompt noeject ---
+    linux /casper/vmlinuz boot=casper nomodeset noprompt noeject console=ttyS0 ---
     initrd /casper/initrd
 }
 EOF
