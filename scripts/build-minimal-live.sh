@@ -2,19 +2,20 @@
 set -Eeuo pipefail
 
 # ============================================================================
-# Minimal Ubuntu Live ISO Builder
+# Ubuntu Minimal Live ISO Builder + lerncloud Integration
 # - headless
 # - ohne GUI
 # - ohne Java
 # - ohne VS Code
 # - BIOS + UEFI bootfähig
+# - integriert lerncloud Skripte via First-Boot systemd Service
 # ============================================================================
 #
 # Verwendung:
-#   sudo bash build-minimal-live.sh
+#   sudo bash build-minimal-live-lerncloud.sh
 #
 # Optional:
-#   UBUNTU_CODENAME=noble ISO_NAME=my-live.iso sudo bash build-minimal-live.sh
+#   UBUNTU_CODENAME=noble ISO_NAME=my-live.iso sudo bash build-minimal-live-lerncloud.sh
 # ============================================================================
 
 UBUNTU_CODENAME="${UBUNTU_CODENAME:-noble}"
@@ -30,6 +31,9 @@ ISO_PATH="$WORKDIR/$ISO_NAME"
 HOSTNAME_LIVE="${HOSTNAME_LIVE:-ubuntu-live}"
 USERNAME="${USERNAME:-ubuntu}"
 PASSWORD="${PASSWORD:-ubuntu}"
+
+LERNCLOUD_BASE="${LERNCLOUD_BASE:-https://raw.githubusercontent.com/mc-b/lerncloud/main/services}"
+LERNCLOUD_DIR_IN_IMAGE="/opt/lerncloud"
 
 EXTRA_PACKAGES="${EXTRA_PACKAGES:-\
 ubuntu-standard \
@@ -54,13 +58,21 @@ less \
 curl \
 wget \
 ca-certificates \
+git \
+jq \
 iproute2 \
 iputils-ping \
 net-tools \
+dnsutils \
 openssh-server \
 isc-dhcp-client \
 systemd-resolved \
-systemd-timesyncd}"
+systemd-timesyncd \
+wireguard \
+wireguard-tools \
+nfs-kernel-server \
+open-iscsi \
+multipath-tools}"
 
 log() {
   printf '\n[%s] %s\n' "$(date '+%F %T')" "$*"
@@ -197,7 +209,7 @@ ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 mkdir -p /etc/systemd/network
 cat > /etc/systemd/network/20-wired.network <<NETEOF
 [Match]
-Name=en* eth* wl*
+Name=en* eth* wl* eth0 ens* enp*
 
 [Network]
 DHCP=yes
@@ -205,6 +217,18 @@ IPv6AcceptRA=yes
 NETEOF
 
 systemctl enable serial-getty@ttyS0.service || true
+
+mkdir -p /etc/sudoers.d
+cat > /etc/sudoers.d/90-$USERNAME-nopasswd <<SUDOE
+$USERNAME ALL=(ALL) NOPASSWD:ALL
+SUDOE
+chmod 0440 /etc/sudoers.d/90-$USERNAME-nopasswd
+
+mkdir -p /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/99-live.conf <<SSHEOF
+PasswordAuthentication yes
+PermitRootLogin prohibit-password
+SSHEOF
 
 apt-get clean
 rm -rf /var/lib/apt/lists/*
@@ -217,6 +241,152 @@ EOF
 run_chroot_config() {
   log "Führe chroot-Konfiguration aus"
   chroot "$CHROOT_DIR" /bin/bash /root/configure-live.sh
+}
+
+download_lerncloud_scripts() {
+  log "Lade lerncloud Skripte ins Image"
+  mkdir -p "$CHROOT_DIR$LERNCLOUD_DIR_IN_IMAGE"
+
+  local scripts=(
+    nfsshare.sh
+    storage-patch.sh
+    vpn.sh
+    k3scontrol.sh
+    k3scontroladdons.sh
+    jupyter-lab.sh
+  )
+
+  for s in "${scripts[@]}"; do
+    curl -fsSL "$LERNCLOUD_BASE/$s" -o "$CHROOT_DIR$LERNCLOUD_DIR_IN_IMAGE/$s"
+    chmod +x "$CHROOT_DIR$LERNCLOUD_DIR_IN_IMAGE/$s"
+  done
+}
+
+write_firstboot_runner() {
+  log "Erzeuge First-Boot Runner"
+  mkdir -p "$CHROOT_DIR/usr/local/sbin" "$CHROOT_DIR/var/lib/lerncloud"
+
+  cat > "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh" <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+LOGFILE="/var/log/lerncloud-firstboot.log"
+MARKER="/var/lib/lerncloud/firstboot.done"
+LERNCLOUD_DIR="/opt/lerncloud"
+USERNAME="ubuntu"
+
+exec > >(tee -a "$LOGFILE") 2>&1
+
+log() {
+  printf '\n[%s] %s\n' "$(date '+%F %T')" "$*"
+}
+
+run_script() {
+  local script="$1"
+  if [[ -x "$LERNCLOUD_DIR/$script" ]]; then
+    log "Starte $script"
+    bash "$LERNCLOUD_DIR/$script"
+  else
+    log "Überspringe $script, nicht gefunden"
+  fi
+}
+
+wait_for_network() {
+  log "Warte auf Netzwerk"
+  local i
+  for i in $(seq 1 60); do
+    if ping -c1 -W2 1.1.1.1 >/dev/null 2>&1 || ping -c1 -W2 github.com >/dev/null 2>&1; then
+      log "Netzwerk verfügbar"
+      return 0
+    fi
+    sleep 5
+  done
+  log "Netzwerk nicht bestätigt, fahre trotzdem fort"
+  return 0
+}
+
+wait_for_k3s() {
+  log "Warte auf k3s API"
+  export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
+  local i
+  for i in $(seq 1 90); do
+    if [[ -f /etc/rancher/k3s/k3s.yaml ]] && kubectl get nodes >/dev/null 2>&1; then
+      log "k3s ist bereit"
+      return 0
+    fi
+    sleep 5
+  done
+
+  log "k3s wurde nicht rechtzeitig bereit"
+  return 1
+}
+
+main() {
+  if [[ -f "$MARKER" ]]; then
+    log "First-Boot wurde bereits ausgeführt"
+    exit 0
+  fi
+
+  mkdir -p /var/lib/lerncloud
+
+  wait_for_network
+
+  # Systemnahe Teile zuerst
+  run_script nfsshare.sh || true
+  run_script storage-patch.sh || true
+  run_script vpn.sh || true
+
+  # K3s aufsetzen
+  run_script k3scontrol.sh || true
+
+  if wait_for_k3s; then
+    run_script k3scontroladdons.sh || true
+  else
+    log "Überspringe k3scontroladdons.sh, da k3s nicht bereit"
+  fi
+
+  # Jupyter Lab als ubuntu User
+  if id -u "$USERNAME" >/dev/null 2>&1; then
+    log "Starte jupyter-lab.sh als $USERNAME"
+    su - "$USERNAME" -c "bash $LERNCLOUD_DIR/jupyter-lab.sh" || true
+  else
+    log "User $USERNAME nicht gefunden, überspringe jupyter-lab.sh"
+  fi
+
+  touch "$MARKER"
+  log "First-Boot abgeschlossen"
+}
+
+main "$@"
+EOF
+
+  chmod +x "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh"
+}
+
+write_firstboot_service() {
+  log "Erzeuge systemd Service für First-Boot"
+  mkdir -p "$CHROOT_DIR/etc/systemd/system"
+
+  cat > "$CHROOT_DIR/etc/systemd/system/lerncloud-firstboot.service" <<'EOF'
+[Unit]
+Description=Lerncloud First Boot Initialisierung
+Wants=network-online.target
+After=network-online.target ssh.service systemd-networkd-wait-online.service
+ConditionPathExists=!/var/lib/lerncloud/firstboot.done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lerncloud-firstboot.sh
+RemainAfterExit=yes
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  chroot "$CHROOT_DIR" systemctl enable lerncloud-firstboot.service
 }
 
 prepare_image_tree() {
@@ -246,12 +416,12 @@ insmod all_video
 set default=0
 set timeout=5
 
-menuentry "Ubuntu Minimal Live" {
+menuentry "Ubuntu Minimal Live + lerncloud" {
     linux /casper/vmlinuz boot=casper nopersistent quiet console=tty1 console=ttyS0 ---
     initrd /casper/initrd
 }
 
-menuentry "Ubuntu Minimal Live (debug)" {
+menuentry "Ubuntu Minimal Live + lerncloud (debug)" {
     linux /casper/vmlinuz boot=casper nopersistent debug systemd.log_level=debug console=tty1 console=ttyS0 ---
     initrd /casper/initrd
 }
@@ -275,7 +445,7 @@ create_manifest() {
 write_diskdefines() {
   log "Schreibe README.diskdefines"
   cat > "$IMAGE_DIR/README.diskdefines" <<EOF
-#define DISKNAME  Ubuntu Minimal Live
+#define DISKNAME  Ubuntu Minimal Live lerncloud
 #define TYPE  binary
 #define TYPEbinary  1
 #define ARCH  $ARCH
@@ -428,6 +598,9 @@ main() {
   write_sources_list
   write_chroot_script
   run_chroot_config
+  download_lerncloud_scripts
+  write_firstboot_runner
+  write_firstboot_service
   prepare_image_tree
   write_grub_cfg
   create_manifest
@@ -442,6 +615,7 @@ main() {
 
   log "Fertig"
   echo "ISO erstellt: $ISO_PATH"
+  echo "First-Boot Log später im Live-System: /var/log/lerncloud-firstboot.log"
 }
 
 main "$@"
