@@ -1109,13 +1109,13 @@ set default=0
 set timeout=5
 
 menuentry "$menu_title" {
-    linux /casper/vmlinuz boot=casper nopersistent $splash_arg console=tty1 console=ttyS0 keyboard-layouts=ch locales=de_CH.UTF-8 ---
-    initrd /casper/initrd
+    linux (\$root)/casper/vmlinuz boot=casper nopersistent $splash_arg console=tty1 console=ttyS0 keyboard-layouts=ch locales=de_CH.UTF-8 ---
+    initrd (\$root)/casper/initrd
 }
 
 menuentry "$menu_title (debug)" {
-    linux /casper/vmlinuz boot=casper nopersistent debug systemd.log_level=debug console=tty1 console=ttyS0 keyboard-layouts=ch locales=de_CH.UTF-8 ---
-    initrd /casper/initrd
+    linux (\$root)/casper/vmlinuz boot=casper nopersistent debug systemd.log_level=debug console=tty1 console=ttyS0 keyboard-layouts=ch locales=de_CH.UTF-8 ---
+    initrd (\$root)/casper/initrd
 }
 
 if [ "\$grub_platform" = "efi" ]; then
@@ -1125,53 +1125,36 @@ menuentry "UEFI Firmware Settings" {
 fi
 EOF
 
+  # Fuer Debugging und Konsistenz die gleiche grub.cfg auch sichtbar im ISO ablegen
+  cp -f "$tmpcfg" "$IMAGE_DIR/EFI/BOOT/grub.cfg"
+
   (
     cd "$IMAGE_DIR" || exit 1
+
     rm -f EFI/efiboot.img
     dd if=/dev/zero of=EFI/efiboot.img bs=1M count=10 status=none
     mkfs.vfat -F 16 EFI/efiboot.img >/dev/null
 
-    LC_CTYPE=C mmd -i EFI/efiboot.img ::EFI ::EFI/BOOT
-    LC_CTYPE=C mcopy -i EFI/efiboot.img ./EFI/BOOT/BOOTX64.EFI ::EFI/BOOT/BOOTX64.EFI
-    LC_CTYPE=C mcopy -i EFI/efiboot.img ./EFI/BOOT/MMX64.EFI   ::EFI/BOOT/MMX64.EFI
-    LC_CTYPE=C mcopy -i EFI/efiboot.img ./EFI/BOOT/GRUBX64.EFI ::EFI/BOOT/GRUBX64.EFI
-    LC_CTYPE=C mcopy -i EFI/efiboot.img "$tmpcfg"              ::EFI/BOOT/grub.cfg
+    LC_CTYPE=C mmd -i EFI/efiboot.img ::EFI || true
+    LC_CTYPE=C mmd -i EFI/efiboot.img ::EFI/BOOT || true
+
+    LC_CTYPE=C mcopy -o -i EFI/efiboot.img ./EFI/BOOT/BOOTX64.EFI ::EFI/BOOT/BOOTX64.EFI \
+      || die "BOOTX64.EFI konnte nicht in efiboot.img kopiert werden"
+    LC_CTYPE=C mcopy -o -i EFI/efiboot.img ./EFI/BOOT/MMX64.EFI ::EFI/BOOT/MMX64.EFI \
+      || die "MMX64.EFI konnte nicht in efiboot.img kopiert werden"
+    LC_CTYPE=C mcopy -o -i EFI/efiboot.img ./EFI/BOOT/GRUBX64.EFI ::EFI/BOOT/GRUBX64.EFI \
+      || die "GRUBX64.EFI konnte nicht in efiboot.img kopiert werden"
+    LC_CTYPE=C mcopy -o -i EFI/efiboot.img "$tmpcfg" ::EFI/BOOT/grub.cfg \
+      || die "grub.cfg konnte nicht in efiboot.img kopiert werden"
+
+    LC_CTYPE=C mdir  -i EFI/efiboot.img ::EFI/BOOT >/dev/null \
+      || die "EFI/BOOT Verzeichnis in efiboot.img ist nicht lesbar"
+    LC_CTYPE=C mtype -i EFI/efiboot.img ::EFI/BOOT/grub.cfg >/dev/null \
+      || die "grub.cfg wurde nicht korrekt in efiboot.img geschrieben"
   )
 
   rm -f "$tmpcfg"
 }
-
-create_manifest() {
-  log "Erzeuge Paket-Manifest"
-  chroot "$CHROOT_DIR" dpkg-query -W --showformat='${Package} ${Version}\n' \
-    > "$IMAGE_DIR/casper/filesystem.manifest"
-  cp -f "$IMAGE_DIR/casper/filesystem.manifest" \
-        "$IMAGE_DIR/casper/filesystem.manifest-desktop"
-}
-
-write_diskdefines() {
-  log "Schreibe README.diskdefines"
-
-  local diskname
-  if [[ "$PROFILE" == "gui" ]]; then
-    diskname="Ubuntu GUI Live"
-  else
-    diskname="Ubuntu Minimal Live"
-  fi
-
-  cat > "$IMAGE_DIR/README.diskdefines" <<EOF
-#define DISKNAME  $diskname
-#define TYPE  binary
-#define TYPEbinary  1
-#define ARCH  $ARCH
-#define ARCH$ARCH  1
-#define DISKNUM  1
-#define DISKNUM1  1
-#define TOTALNUM  1
-#define TOTALNUM1  1
-EOF
-}
-
 
 # ============================================================================
 # Squashfs erzeugen
