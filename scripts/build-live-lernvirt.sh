@@ -481,18 +481,17 @@ KBD
   cat > /etc/dconf/db/local.d/00-keyboard <<EOF
   [org/gnome/desktop/input-sources]
   sources=[('xkb', 'ch+de'), ('xkb', 'ch')]
-EOF
 
-# Wichtig: Die dconf-Datenbank aktualisieren
-dconf update || true  
-
-systemctl enable serial-getty@ttyS0.service || true
-
-apt-get purge -y 'libreoffice*' || true
-apt-get autoremove -y || true
-apt-get clean
-rm -rf /var/lib/apt/lists/*
-rm -rf /tmp/*
+  # Wichtig: Die dconf-Datenbank aktualisieren
+  dconf update || true  
+  
+  systemctl enable serial-getty@ttyS0.service || true
+  
+  apt-get purge -y 'libreoffice*' || true
+  apt-get autoremove -y || true
+  apt-get clean
+  rm -rf /var/lib/apt/lists/*
+  rm -rf /tmp/*  
 EOF
 
   chmod +x "$CHROOT_DIR/root/configure-live.sh"
