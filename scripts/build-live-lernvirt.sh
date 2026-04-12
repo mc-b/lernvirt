@@ -371,14 +371,6 @@ NMEOF
 
 fi
 
-mkdir -p /etc/netplan
-cat > /etc/netplan/01-network-manager.yaml <<'EOF'
-network:
-  version: 2
-  renderer: NetworkManager
-EOF
-chmod 600 /etc/netplan/01-network-manager.yaml
-
   # Tastatur: Schweiz / Deutsch
   mkdir -p /etc/default
   cat > /etc/default/keyboard <<'KBD'

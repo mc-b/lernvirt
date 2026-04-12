@@ -105,15 +105,13 @@ Alles ausführen
 
 **Build und Start**
 
-    export PROFILE=headless
-    sudo bash ./scripts/build-live-lernvirt.sh
-    sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso" \
+    sudo PROFILE=headless bash ./scripts/build-live-lernvirt.sh
+    sudo PROFILE=headless qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso" \
                             -nographic -serial mon:stdio
     
 
-    export PROFILE=gui    
-    sudo bash ./scripts/build-live-lernvirt.sh
-    sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso"
+    sudo PROFILE=gui bash ./scripts/build-live-lernvirt.sh
+    sudo PROFILE=gui qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso"
 
 **Debugging**
 
