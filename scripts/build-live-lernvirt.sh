@@ -1237,6 +1237,38 @@ create_bios_image() {
     > "$IMAGE_DIR/isolinux/bios.img"
 }
 
+create_manifest() {
+  log "Erzeuge Paket-Manifest"
+  chroot "$CHROOT_DIR" dpkg-query -W --showformat='${Package} ${Version}\n' \
+    > "$IMAGE_DIR/casper/filesystem.manifest"
+  cp -f "$IMAGE_DIR/casper/filesystem.manifest" \
+        "$IMAGE_DIR/casper/filesystem.manifest-desktop"
+}
+
+write_diskdefines() {
+  log "Schreibe README.diskdefines"
+
+  local diskname
+  if [[ "$PROFILE" == "gui" ]]; then
+    diskname="Ubuntu GUI Live"
+  else
+    diskname="Ubuntu Minimal Live"
+  fi
+
+  cat > "$IMAGE_DIR/README.diskdefines" <<EOF
+#define DISKNAME  $diskname
+#define TYPE  binary
+#define TYPEbinary  1
+#define ARCH  $ARCH
+#define ARCH$ARCH  1
+#define DISKNUM  1
+#define DISKNUM1  1
+#define TOTALNUM  1
+#define TOTALNUM1  1
+EOF
+}
+
+
 # ============================================================================
 # Squashfs erzeugen
 
