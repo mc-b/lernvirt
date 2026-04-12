@@ -35,7 +35,7 @@ MIRROR="${MIRROR:-http://archive.ubuntu.com/ubuntu/}"
 
 PROFILE="${PROFILE:-gui}"
 
-WORKDIR="${WORKDIR:-$(pwd)/build}"
+WORKDIR="${WORKDIR:-$(pwd)/build}-${PROFILE}"
 CHROOT_DIR="$WORKDIR/chroot"
 IMAGE_DIR="$WORKDIR/image"
 ISO_NAME="${ISO_NAME:-ubuntu-${PROFILE}-live-${UBUNTU_CODENAME}-${ARCH}.iso}"
@@ -224,6 +224,7 @@ install_host_deps() {
 
 prepare_dirs() {
   log "Bereite Verzeichnisse vor"
+  rm -rf "$WORKDIR" 
   mkdir -p "$WORKDIR" "$CHROOT_DIR" "$IMAGE_DIR"
 }
 
