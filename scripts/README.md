@@ -105,13 +105,15 @@ Alles ausführen
 
 **Build und Start**
 
+    export PROFILE=headless 
     sudo PROFILE=headless bash ./scripts/build-live-lernvirt.sh
-    sudo PROFILE=headless qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso" \
+    sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso" \
                             -nographic -serial mon:stdio
     
 
     sudo PROFILE=gui bash ./scripts/build-live-lernvirt.sh
-    sudo PROFILE=gui qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso"
+    export PROFILE=gui 
+    sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso"
 
 **Debugging**
 
@@ -120,7 +122,7 @@ Allgemeiner Schnellcheck nach dem Boot
     systemctl --failed
     systemctl status gdm3 NetworkManager systemd-resolved ssh lerncloud-firstboot --no-pager
     journalctl -b -p err..alert --no-pager
-    dmesg -T | tail -200
+    dmesg -T | tail -20
     
 GUI gezielt debuggen
 
