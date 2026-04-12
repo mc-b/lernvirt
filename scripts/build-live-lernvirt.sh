@@ -43,7 +43,7 @@ HOSTNAME_LIVE="${HOSTNAME_LIVE:-ubuntu-live}"
 USERNAME="${USERNAME:-ubuntu}"
 PASSWORD="${PASSWORD:-ubuntu}"
 
-lernvirt_BASE="${lernvirt_BASE:-https://raw.githubusercontent.com/mc-b/lernvirt/main/services}"
+lernvirt_BASE="${lernvirt_BASE:-https://raw.githubusercontent.com/mc-b/lerncloud/main/services}"
 lernvirt_DIR_IN_IMAGE="/opt/lernvirt"
 
 ENABLE_FIRSTBOOT_SCRIPTS="${ENABLE_FIRSTBOOT_SCRIPTS:-yes}"
@@ -749,6 +749,7 @@ export DEBIAN_FRONTEND=noninteractive
 # Jupyter Base
 # -------------------------
 python3 -m venv /opt/jupyter 
+source /opt/jupyter/bin/activate
 pip install --upgrade pip 
 pip install jupyterlab ipykernel 
 python3 -m ipykernel install --sys-prefix --name=jupyter --display-name="Python (jupyter)"
@@ -757,6 +758,7 @@ python3 -m ipykernel install --sys-prefix --name=jupyter --display-name="Python 
 # AI Kernel
 # -------------------------
 python3 -m venv /opt/ai 
+source /opt/ai/bin/activate
 pip install openai pydantic
 pip install ipykernel requests
 pip install nbconvert
@@ -766,6 +768,7 @@ python3 -m ipykernel install --user --name=ai --display-name "Python (ai)"
 # Hugging Face Kernel
 # -------------------------
 python3 -m venv /opt/hf 
+source /opt/hf/bin/activate
 pip install --upgrade pip 
 pip install -U ipykernel ipywidgets datasets pyarrow huggingface_hub fsspec transformers accelerate sentence-transformers sentencepiece peft pypdf requests tqdm numpy einops
 python3 -m ipykernel install --user --name=rag --display-name "Python (hf)"
@@ -774,6 +777,7 @@ python3 -m ipykernel install --user --name=rag --display-name "Python (hf)"
 # MCP Kernel
 # -------------------------
 python3 -m venv /opt/mcp 
+source /opt/mcp/bin/activate
 pip install --upgrade pip 
 pip install ipykernel mcp requests
 pip install openai
@@ -783,6 +787,7 @@ python3 -m ipykernel install --user --name=mcp --display-name "Python (mcp)"
 # Agent Kernel
 # -------------------------
 python3 -m venv /opt/dapr 
+source /opt/dapr/bin/activate
 pip install --upgrade pip 
 pip install openai-agents dapr dapr-ext-grpc
 pip install ipykernel
