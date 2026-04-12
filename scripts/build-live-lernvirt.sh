@@ -1196,11 +1196,39 @@ create_efi_image() {
   cp -f "$mm"      "$IMAGE_DIR/EFI/BOOT/MMX64.EFI"
   cp -f "$grubefi" "$IMAGE_DIR/EFI/BOOT/GRUBX64.EFI"
 
-  tmpcfg="$(mktemp)"
-  cat > "$tmpcfg" <<'EOF'
-search --set=root --file /boot/grub/grub.cfg
-set prefix=($root)/boot/grub
-configfile ($root)/boot/grub/grub.cfg
+tmpcfg="$(mktemp)"
+cat > "$tmpcfg" <<'EOF'
+insmod part_gpt
+insmod part_msdos
+insmod fat
+insmod iso9660
+insmod normal
+insmod linux
+insmod search
+insmod search_fs_file
+insmod configfile
+
+if search --no-floppy --set=root --file /ubuntu; then
+    set prefix=($root)/boot/grub
+    configfile /boot/grub/grub.cfg
+fi
+
+if [ -f (cd0,msdos1)/boot/grub/grub.cfg ]; then
+    set root=(cd0,msdos1)
+    set prefix=($root)/boot/grub
+    configfile /boot/grub/grub.cfg
+fi
+
+if [ -f (cd1,msdos1)/boot/grub/grub.cfg ]; then
+    set root=(cd1,msdos1)
+    set prefix=($root)/boot/grub
+    configfile /boot/grub/grub.cfg
+fi
+
+echo "GRUB konnte /boot/grub/grub.cfg nicht finden."
+echo "Verfuegbare Geraete:"
+ls
+sleep 5
 EOF
 
   (
