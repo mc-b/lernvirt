@@ -1048,46 +1048,6 @@ prepare_image_tree() {
 # ============================================================================
 # Grub Bootloader
 
-write_grub_cfg() {
-  log "Schreibe GRUB-Menue"
-
-  local menu_title splash_arg
-  if [[ "$PROFILE" == "gui" ]]; then
-    menu_title="Ubuntu GUI Live"
-    splash_arg="quiet splash"
-  else
-    menu_title="Ubuntu Minimal Live"
-    splash_arg="quiet"
-  fi
-
-  mkdir -p "$IMAGE_DIR/boot/grub"
-
-  cat > "$IMAGE_DIR/boot/grub/grub.cfg" <<EOF
-search --set=root --file /ubuntu
-
-insmod all_video
-set default=0
-set timeout=5
-
-menuentry "$menu_title" {
-    linux /casper/vmlinuz boot=casper nopersistent $splash_arg console=tty1 console=ttyS0 keyboard-layouts=ch locales=de_CH.UTF-8 ---
-    initrd /casper/initrd
-}
-
-menuentry "$menu_title (debug)" {
-    linux /casper/vmlinuz boot=casper nopersistent debug systemd.log_level=debug console=tty1 console=ttyS0 keyboard-layouts=ch locales=de_CH.UTF-8 ---
-    initrd /casper/initrd
-}
-
-if [ "\$grub_platform" = "efi" ]; then
-menuentry "UEFI Firmware Settings" {
-    fwsetup
-}
-fi
-EOF
-
-}
-
 create_efi_image() {
   log "Erzeuge EFI-Boot-Image"
 
@@ -1129,25 +1089,31 @@ create_efi_image() {
   cp -f "$grubefi" "$IMAGE_DIR/EFI/BOOT/GRUBX64.EFI"
 
 tmpcfg="$(mktemp)"
-cat > "$tmpcfg" <<'EOF'
-insmod part_gpt
-insmod part_msdos
-insmod fat
-insmod iso9660
-insmod normal
-insmod linux
+cat > "$tmpcfg" <<EOF
+insmod all_video
 insmod search
 insmod search_fs_file
-insmod configfile
 
 search --no-floppy --set=root --file /ubuntu
-set prefix=($root)/boot/grub
-configfile /boot/grub/grub.cfg
 
-echo "GRUB konnte /boot/grub/grub.cfg nicht laden."
-echo "root=$root"
-ls
-sleep 5
+set default=0
+set timeout=5
+
+menuentry "$menu_title" {
+    linux /casper/vmlinuz boot=casper nopersistent $splash_arg console=tty1 console=ttyS0 keyboard-layouts=ch locales=de_CH.UTF-8 ---
+    initrd /casper/initrd
+}
+
+menuentry "$menu_title (debug)" {
+    linux /casper/vmlinuz boot=casper nopersistent debug systemd.log_level=debug console=tty1 console=ttyS0 keyboard-layouts=ch locales=de_CH.UTF-8 ---
+    initrd /casper/initrd
+}
+
+if [ "\$grub_platform" = "efi" ]; then
+menuentry "UEFI Firmware Settings" {
+    fwsetup
+}
+fi
 EOF
 
   (
@@ -1304,7 +1270,6 @@ main() {
   fi
 
   prepare_image_tree
-  write_grub_cfg
   create_manifest
   write_diskdefines
   create_efi_image
