@@ -104,6 +104,7 @@ ca-certificates
 git
 jq
 vim
+apt-utils
 nano
 less
 openssh-server
@@ -869,12 +870,12 @@ set default=0
 set timeout=5
 
 menuentry "$menu_title" {
-    linux /casper/vmlinuz boot=casper nopersistent $splash_arg console=tty1 console=ttyS0 ---
+    linux /casper/vmlinuz boot=casper nopersistent $splash_arg console=tty1 console=ttyS0 keyboard-layouts=ch locales=de_CH.UTF-8 ---
     initrd /casper/initrd
 }
 
 menuentry "$menu_title (debug)" {
-    linux /casper/vmlinuz boot=casper nopersistent debug systemd.log_level=debug console=tty1 console=ttyS0 ---
+    linux /casper/vmlinuz boot=casper nopersistent debug systemd.log_level=debug console=tty1 console=ttyS0 keyboard-layouts=ch locales=de_CH.UTF-8 ---
     initrd /casper/initrd
 }
 
