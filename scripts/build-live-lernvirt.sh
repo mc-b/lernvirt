@@ -59,6 +59,9 @@ die() {
   exit 1
 }
 
+# ============================================================================
+# Hilfsfunktionen
+
 require_root() {
   [[ $EUID -eq 0 ]] || die "Bitte mit sudo oder als root ausfuehren."
 }
@@ -91,6 +94,9 @@ cleanup_on_exit() {
   cleanup_mounts
 }
 trap cleanup_on_exit EXIT
+
+# ============================================================================
+# Standard Packages
 
 get_common_packages() {
   cat <<'EOF'
@@ -257,6 +263,9 @@ mount_chroot() {
   mount -t devpts /dev/pts "$CHROOT_DIR/dev/pts"
 }
 
+# ============================================================================
+# Packetquellen
+
 write_sources_list() {
   log "Schreibe sources.list"
   cat > "$CHROOT_DIR/etc/apt/sources.list" <<EOF
@@ -265,6 +274,9 @@ deb $MIRROR $UBUNTU_CODENAME-updates main restricted universe multiverse
 deb http://security.ubuntu.com/ubuntu/ $UBUNTU_CODENAME-security main restricted universe multiverse
 EOF
 }
+
+# ============================================================================
+# Ubuntu Root Umgebung
 
 write_chroot_script() {
   log "Erzeuge chroot-Konfiguration fuer Profil: $PROFILE"
@@ -477,6 +489,9 @@ run_chroot_config() {
   chroot "$CHROOT_DIR" /bin/bash /root/configure-live.sh
 }
 
+# ============================================================================
+# VSCode Installation
+
 install_vscode_in_chroot() {
   log "Installiere VS Code im chroot"
 
@@ -560,6 +575,9 @@ EOF
   chroot "$CHROOT_DIR" /bin/bash /root/install-vscode.sh
   rm -f "$CHROOT_DIR/root/install-vscode.sh"
 }
+
+# ============================================================================
+# GUI extra Packages
 
 write_gui_firstboot_extras() {
   log "Erzeuge GUI First-Boot Extras"
@@ -702,6 +720,9 @@ EOF
 
   chmod +x "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh"
 }
+
+# ============================================================================
+# Cloud CLI Installation
 
 install_cloud_tools_in_chroot() {
   log "Installiere Cloud-CLIs, Terraform und OpenTofu direkt im chroot"
@@ -883,6 +904,9 @@ download_root_firstboot_scripts() {
   done
 }
 
+# ============================================================================
+# first boot Installation von Packages
+
 write_firstboot_runner() {
   log "Erzeuge First-Boot Runner"
   mkdir -p "$CHROOT_DIR/usr/local/sbin" "$CHROOT_DIR/var/lib/lerncloud"
@@ -974,6 +998,9 @@ EOF
   chroot "$CHROOT_DIR" systemctl enable lerncloud-firstboot.service
 }
 
+# ============================================================================
+# Image erstellen
+
 prepare_image_tree() {
   log "Erzeuge ISO-Verzeichnisbaum"
   mkdir -p \
@@ -1060,6 +1087,9 @@ write_diskdefines() {
 EOF
 }
 
+# ============================================================================
+# EFI Image
+
 create_efi_image() {
   log "Erzeuge EFI-Boot-Image"
 
@@ -1123,6 +1153,9 @@ create_bios_image() {
   cat /usr/lib/grub/i386-pc/cdboot.img "$IMAGE_DIR/isolinux/core.img" \
     > "$IMAGE_DIR/isolinux/bios.img"
 }
+
+# ============================================================================
+# Squashfs erzeugen
 
 cleanup_chroot_for_squashfs() {
   log "Bereinige chroot"
@@ -1193,6 +1226,9 @@ build_iso() {
       .
   )
 }
+
+# ============================================================================
+# MAIN
 
 main() {
   require_root
