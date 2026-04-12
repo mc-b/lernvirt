@@ -1199,9 +1199,9 @@ create_efi_image() {
 
   tmpcfg="$(mktemp)"
   cat > "$tmpcfg" <<'EOF'
-search --set=root --file /ubuntu
-set prefix=($root)/boot/grub
-configfile ($root)/boot/grub/grub.cfg
+search --set=root --file /isolinux/grub.cfg
+set prefix=($root)/isolinux
+configfile ($root)/isolinux/grub.cfg
 EOF
 
   (
@@ -1218,21 +1218,6 @@ EOF
   )
 
   rm -f "$tmpcfg"
-}
-
-create_bios_image() {
-  log "Erzeuge BIOS-Boot-Image"
-  grub-mkstandalone \
-    --format=i386-pc \
-    --output="$IMAGE_DIR/isolinux/core.img" \
-    --install-modules="linux16 linux normal iso9660 biosdisk search tar ls" \
-    --modules="linux16 linux normal iso9660 biosdisk search" \
-    --locales="" \
-    --fonts="" \
-    "boot/grub/grub.cfg=$IMAGE_DIR/isolinux/grub.cfg"
-
-  cat /usr/lib/grub/i386-pc/cdboot.img "$IMAGE_DIR/isolinux/core.img" \
-    > "$IMAGE_DIR/isolinux/bios.img"
 }
 
 create_manifest() {
@@ -1377,7 +1362,6 @@ main() {
   create_manifest
   write_diskdefines
   create_efi_image
-  create_bios_image
   cleanup_chroot_for_squashfs
   cleanup_mounts
   create_squashfs
