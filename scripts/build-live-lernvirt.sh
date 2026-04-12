@@ -1140,25 +1140,12 @@ insmod search
 insmod search_fs_file
 insmod configfile
 
-if search --no-floppy --set=root --file /ubuntu; then
-    set prefix=($root)/boot/grub
-    configfile /boot/grub/grub.cfg
-fi
+search --no-floppy --set=root --file /ubuntu
+set prefix=($root)/boot/grub
+configfile /boot/grub/grub.cfg
 
-if [ -f (cd0,msdos1)/boot/grub/grub.cfg ]; then
-    set root=(cd0,msdos1)
-    set prefix=($root)/boot/grub
-    configfile /boot/grub/grub.cfg
-fi
-
-if [ -f (cd1,msdos1)/boot/grub/grub.cfg ]; then
-    set root=(cd1,msdos1)
-    set prefix=($root)/boot/grub
-    configfile /boot/grub/grub.cfg
-fi
-
-echo "GRUB konnte /boot/grub/grub.cfg nicht finden."
-echo "Verfuegbare Geraete:"
+echo "GRUB konnte /boot/grub/grub.cfg nicht laden."
+echo "root=$root"
 ls
 sleep 5
 EOF
