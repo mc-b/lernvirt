@@ -105,12 +105,28 @@ Alles ausführen
 
 **Build und Start**
 
-    sudo env PROFILE=headless bash ./scripts/build-live.sh
-    sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build/ubuntu-headless-live-noble-amd64.iso" -nographic -serial mon:stdio
+    export PROFILE=headless
+    sudo bash ./scripts/build-live-lernvirt.sh
+    sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso" \
+                            -nographic -serial mon:stdio
     
-    sudo env PROFILE=gui bash ./scripts/build-live.sh
-    sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build/ubuntu-gui-live-noble-amd64.iso"
 
+    export PROFILE=gui    
+    sudo bash ./scripts/build-live-lernvirt.sh
+    sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso"
 
+**Debugging**
 
+Allgemeiner Schnellcheck nach dem Boot
+    
+    systemctl --failed
+    systemctl status gdm3 NetworkManager systemd-resolved ssh lerncloud-firstboot --no-pager
+    journalctl -b -p err..alert --no-pager
+    dmesg -T | tail -200
+    
+GUI gezielt debuggen
+
+    systemctl status gdm3 --no-pager -l
+    journalctl -b -u gdm3 --no-pager
+    journalctl -b | grep -Ei 'gdm|gnome-shell|mutter|Xorg|wayland|drm|gpu|mesa'    
     
