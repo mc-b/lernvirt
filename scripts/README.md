@@ -130,12 +130,6 @@ Alles ausführen
                         -drive if=pflash,format=raw,file=/tmp/OVMF_VARS_4M-${PROFILE}.fd \
                         -drive file="build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso",media=cdrom,format=raw
     
-Wenn Grub nicht startet:
-  
-    set root=(cd0,msdos1)
-    set prefix=(cd0,msdos1)/isolinux
-    configfile (cd0,msdos1)/isolinux/grub.cfg  
-    
 **Boot Disk erstellen**
     
     sudo dd if=build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso of=/dev/sda bs=4M status=progress oflag=sync
