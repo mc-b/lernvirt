@@ -542,7 +542,7 @@ ENVEOF
 mkdir -p /usr/local/bin
 cat > /usr/local/bin/code-live <<'WRAPEOF'
 #!/usr/bin/env bash
-exec /usr/bin/code --disable-gpu --disable-software-rasterizer "$@"
+exec /usr/bin/code --no-sandbox --disable-gpu --disable-software-rasterizer "$@"
 WRAPEOF
 chmod +x /usr/local/bin/code-live
 
