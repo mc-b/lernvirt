@@ -103,18 +103,27 @@ Alles ausführen
 
 ## Live System
 
-**Build und Start**
+**Builden**
 
-    export PROFILE=headless 
     sudo PROFILE=headless bash ./scripts/build-live-lernvirt.sh
-    sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso" \
-                            -nographic -serial mon:stdio
-    
 
     sudo PROFILE=gui bash ./scripts/build-live-lernvirt.sh
+
+**Starten**
+
+    export PROFILE=headless 
+    sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso" \
+                            -nographic -serial mon:stdio
+
     export PROFILE=gui 
     sudo chmod 666 /dev/kvm    
     qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso"
+    
+**Boot Disk erstellen**
+    
+    sudo dd if=build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso of=/dev/sda bs=4M status=progress oflag=sync
+    sync
+    sudo udisksctl power-off -b /dev/sda    
 
 **Debugging**
 
