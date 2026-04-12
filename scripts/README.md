@@ -113,19 +113,19 @@ Alles ausführen
 
     export PROFILE=headless 
     sudo chmod 666 /dev/kvm        
-    cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/OVMF_VARS_4M.fd
+    cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/OVMF_VARS_4M-${PROFILE}.fd
     qemu-system-x86_64  -m 8192 -enable-kvm -cpu host \
                         -drive file="build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso",media=cdrom,format=raw \
                         -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
-                        -drive if=pflash,format=raw,file=/tmp/OVMF_VARS_4M.fd \
+                        -drive if=pflash,format=raw,file=/tmp/OVMF_VARS_4M-${PROFILE}.fd \
                         -nographic -serial mon:stdio
 
     export PROFILE=gui 
     sudo chmod 666 /dev/kvm    
-    cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/OVMF_VARS_4M.fd
+    cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/OVMF_VARS_4M-${PROFILE}.fd
     qemu-system-x86_64  -m 8192 -enable-kvm -cpu host \
                         -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
-                        -drive if=pflash,format=raw,file=/tmp/OVMF_VARS_4M.fd \
+                        -drive if=pflash,format=raw,file=/tmp/OVMF_VARS_4M-${PROFILE}.fd \
                         -drive file="build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso",media=cdrom,format=raw
     
 Wenn Grub nicht startet:
