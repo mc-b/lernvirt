@@ -561,6 +561,148 @@ EOF
   rm -f "$CHROOT_DIR/root/install-vscode.sh"
 }
 
+write_gui_firstboot_extras() {
+  log "Erzeuge GUI First-Boot Extras"
+  mkdir -p "$CHROOT_DIR/usr/local/sbin" "$CHROOT_DIR/etc/systemd/system"
+
+  cat > "$CHROOT_DIR/usr/local/sbin/gui-firstboot.sh" <<'GUIFIRSTBOOT'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+LOGFILE="/var/log/gui-firstboot.log"
+MARKER="/var/lib/gui-firstboot.done"
+
+exec > >(tee -a "$LOGFILE") 2>&1
+
+wait_for_network() {
+  local i
+  for i in $(seq 1 60); do
+    if ping -c1 -W2 1.1.1.1 >/dev/null 2>&1 || ping -c1 -W2 snapcraft.io >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 5
+  done
+  return 1
+}
+
+wait_for_snapd() {
+  local i
+  for i in $(seq 1 60); do
+    if systemctl is-active snapd >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+main() {
+  [[ -f "$MARKER" ]] && exit 0
+
+  systemctl enable snapd || true
+  systemctl start snapd || true
+  systemctl enable snapd.socket || true
+  systemctl start snapd.socket || true
+
+  wait_for_network || true
+  wait_for_snapd || true
+
+  snap install chromium || true
+
+  touch "$MARKER"
+}
+
+main "$@"
+GUIFIRSTBOOT
+
+  chmod +x "$CHROOT_DIR/usr/local/sbin/gui-firstboot.sh"
+
+  cat > "$CHROOT_DIR/etc/systemd/system/gui-firstboot.service" <<'GUISVC'
+[Unit]
+Description=GUI First Boot Extras
+Wants=network-online.target snapd.service snapd.socket
+After=network-online.target snapd.service snapd.socket
+ConditionPathExists=!/var/lib/gui-firstboot.done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/gui-firstboot.sh
+RemainAfterExit=yes
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
+GUISVC
+
+  chroot "$CHROOT_DIR" systemctl enable gui-firstboot.service
+}
+
+write_firstboot_runner() {
+  log "Erzeuge First-Boot Runner"
+  mkdir -p "$CHROOT_DIR/usr/local/sbin" "$CHROOT_DIR/var/lib/lerncloud"
+
+  cat > "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh" <<EOF
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+LOGFILE="/var/log/lerncloud-firstboot.log"
+MARKER="/var/lib/lerncloud/firstboot.done"
+LERNCLOUD_DIR="$LERNCLOUD_DIR_IN_IMAGE"
+
+exec > >(tee -a "\$LOGFILE") 2>&1
+
+log() {
+  printf '\n[%s] %s\n' "\$(date '+%F %T')" "\$*"
+}
+
+run_script() {
+  local script="\$1"
+  if [[ -x "\$LERNCLOUD_DIR/\$script" ]]; then
+    log "Starte \$script als root"
+    bash "\$LERNCLOUD_DIR/\$script"
+  else
+    log "Ueberspringe \$script, nicht gefunden"
+  fi
+}
+
+wait_for_network() {
+  log "Warte auf Netzwerk"
+  local i
+  for i in \$(seq 1 60); do
+    if ping -c1 -W2 1.1.1.1 >/dev/null 2>&1 || ping -c1 -W2 github.com >/dev/null 2>&1; then
+      log "Netzwerk verfuegbar"
+      return 0
+    fi
+    sleep 5
+  done
+  log "Netzwerk nicht bestaetigt, fahre trotzdem fort"
+  return 0
+}
+
+main() {
+  if [[ -f "\$MARKER" ]]; then
+    log "First-Boot wurde bereits ausgefuehrt"
+    exit 0
+  fi
+
+  mkdir -p /var/lib/lerncloud
+  wait_for_network
+
+  run_script nfsshare.sh || true
+  run_script storage-patch.sh || true
+  run_script vpn.sh || true
+
+  touch "\$MARKER"
+  log "First-Boot abgeschlossen"
+}
+
+main "\$@"
+EOF
+
+  chmod +x "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh"
+}
+
 install_cloud_tools_in_chroot() {
   log "Installiere Cloud-CLIs, Terraform und OpenTofu direkt im chroot"
 
@@ -1065,6 +1207,7 @@ main() {
 
   if [[ "$PROFILE" == "gui" ]]; then
     install_vscode_in_chroot
+    write_gui_firstboot_extras    
   fi
 
   install_cloud_tools_in_chroot
