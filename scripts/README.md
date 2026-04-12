@@ -114,7 +114,7 @@ Alles ausführen
     sudo PROFILE=gui bash ./scripts/build-live-lernvirt.sh
     export PROFILE=gui 
     sudo chmod 666 /dev/kvm    
-    sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso"
+    qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso"
 
 **Debugging**
 

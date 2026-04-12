@@ -458,7 +458,7 @@ fi
   mkdir -p /etc/default
   cat > /etc/default/keyboard <<'KBD'
 XKBLAYOUT="ch"
-XKBVARIANT="de"
+XKBVARIANT=""
 XKBMODEL="pc105"
 XKBOPTIONS=""
 BACKSPACE="guess"
@@ -471,6 +471,20 @@ KBD
 
   dpkg-reconfigure -f noninteractive keyboard-configuration || true
   setupcon || true
+  
+  # GNOME Tastatur-Layout erzwingen (für den Live-User)
+  mkdir -p /etc/dconf/profile
+  echo "user-db:user" > /etc/dconf/profile/user
+  echo "system-db:local" >> /etc/dconf/profile/user
+  
+  mkdir -p /etc/dconf/db/local.d
+  cat > /etc/dconf/db/local.d/00-keyboard <<EOF
+  [org/gnome/desktop/input-sources]
+  sources=[('xkb', 'ch+de'), ('xkb', 'ch')]
+EOF
+
+# Wichtig: Die dconf-Datenbank aktualisieren
+dconf update || true  
 
 systemctl enable serial-getty@ttyS0.service || true
 
@@ -557,7 +571,7 @@ ENVEOF
 mkdir -p /usr/local/bin
 cat > /usr/local/bin/code-live <<'WRAPEOF'
 #!/usr/bin/env bash
-exec /usr/bin/code --no-sandbox --disable-gpu --disable-software-rasterizer "$@"
+exec /usr/bin/code --no-sandbox
 WRAPEOF
 chmod +x /usr/local/bin/code-live
 
