@@ -349,7 +349,7 @@ NMEOF
   mkdir -p /etc/gdm3
   cat > /etc/gdm3/custom.conf <<GDMEOF
 [daemon]
-AutomaticLoginEnable=false
+AutomaticLoginEnable=true
 AutomaticLogin=\$USERNAME
 WaylandEnable=false
 GDMEOF
@@ -368,6 +368,8 @@ dns=systemd-resolved
 [ifupdown]
 managed=false
 NMEOF
+
+fi
 
 mkdir -p /etc/netplan
 cat > /etc/netplan/01-network-manager.yaml <<'EOF'
@@ -394,8 +396,6 @@ KBD
 
   dpkg-reconfigure -f noninteractive keyboard-configuration || true
   setupcon || true
-
-fi
 
 systemctl enable serial-getty@ttyS0.service || true
 
