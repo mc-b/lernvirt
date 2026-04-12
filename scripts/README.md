@@ -105,11 +105,11 @@ Alles ausführen
 
 **Build und Start**
 
-    sudo env PROFILE=headless bash ./scripts/build-minimal-live.sh
+    sudo env PROFILE=headless bash ./scripts/build-live.sh
     sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build/ubuntu-headless-live-noble-amd64.iso" -nographic -serial mon:stdio
     
-    sudo env PROFILE=gui bash ./scripts/build-minimal-live.sh
-    sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build/ubuntu-headless-live-noble-amd64.iso"
+    sudo env PROFILE=gui bash ./scripts/build-live.sh
+    sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build/ubuntu-gui-live-noble-amd64.iso"
 
 
 

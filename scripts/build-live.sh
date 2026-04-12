@@ -6,7 +6,7 @@ set -Eeuo pipefail
 #
 # Profile:
 #   PROFILE=headless   -> minimale headless Live-ISO
-#   PROFILE=gui        -> GUI + Ubiquity + VS Code + Chromium (via snap)
+#   PROFILE=gui        -> GUI + Ubiquity + VS Code
 #
 # Direkt im Image:
 #   - AWS CLI v2
@@ -17,22 +17,28 @@ set -Eeuo pipefail
 #
 # Optional als First-Boot root-Skripte:
 #   - nfsshare.sh
+#   - storage-patch.sh
+#   - vpn.sh
+#
+# GUI-Profil:
+#   - Ubuntu Desktop Minimal
+#   - GDM3
+#   - Ubiquity
+#   - VS Code
+#   - Chromium per snap beim ersten Boot
 #
 # Verwendung:
-#   chmod +x build-live.sh
 #   sudo env PROFILE=headless bash ./build-live.sh
-#   sudo env PROFILE=gui bash ./build-live.sh
-#
-# Optional:
-#   sudo env WORKDIR="$(pwd)/build" PROFILE=gui bash ./build-live.sh
+#   sudo env PROFILE=gui      bash ./build-live.sh
 # ============================================================================
 
 UBUNTU_CODENAME="${UBUNTU_CODENAME:-noble}"
 ARCH="${ARCH:-amd64}"
 MIRROR="${MIRROR:-http://archive.ubuntu.com/ubuntu/}"
+
 PROFILE="${PROFILE:-gui}"
 
-WORKDIR="${WORKDIR:-$(pwd)/build}-${PROFILE}"
+WORKDIR="${WORKDIR:-$(pwd)/build-${PROFILE}}"
 CHROOT_DIR="$WORKDIR/chroot"
 IMAGE_DIR="$WORKDIR/image"
 ISO_NAME="${ISO_NAME:-ubuntu-${PROFILE}-live-${UBUNTU_CODENAME}-${ARCH}.iso}"
@@ -92,9 +98,9 @@ sudo
 ubuntu-standard
 casper
 locales
+apt-utils
 curl
 wget
-apt-utils
 ca-certificates
 git
 jq
@@ -165,11 +171,8 @@ ubiquity-frontend-gtk
 ubiquity-slideshow-ubuntu
 ubiquity-ubuntu-artwork
 plymouth-themes
-gnome-shell
-gnome-session
+ubuntu-desktop-minimal
 gdm3
-nautilus
-gnome-terminal
 dbus-x11
 xdg-utils
 x11-xserver-utils
@@ -248,6 +251,7 @@ mount_chroot() {
 write_sources_list() {
   log "Schreibe sources.list"
   cat > "$CHROOT_DIR/etc/apt/sources.list" <<EOF
+# Ubuntu
 
 deb $MIRROR $UBUNTU_CODENAME main restricted universe multiverse
 deb $MIRROR $UBUNTU_CODENAME-updates main restricted universe multiverse
@@ -263,7 +267,8 @@ write_chroot_script() {
 set -Eeuo pipefail
 export DEBIAN_FRONTEND=noninteractive
 export HOME=/root
-export LC_ALL=C
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
 
 PROFILE="$PROFILE"
 USERNAME="$USERNAME"
@@ -280,10 +285,17 @@ cat > /etc/hosts <<HOSTS
 HOSTS
 
 apt-get update
-apt-get install -y libterm-readline-gnu-perl dbus dialog
+apt-get install -y libterm-readline-gnu-perl dbus dialog apt-utils
 apt-get -y upgrade
-apt-get install -y --no-install-recommends \$EXTRA_PACKAGES
+
+if [[ "\$PROFILE" == "gui" ]]; then
+  apt-get install -y \$EXTRA_PACKAGES
+else
+  apt-get install -y --no-install-recommends \$EXTRA_PACKAGES
+fi
+
 apt-get purge -y 'libreoffice*' || true
+apt-get autoremove -y || true
 
 dbus-uuidgen > /etc/machine-id || true
 ln -sf /etc/machine-id /var/lib/dbus/machine-id
@@ -295,8 +307,8 @@ fi
 
 sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen || true
 sed -i 's/^# *de_CH.UTF-8 UTF-8/de_CH.UTF-8 UTF-8/' /etc/locale.gen || true
-grep -q '^de_CH.UTF-8 UTF-8' /etc/locale.gen || echo 'de_CH.UTF-8 UTF-8' >> /etc/locale.gen
 grep -q '^en_US.UTF-8 UTF-8' /etc/locale.gen || echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen
+grep -q '^de_CH.UTF-8 UTF-8' /etc/locale.gen || echo 'de_CH.UTF-8 UTF-8' >> /etc/locale.gen
 locale-gen
 update-locale LANG=de_CH.UTF-8
 
@@ -320,22 +332,23 @@ PasswordAuthentication yes
 PermitRootLogin prohibit-password
 SSHEOF
 
-systemctl enable systemd-resolved || true
+# Netzwerk
 systemctl enable NetworkManager || true
+systemctl enable systemd-resolved || true
 systemctl disable systemd-networkd || true
 systemctl disable systemd-networkd-wait-online.service || true
 ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 
-cat > /etc/NetworkManager/NetworkManager.conf <<'NMEOF'
-[main]
-rc-manager=none
-plugins=ifupdown,keyfile
-dns=systemd-resolved
+# GUI-spezifisch
+if [[ "\$PROFILE" == "gui" ]]; then
+  mkdir -p /etc/gdm3
+  cat > /etc/gdm3/custom.conf <<'GDMEOF'
+[daemon]
+WaylandEnable=false
+GDMEOF
+fi
 
-[ifupdown]
-managed=false
-NMEOF
-
+# Tastatur Schweiz / Deutsch
 mkdir -p /etc/default
 cat > /etc/default/keyboard <<'KBD'
 XKBLAYOUT="ch"
@@ -345,19 +358,8 @@ XKBOPTIONS=""
 BACKSPACE="guess"
 KBD
 
-if [[ "\$PROFILE" == "gui" ]]; then
-  mkdir -p /etc/gdm3
-  cat > /etc/gdm3/custom.conf <<GDMEOF
-[daemon]
-AutomaticLoginEnable=true
-AutomaticLogin=\$USERNAME
-WaylandEnable=false
-GDMEOF
-fi
-
 systemctl enable serial-getty@ttyS0.service || true
 
-apt-get autoremove -y || true
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 rm -rf /tmp/*
@@ -368,16 +370,18 @@ EOF
 
 run_chroot_config() {
   log "Fuehre chroot-Konfiguration aus"
-  chroot "$CHROOT_DIR" env LANG=C.UTF-8 LC_ALL=C.UTF-8 /bin/bash /root/configure-live.sh  
+  chroot "$CHROOT_DIR" env LANG=C.UTF-8 LC_ALL=C.UTF-8 /bin/bash /root/configure-live.sh
 }
 
 install_vscode_in_chroot() {
   log "Installiere VS Code im chroot"
 
-  cat > "$CHROOT_DIR/root/install-vscode.sh" <<'VSCODESCRIPT'
+  cat > "$CHROOT_DIR/root/install-vscode.sh" <<'EOF'
 #!/usr/bin/env bash
 set +e
 export DEBIAN_FRONTEND=noninteractive
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
 
 echo "[INFO] Installing Visual Studio Code"
 
@@ -407,9 +411,9 @@ curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
   | gpg --dearmor \
   -o /etc/apt/keyrings/microsoft-vscode.gpg || true
 
-cat > /etc/apt/sources.list.d/vscode.list <<EOF
+cat > /etc/apt/sources.list.d/vscode.list <<VSCODEEOF
 deb [arch=${ARCH_DEB} signed-by=/etc/apt/keyrings/microsoft-vscode.gpg] https://packages.microsoft.com/repos/code stable main
-EOF
+VSCODEEOF
 
 apt-get update -y
 apt-get install -y code || true
@@ -420,10 +424,10 @@ if [ -f /usr/share/code/chrome-sandbox ]; then
 fi
 
 mkdir -p /usr/local/bin
-cat > /usr/local/bin/code-live <<'EOF'
+cat > /usr/local/bin/code-live <<'WRAPEOF'
 #!/usr/bin/env bash
 exec /usr/bin/code --no-sandbox --disable-gpu --disable-dev-shm-usage "$@"
-EOF
+WRAPEOF
 chmod +x /usr/local/bin/code-live
 
 if [ -f /usr/share/applications/code.desktop ]; then
@@ -433,7 +437,7 @@ fi
 
 apt-get clean
 rm -rf /var/lib/apt/lists/*
-VSCODESCRIPT
+EOF
 
   chmod +x "$CHROOT_DIR/root/install-vscode.sh"
   chroot "$CHROOT_DIR" env LANG=C.UTF-8 LC_ALL=C.UTF-8 /bin/bash /root/install-vscode.sh
@@ -443,10 +447,12 @@ VSCODESCRIPT
 install_cloud_tools_in_chroot() {
   log "Installiere Cloud-CLIs, Terraform und OpenTofu direkt im chroot"
 
-  cat > "$CHROOT_DIR/root/install-cloud-tools.sh" <<'CLOUDTOOLS'
+  cat > "$CHROOT_DIR/root/install-cloud-tools.sh" <<'EOF'
 #!/usr/bin/env bash
 set +e
 export DEBIAN_FRONTEND=noninteractive
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
 
 echo "[INFO] Installing AWS CLI + Azure CLI + Google Cloud CLI + Terraform + OpenTofu"
 
@@ -476,8 +482,7 @@ apt-get install -y \
   wget \
   gpg || echo "[WARN] Einige Prerequisites konnten nicht installiert werden"
 
-echo ""
-echo "[INFO] Installing AWS CLI v2"
+# AWS CLI v2
 if ! command -v aws >/dev/null 2>&1; then
   TMP_DIR="$(mktemp -d)"
   AWS_ZIP="${TMP_DIR}/awscliv2.zip"
@@ -496,59 +501,56 @@ if ! command -v aws >/dev/null 2>&1; then
   rm -rf "${TMP_DIR}"
 fi
 
-echo ""
-echo "[INFO] Installing Azure CLI"
+# Azure CLI
 if ! command -v az >/dev/null 2>&1; then
   mkdir -p /etc/apt/keyrings
   curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
     | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg || true
 
-  cat > /etc/apt/sources.list.d/azure-cli.sources <<EOF
+  cat > /etc/apt/sources.list.d/azure-cli.sources <<AZSRC
 Types: deb
 URIs: https://packages.microsoft.com/repos/azure-cli/
 Suites: ${CODENAME}
 Components: main
 Architectures: ${ARCH_DEB}
 Signed-By: /etc/apt/keyrings/microsoft.gpg
-EOF
+AZSRC
 
   apt-get update -y
   apt-get install -y azure-cli || true
 fi
 
-echo ""
-echo "[INFO] Installing Google Cloud CLI"
+# Google Cloud CLI
 if ! command -v gcloud >/dev/null 2>&1; then
   curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
     | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg || true
 
-  cat > /etc/apt/sources.list.d/google-cloud-sdk.list <<'EOF'
+  cat > /etc/apt/sources.list.d/google-cloud-sdk.list <<'GCSRC'
 deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main
-EOF
+GCSRC
 
   apt-get update -y
   apt-get install -y google-cloud-cli || true
 fi
 
-echo ""
-echo "[INFO] Installing Terraform"
+# Terraform
 if ! command -v terraform >/dev/null 2>&1; then
   mkdir -p /etc/apt/keyrings
   if [ ! -f /etc/apt/keyrings/hashicorp-archive-keyring.gpg ]; then
     curl -fsSL https://apt.releases.hashicorp.com/gpg \
-      | gpg --dearmor -o /etc/apt/keyrings/hashicorp-archive-keyring.gpg || true
+      | gpg --dearmor \
+      -o /etc/apt/keyrings/hashicorp-archive-keyring.gpg || true
   fi
 
-  cat > /etc/apt/sources.list.d/hashicorp.list <<EOF
+  cat > /etc/apt/sources.list.d/hashicorp.list <<HASHISRC
 deb [arch=${ARCH_DEB} signed-by=/etc/apt/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com ${CODENAME} main
-EOF
+HASHISRC
 
   apt-get update -y
   apt-get install -y terraform || true
 fi
 
-echo ""
-echo "[INFO] Installing OpenTofu"
+# OpenTofu
 if ! command -v tofu >/dev/null 2>&1; then
   curl -fsSL https://get.opentofu.org/install-opentofu.sh \
     | bash -s -- --install-method standalone \
@@ -559,7 +561,7 @@ fi
 
 apt-get clean
 rm -rf /var/lib/apt/lists/*
-CLOUDTOOLS
+EOF
 
   chmod +x "$CHROOT_DIR/root/install-cloud-tools.sh"
   chroot "$CHROOT_DIR" env LANG=C.UTF-8 LC_ALL=C.UTF-8 /bin/bash /root/install-cloud-tools.sh
@@ -572,100 +574,14 @@ download_root_firstboot_scripts() {
 
   local scripts=(
     nfsshare.sh
+    storage-patch.sh
+    vpn.sh
   )
 
   for s in "${scripts[@]}"; do
     curl -fsSL "$LERNCLOUD_BASE/$s" -o "$CHROOT_DIR$LERNCLOUD_DIR_IN_IMAGE/$s"
     chmod +x "$CHROOT_DIR$LERNCLOUD_DIR_IN_IMAGE/$s"
   done
-}
-
-write_firstboot_runner() {
-  log "Erzeuge First-Boot Runner"
-  mkdir -p "$CHROOT_DIR/usr/local/sbin" "$CHROOT_DIR/var/lib/lerncloud"
-
-  cat > "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh" <<EOF
-#!/usr/bin/env bash
-set -Eeuo pipefail
-
-LOGFILE="/var/log/lerncloud-firstboot.log"
-MARKER="/var/lib/lerncloud/firstboot.done"
-LERNCLOUD_DIR="$LERNCLOUD_DIR_IN_IMAGE"
-
-exec > >(tee -a "\$LOGFILE") 2>&1
-
-log() {
-  printf '\n[%s] %s\n' "\$(date '+%F %T')" "\$*"
-}
-
-run_script() {
-  local script="\$1"
-  if [[ -x "\$LERNCLOUD_DIR/\$script" ]]; then
-    log "Starte \$script als root"
-    bash "\$LERNCLOUD_DIR/\$script"
-  else
-    log "Ueberspringe \$script, nicht gefunden"
-  fi
-}
-
-wait_for_network() {
-  log "Warte auf Netzwerk"
-  local i
-  for i in \$(seq 1 60); do
-    if ping -c1 -W2 1.1.1.1 >/dev/null 2>&1 || ping -c1 -W2 github.com >/dev/null 2>&1; then
-      log "Netzwerk verfuegbar"
-      return 0
-    fi
-    sleep 5
-  done
-  log "Netzwerk nicht bestaetigt, fahre trotzdem fort"
-  return 0
-}
-
-main() {
-  if [[ -f "\$MARKER" ]]; then
-    log "First-Boot wurde bereits ausgefuehrt"
-    exit 0
-  fi
-
-  mkdir -p /var/lib/lerncloud
-  wait_for_network
-
-  run_script nfsshare.sh || true
-
-  touch "\$MARKER"
-  log "First-Boot abgeschlossen"
-}
-
-main "\$@"
-EOF
-
-  chmod +x "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh"
-}
-
-write_firstboot_service() {
-  log "Erzeuge systemd Service fuer First-Boot"
-  mkdir -p "$CHROOT_DIR/etc/systemd/system"
-
-  cat > "$CHROOT_DIR/etc/systemd/system/lerncloud-firstboot.service" <<'EOF'
-[Unit]
-Description=Lerncloud First Boot Initialisierung
-Wants=network-online.target
-After=network-online.target NetworkManager.service ssh.service
-ConditionPathExists=!/var/lib/lerncloud/firstboot.done
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/lerncloud-firstboot.sh
-RemainAfterExit=yes
-StandardOutput=journal+console
-StandardError=journal+console
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-  chroot "$CHROOT_DIR" systemctl enable lerncloud-firstboot.service
 }
 
 write_gui_firstboot_extras() {
@@ -735,12 +651,104 @@ ConditionPathExists=!/var/lib/gui-firstboot.done
 Type=oneshot
 ExecStart=/usr/local/sbin/gui-firstboot.sh
 RemainAfterExit=yes
+StandardOutput=journal+console
+StandardError=journal+console
 
 [Install]
 WantedBy=multi-user.target
 GUISVC
 
   chroot "$CHROOT_DIR" systemctl enable gui-firstboot.service
+}
+
+write_firstboot_runner() {
+  log "Erzeuge First-Boot Runner"
+  mkdir -p "$CHROOT_DIR/usr/local/sbin" "$CHROOT_DIR/var/lib/lerncloud"
+
+  cat > "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh" <<EOF
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+LOGFILE="/var/log/lerncloud-firstboot.log"
+MARKER="/var/lib/lerncloud/firstboot.done"
+LERNCLOUD_DIR="$LERNCLOUD_DIR_IN_IMAGE"
+
+exec > >(tee -a "\$LOGFILE") 2>&1
+
+log() {
+  printf '\n[%s] %s\n' "\$(date '+%F %T')" "\$*"
+}
+
+run_script() {
+  local script="\$1"
+  if [[ -x "\$LERNCLOUD_DIR/\$script" ]]; then
+    log "Starte \$script als root"
+    bash "\$LERNCLOUD_DIR/\$script"
+  else
+    log "Ueberspringe \$script, nicht gefunden"
+  fi
+}
+
+wait_for_network() {
+  log "Warte auf Netzwerk"
+  local i
+  for i in \$(seq 1 60); do
+    if ping -c1 -W2 1.1.1.1 >/dev/null 2>&1 || ping -c1 -W2 github.com >/dev/null 2>&1; then
+      log "Netzwerk verfuegbar"
+      return 0
+    fi
+    sleep 5
+  done
+  log "Netzwerk nicht bestaetigt, fahre trotzdem fort"
+  return 0
+}
+
+main() {
+  if [[ -f "\$MARKER" ]]; then
+    log "First-Boot wurde bereits ausgefuehrt"
+    exit 0
+  fi
+
+  mkdir -p /var/lib/lerncloud
+  wait_for_network
+
+  run_script nfsshare.sh || true
+  run_script storage-patch.sh || true
+  run_script vpn.sh || true
+
+  touch "\$MARKER"
+  log "First-Boot abgeschlossen"
+}
+
+main "\$@"
+EOF
+
+  chmod +x "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh"
+}
+
+write_firstboot_service() {
+  log "Erzeuge systemd Service fuer First-Boot"
+  mkdir -p "$CHROOT_DIR/etc/systemd/system"
+
+  cat > "$CHROOT_DIR/etc/systemd/system/lerncloud-firstboot.service" <<'EOF'
+[Unit]
+Description=Lerncloud First Boot Initialisierung
+Wants=network-online.target
+After=network-online.target NetworkManager.service ssh.service
+ConditionPathExists=!/var/lib/lerncloud/firstboot.done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lerncloud-firstboot.sh
+RemainAfterExit=yes
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  chroot "$CHROOT_DIR" systemctl enable lerncloud-firstboot.service
 }
 
 prepare_image_tree() {
