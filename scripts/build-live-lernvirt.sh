@@ -4,6 +4,10 @@ set -Eeuo pipefail
 # ============================================================================
 # Ubuntu Live ISO Builder
 #
+# UEFI-only Version:
+#   - GRUB Konfiguration ausschliesslich unter /boot/grub
+#   - EFI Boot Image unter /EFI/BOOT
+#
 # Profile:
 #   PROFILE=headless   -> minimale headless Live-ISO
 #   PROFILE=gui        -> GUI + Ubiquity + VS Code
@@ -154,7 +158,6 @@ get_headless_packages() {
 network-manager
 net-tools
 grub-common
-grub-pc-bin
 grub2-common
 grub-efi-amd64-bin
 grub-efi-amd64-signed
@@ -170,8 +173,6 @@ wireless-tools
 wpagui
 grub-common
 grub-gfxpayload-lists
-grub-pc
-grub-pc-bin
 grub2-common
 grub-efi-amd64-bin
 grub-efi-amd64-signed
@@ -219,7 +220,6 @@ install_host_deps() {
     debootstrap \
     squashfs-tools \
     xorriso \
-    grub-pc-bin \
     grub-efi-amd64-bin \
     grub-efi-amd64-signed \
     shim-signed \
@@ -1099,8 +1099,8 @@ prepare_image_tree() {
   log "Erzeuge ISO-Verzeichnisbaum"
   mkdir -p \
     "$IMAGE_DIR/casper" \
-    "$IMAGE_DIR/isolinux" \
-    "$IMAGE_DIR/boot/grub"
+    "$IMAGE_DIR/boot/grub" \
+    "$IMAGE_DIR/EFI/BOOT"
 
   touch "$IMAGE_DIR/ubuntu"
 
@@ -1129,7 +1129,6 @@ write_grub_cfg() {
   fi
 
   mkdir -p "$IMAGE_DIR/boot/grub"
-  mkdir -p "$IMAGE_DIR/isolinux"
 
   cat > "$IMAGE_DIR/boot/grub/grub.cfg" <<EOF
 search --set=root --file /ubuntu
@@ -1155,7 +1154,6 @@ menuentry "UEFI Firmware Settings" {
 fi
 EOF
 
-  cp -f "$IMAGE_DIR/boot/grub/grub.cfg" "$IMAGE_DIR/isolinux/grub.cfg"
 }
 
 create_efi_image() {
@@ -1192,30 +1190,30 @@ create_efi_image() {
   [[ -n "$mm" ]] || die "mmx64.efi nicht gefunden"
   [[ -n "$grubefi" ]] || die "grubx64.efi nicht gefunden"
 
-  mkdir -p "$IMAGE_DIR/isolinux"
+  mkdir -p "$IMAGE_DIR/EFI/BOOT"
 
-  cp -f "$shim"    "$IMAGE_DIR/isolinux/bootx64.efi"
-  cp -f "$mm"      "$IMAGE_DIR/isolinux/mmx64.efi"
-  cp -f "$grubefi" "$IMAGE_DIR/isolinux/grubx64.efi"
+  cp -f "$shim"    "$IMAGE_DIR/EFI/BOOT/BOOTX64.EFI"
+  cp -f "$mm"      "$IMAGE_DIR/EFI/BOOT/MMX64.EFI"
+  cp -f "$grubefi" "$IMAGE_DIR/EFI/BOOT/GRUBX64.EFI"
 
   tmpcfg="$(mktemp)"
   cat > "$tmpcfg" <<'EOF'
-search --set=root --file /isolinux/grub.cfg
-set prefix=($root)/isolinux
-configfile ($root)/isolinux/grub.cfg
+search --set=root --file /boot/grub/grub.cfg
+set prefix=($root)/boot/grub
+configfile ($root)/boot/grub/grub.cfg
 EOF
 
   (
-    cd "$IMAGE_DIR/isolinux" || exit 1
-    rm -f efiboot.img
-    dd if=/dev/zero of=efiboot.img bs=1M count=10 status=none
-    mkfs.vfat -F 16 efiboot.img >/dev/null
+    cd "$IMAGE_DIR" || exit 1
+    rm -f EFI/efiboot.img
+    dd if=/dev/zero of=EFI/efiboot.img bs=1M count=10 status=none
+    mkfs.vfat -F 16 EFI/efiboot.img >/dev/null
 
-    LC_CTYPE=C mmd -i efiboot.img ::efi ::efi/boot
-    LC_CTYPE=C mcopy -i efiboot.img ./bootx64.efi ::efi/boot/bootx64.efi
-    LC_CTYPE=C mcopy -i efiboot.img ./mmx64.efi   ::efi/boot/mmx64.efi
-    LC_CTYPE=C mcopy -i efiboot.img ./grubx64.efi ::efi/boot/grubx64.efi
-    LC_CTYPE=C mcopy -i efiboot.img "$tmpcfg"     ::efi/boot/grub.cfg
+    LC_CTYPE=C mmd -i EFI/efiboot.img ::EFI ::EFI/BOOT
+    LC_CTYPE=C mcopy -i EFI/efiboot.img ./EFI/BOOT/BOOTX64.EFI ::EFI/BOOT/BOOTX64.EFI
+    LC_CTYPE=C mcopy -i EFI/efiboot.img ./EFI/BOOT/MMX64.EFI   ::EFI/BOOT/MMX64.EFI
+    LC_CTYPE=C mcopy -i EFI/efiboot.img ./EFI/BOOT/GRUBX64.EFI ::EFI/BOOT/GRUBX64.EFI
+    LC_CTYPE=C mcopy -i EFI/efiboot.img "$tmpcfg"              ::EFI/BOOT/grub.cfg
   )
 
   rm -f "$tmpcfg"
@@ -1297,7 +1295,7 @@ generate_md5() {
     cd "$IMAGE_DIR"
     find . -type f -print0 \
       | xargs -0 md5sum \
-      | grep -v -E './isolinux/(efiboot.img|bios.img)$' \
+      | grep -v -E './EFI/efiboot.img$' \
       > md5sum.txt
   )
 }
@@ -1308,7 +1306,7 @@ build_iso() {
   local volid
   volid="UBUNTU_${PROFILE^^}_LIVE"
 
-  [[ -f "$IMAGE_DIR/isolinux/efiboot.img" ]] || die "efiboot.img fehlt"
+  [[ -f "$IMAGE_DIR/EFI/efiboot.img" ]] || die "efiboot.img fehlt"
 
   (
     cd "$IMAGE_DIR" || exit 1
@@ -1320,7 +1318,7 @@ build_iso() {
       -J -joliet-long -l \
       -volid "$volid" \
       -output "$ISO_PATH" \
-      -append_partition 2 0xef isolinux/efiboot.img \
+      -append_partition 2 0xef EFI/efiboot.img \
       -partition_cyl_align off \
       -eltorito-alt-boot \
       -e --interval:appended_partition_2::: \

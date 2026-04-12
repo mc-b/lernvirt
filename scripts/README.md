@@ -105,8 +105,10 @@ Alles ausführen
 
 **Builden**
 
+    git pull
     sudo PROFILE=headless bash ./scripts/build-live-lernvirt.sh
 
+    git pull
     sudo PROFILE=gui bash ./scripts/build-live-lernvirt.sh
 
 **Starten**
