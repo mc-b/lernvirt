@@ -1055,6 +1055,15 @@ create_efi_image() {
   local mm=""
   local grubefi=""
   local tmpcfg
+  local menu_title splash_arg
+
+  if [[ "$PROFILE" == "gui" ]]; then
+    menu_title="Ubuntu GUI Live"
+    splash_arg="quiet splash"
+  else
+    menu_title="Ubuntu Minimal Live"
+    splash_arg="quiet"
+  fi
 
   for f in \
     "$CHROOT_DIR/usr/lib/shim/shimx64.efi.signed" \
@@ -1088,8 +1097,8 @@ create_efi_image() {
   cp -f "$mm"      "$IMAGE_DIR/EFI/BOOT/MMX64.EFI"
   cp -f "$grubefi" "$IMAGE_DIR/EFI/BOOT/GRUBX64.EFI"
 
-tmpcfg="$(mktemp)"
-cat > "$tmpcfg" <<EOF
+  tmpcfg="$(mktemp)"
+  cat > "$tmpcfg" <<EOF
 insmod all_video
 insmod search
 insmod search_fs_file
