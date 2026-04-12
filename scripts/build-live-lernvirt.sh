@@ -489,6 +489,7 @@ apt-get autoremove -y || true
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 rm -rf /tmp/*
+EOF
 
   chmod +x "$CHROOT_DIR/root/configure-live.sh"
 }
