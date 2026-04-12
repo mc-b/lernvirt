@@ -354,11 +354,28 @@ AutomaticLogin=\$USERNAME
 WaylandEnable=false
 GDMEOF
 else
-  systemctl enable systemd-resolved || true
-  systemctl enable NetworkManager || true
-  systemctl disable systemd-networkd || true
-  ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+# Lösche eventuell vorhandene Default-Configs, die stören könnten
+  rm -f /etc/netplan/*.yaml
 
+  # Erzeuge eine saubere Netplan-Config für ALLE Interfaces
+  cat > /etc/netplan/01-netcfg.yaml <<'NETEOF'
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    all-en:
+      match:
+        name: "en*"
+      dhcp4: true
+    all-eth:
+      match:
+        name: "eth*"
+      dhcp4: true
+NETEOF
+
+  chmod 600 /etc/netplan/01-netcfg.yaml
+
+  # NetworkManager konfigurieren
   cat > /etc/NetworkManager/NetworkManager.conf <<'NMEOF'
 [main]
 rc-manager=none
@@ -366,9 +383,62 @@ plugins=ifupdown,keyfile
 dns=systemd-resolved
 
 [ifupdown]
-managed=false
+managed=true
+
+[device]
+wifi.scan-rand-mac-address=no
 NMEOF
 
+  # WICHTIG: Services korrekt schalten
+  systemctl unmask NetworkManager.service
+  systemctl enable NetworkManager.service
+  systemctl enable systemd-resolved.service
+  
+  # Deaktiviere networkd, damit NM alleinige Macht hat
+  systemctl disable systemd-networkd.service
+  systemctl disable systemd-networkd-wait-online.service# Lösche eventuell vorhandene Default-Configs, die stören könnten
+  rm -f /etc/netplan/*.yaml
+
+  # Erzeuge eine saubere Netplan-Config für ALLE Interfaces
+  cat > /etc/netplan/01-netcfg.yaml <<'NETEOF'
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    all-en:
+      match:
+        name: "en*"
+      dhcp4: true
+    all-eth:
+      match:
+        name: "eth*"
+      dhcp4: true
+NETEOF
+
+  chmod 600 /etc/netplan/01-netcfg.yaml
+
+  # NetworkManager konfigurieren
+  cat > /etc/NetworkManager/NetworkManager.conf <<'NMEOF'
+[main]
+rc-manager=none
+plugins=ifupdown,keyfile
+dns=systemd-resolved
+
+[ifupdown]
+managed=true
+
+[device]
+wifi.scan-rand-mac-address=no
+NMEOF
+
+  # WICHTIG: Services korrekt schalten
+  systemctl unmask NetworkManager.service
+  systemctl enable NetworkManager.service
+  systemctl enable systemd-resolved.service
+  
+  # Deaktiviere networkd, damit NM alleinige Macht hat
+  systemctl disable systemd-networkd.service
+  systemctl disable systemd-networkd-wait-online.service
 fi
 
   # Tastatur: Schweiz / Deutsch
