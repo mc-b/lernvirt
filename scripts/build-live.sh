@@ -94,6 +94,7 @@ casper
 locales
 curl
 wget
+apt-utils
 ca-certificates
 git
 jq
@@ -293,8 +294,11 @@ if [[ ! -L /sbin/initctl ]]; then
 fi
 
 sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen || true
+sed -i 's/^# *de_CH.UTF-8 UTF-8/de_CH.UTF-8 UTF-8/' /etc/locale.gen || true
+grep -q '^de_CH.UTF-8 UTF-8' /etc/locale.gen || echo 'de_CH.UTF-8 UTF-8' >> /etc/locale.gen
+grep -q '^en_US.UTF-8 UTF-8' /etc/locale.gen || echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen
 locale-gen
-update-locale LANG=en_US.UTF-8
+update-locale LANG=de_CH.UTF-8
 
 id -u "\$USERNAME" >/dev/null 2>&1 || useradd -m -s /bin/bash "\$USERNAME"
 echo "\$USERNAME:\$PASSWORD" | chpasswd
@@ -364,7 +368,7 @@ EOF
 
 run_chroot_config() {
   log "Fuehre chroot-Konfiguration aus"
-  chroot "$CHROOT_DIR" /bin/bash /root/configure-live.sh
+  chroot "$CHROOT_DIR" env LANG=C.UTF-8 LC_ALL=C.UTF-8 /bin/bash /root/configure-live.sh  
 }
 
 install_vscode_in_chroot() {
@@ -432,7 +436,7 @@ rm -rf /var/lib/apt/lists/*
 VSCODESCRIPT
 
   chmod +x "$CHROOT_DIR/root/install-vscode.sh"
-  chroot "$CHROOT_DIR" /bin/bash /root/install-vscode.sh
+  chroot "$CHROOT_DIR" env LANG=C.UTF-8 LC_ALL=C.UTF-8 /bin/bash /root/install-vscode.sh
   rm -f "$CHROOT_DIR/root/install-vscode.sh"
 }
 
@@ -558,7 +562,7 @@ rm -rf /var/lib/apt/lists/*
 CLOUDTOOLS
 
   chmod +x "$CHROOT_DIR/root/install-cloud-tools.sh"
-  chroot "$CHROOT_DIR" /bin/bash /root/install-cloud-tools.sh
+  chroot "$CHROOT_DIR" env LANG=C.UTF-8 LC_ALL=C.UTF-8 /bin/bash /root/install-cloud-tools.sh
   rm -f "$CHROOT_DIR/root/install-cloud-tools.sh"
 }
 
