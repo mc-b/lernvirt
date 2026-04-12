@@ -1286,8 +1286,8 @@ main() {
     write_gui_firstboot_extras    
   fi
 
-  # install_cloud_tools_in_chroot
-  # install_ai_libraries_in_chroot
+  install_cloud_tools_in_chroot
+  install_ai_libraries_in_chroot
 
   if [[ "$ENABLE_FIRSTBOOT_SCRIPTS" == "yes" ]]; then
     download_root_firstboot_scripts
