@@ -1160,33 +1160,66 @@ EOF
 }
 
 create_efi_image() {
-  local efi_dir="$BUILD_DIR/efiboot"
-  local efi_img="$IMAGE_DIR/isolinux/efiboot.img"
+  log "Erzeuge EFI-Boot-Image"
 
-  log "Erzeuge EFI-Boot-Image: $efi_img"
+  local shim=""
+  local mm=""
+  local grubefi=""
+  local tmpcfg
 
-  rm -rf "$efi_dir"
-  mkdir -p "$efi_dir/efi/boot"
+  for f in \
+    "$CHROOT_DIR/usr/lib/shim/shimx64.efi.signed" \
+    "$CHROOT_DIR/usr/lib/shim/shimx64.efi.signed.latest" \
+    "$CHROOT_DIR/usr/lib/shim/shimx64.efi.signed.previous"
+  do
+    [[ -f "$f" ]] && shim="$f" && break
+  done
 
-  cp "$IMAGE_DIR/isolinux/bootx64.efi" "$efi_dir/efi/boot/bootx64.efi"
-  cp "$IMAGE_DIR/isolinux/grubx64.efi" "$efi_dir/efi/boot/grubx64.efi"
-  cp "$IMAGE_DIR/isolinux/mmx64.efi"   "$efi_dir/efi/boot/mmx64.efi"
+  for f in \
+    "$CHROOT_DIR/usr/lib/shim/mmx64.efi" \
+    "$CHROOT_DIR/usr/lib/shim/mmx64.efi.signed"
+  do
+    [[ -f "$f" ]] && mm="$f" && break
+  done
 
-  cat > "$efi_dir/efi/boot/grub.cfg" <<'EOF'
-search --set=root --file /isolinux/grub.cfg
-set prefix=($root)/isolinux
-configfile ($root)/isolinux/grub.cfg
+  for f in \
+    "$CHROOT_DIR/usr/lib/grub/x86_64-efi-signed/grubx64.efi.signed" \
+    "$CHROOT_DIR/usr/lib/grub/x86_64-efi/grub.efi"
+  do
+    [[ -f "$f" ]] && grubefi="$f" && break
+  done
+
+  [[ -n "$shim" ]] || die "shim EFI-Datei nicht gefunden"
+  [[ -n "$mm" ]] || die "mmx64.efi nicht gefunden"
+  [[ -n "$grubefi" ]] || die "grubx64.efi nicht gefunden"
+
+  mkdir -p "$IMAGE_DIR/isolinux"
+
+  cp -f "$shim"    "$IMAGE_DIR/isolinux/bootx64.efi"
+  cp -f "$mm"      "$IMAGE_DIR/isolinux/mmx64.efi"
+  cp -f "$grubefi" "$IMAGE_DIR/isolinux/grubx64.efi"
+
+  tmpcfg="$(mktemp)"
+  cat > "$tmpcfg" <<'EOF'
+search --set=root --file /ubuntu
+set prefix=($root)/boot/grub
+configfile ($root)/boot/grub/grub.cfg
 EOF
 
-  rm -f "$efi_img"
-  truncate -s 10M "$efi_img"
-  mkfs.vfat -F 32 "$efi_img" >/dev/null
-  mcopy -s -i "$efi_img" "$efi_dir"/* ::
+  (
+    cd "$IMAGE_DIR/isolinux" || exit 1
+    rm -f efiboot.img
+    dd if=/dev/zero of=efiboot.img bs=1M count=10 status=none
+    mkfs.vfat -F 16 efiboot.img >/dev/null
 
-  if command -v mdir >/dev/null 2>&1; then
-    log "Inhalt efiboot.img:"
-    mdir -/ -i "$efi_img" ::/ ::/efi ::/efi/boot || true
-  fi
+    LC_CTYPE=C mmd -i efiboot.img ::efi ::efi/boot
+    LC_CTYPE=C mcopy -i efiboot.img ./bootx64.efi ::efi/boot/bootx64.efi
+    LC_CTYPE=C mcopy -i efiboot.img ./mmx64.efi   ::efi/boot/mmx64.efi
+    LC_CTYPE=C mcopy -i efiboot.img ./grubx64.efi ::efi/boot/grubx64.efi
+    LC_CTYPE=C mcopy -i efiboot.img "$tmpcfg"     ::efi/boot/grub.cfg
+  )
+
+  rm -f "$tmpcfg"
 }
 
 create_bios_image() {
