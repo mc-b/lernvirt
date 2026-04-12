@@ -1114,6 +1114,9 @@ prepare_image_tree() {
   cp -f "$CHROOT_DIR/boot/$initrd" "$IMAGE_DIR/casper/initrd"
 }
 
+# ============================================================================
+# Grub Bootloader
+
 write_grub_cfg() {
   log "Schreibe GRUB-Menue"
 
@@ -1126,7 +1129,10 @@ write_grub_cfg() {
     splash_arg="quiet"
   fi
 
-  cat > "$IMAGE_DIR/isolinux/grub.cfg" <<EOF
+  mkdir -p "$IMAGE_DIR/boot/grub"
+  mkdir -p "$IMAGE_DIR/isolinux"
+
+  cat > "$IMAGE_DIR/boot/grub/grub.cfg" <<EOF
 search --set=root --file /ubuntu
 
 insmod all_video
@@ -1149,41 +1155,9 @@ menuentry "UEFI Firmware Settings" {
 }
 fi
 EOF
+
+  cp -f "$IMAGE_DIR/boot/grub/grub.cfg" "$IMAGE_DIR/isolinux/grub.cfg"
 }
-
-create_manifest() {
-  log "Erzeuge Paket-Manifest"
-  chroot "$CHROOT_DIR" dpkg-query -W --showformat='${Package} ${Version}\n' \
-    > "$IMAGE_DIR/casper/filesystem.manifest"
-  cp -f "$IMAGE_DIR/casper/filesystem.manifest" \
-        "$IMAGE_DIR/casper/filesystem.manifest-desktop"
-}
-
-write_diskdefines() {
-  log "Schreibe README.diskdefines"
-
-  local diskname
-  if [[ "$PROFILE" == "gui" ]]; then
-    diskname="Ubuntu GUI Live"
-  else
-    diskname="Ubuntu Minimal Live"
-  fi
-
-  cat > "$IMAGE_DIR/README.diskdefines" <<EOF
-#define DISKNAME  $diskname
-#define TYPE  binary
-#define TYPEbinary  1
-#define ARCH  $ARCH
-#define ARCH$ARCH  1
-#define DISKNUM  1
-#define DISKNUM1  1
-#define TOTALNUM  1
-#define TOTALNUM1  1
-EOF
-}
-
-# ============================================================================
-# EFI Image
 
 create_efi_image() {
   log "Erzeuge EFI-Boot-Image"
@@ -1191,6 +1165,7 @@ create_efi_image() {
   local shim=""
   local mm=""
   local grubefi=""
+  local tmpcfg
 
   for f in \
     "$CHROOT_DIR/usr/lib/shim/shimx64.efi.signed" \
@@ -1218,20 +1193,33 @@ create_efi_image() {
   [[ -n "$mm" ]] || die "mmx64.efi nicht gefunden"
   [[ -n "$grubefi" ]] || die "grubx64.efi nicht gefunden"
 
+  mkdir -p "$IMAGE_DIR/isolinux"
+
   cp -f "$shim"    "$IMAGE_DIR/isolinux/bootx64.efi"
   cp -f "$mm"      "$IMAGE_DIR/isolinux/mmx64.efi"
   cp -f "$grubefi" "$IMAGE_DIR/isolinux/grubx64.efi"
 
+  tmpcfg="$(mktemp)"
+  cat > "$tmpcfg" <<'EOF'
+search --set=root --file /ubuntu
+set prefix=($root)/boot/grub
+configfile ($root)/boot/grub/grub.cfg
+EOF
+
   (
-    cd "$IMAGE_DIR/isolinux"
+    cd "$IMAGE_DIR/isolinux" || exit 1
+    rm -f efiboot.img
     dd if=/dev/zero of=efiboot.img bs=1M count=10 status=none
-    mkfs.vfat -F 16 efiboot.img
-    LC_CTYPE=C mmd -i efiboot.img ::efi ::efi/boot ::efi/ubuntu
+    mkfs.vfat -F 16 efiboot.img >/dev/null
+
+    LC_CTYPE=C mmd -i efiboot.img ::efi ::efi/boot
     LC_CTYPE=C mcopy -i efiboot.img ./bootx64.efi ::efi/boot/bootx64.efi
     LC_CTYPE=C mcopy -i efiboot.img ./mmx64.efi   ::efi/boot/mmx64.efi
     LC_CTYPE=C mcopy -i efiboot.img ./grubx64.efi ::efi/boot/grubx64.efi
-    LC_CTYPE=C mcopy -i efiboot.img ./grub.cfg    ::efi/ubuntu/grub.cfg
+    LC_CTYPE=C mcopy -i efiboot.img "$tmpcfg"     ::efi/boot/grub.cfg
   )
+
+  rm -f "$tmpcfg"
 }
 
 create_bios_image() {
@@ -1300,22 +1288,26 @@ generate_md5() {
 
 build_iso() {
   log "Erzeuge ISO: $ISO_PATH"
-  (
-    cd "$IMAGE_DIR"
 
-    xorriso \
-      -as mkisofs \
+  local volid
+  volid="UBUNTU_${PROFILE^^}_LIVE"
+
+  [[ -f "$IMAGE_DIR/isolinux/efiboot.img" ]] || die "efiboot.img fehlt"
+
+  (
+    cd "$IMAGE_DIR" || exit 1
+
+    xorriso -as mkisofs \
       -iso-level 3 \
       -full-iso9660-filenames \
-      -volid "Ubuntu-${PROFILE}-Live" \
+      -r \
+      -J -joliet-long -l \
+      -volid "$volid" \
       -output "$ISO_PATH" \
-      -eltorito-boot isolinux/bios.img \
-        -no-emul-boot \
-        -boot-load-size 4 \
-        -boot-info-table \
-      -eltorito-catalog isolinux/boot.cat \
+      -append_partition 2 0xef isolinux/efiboot.img \
+      -partition_cyl_align off \
       -eltorito-alt-boot \
-      -e isolinux/efiboot.img \
+      -e --interval:appended_partition_2::: \
         -no-emul-boot \
       -isohybrid-gpt-basdat \
       .
@@ -1352,6 +1344,7 @@ main() {
 
   prepare_image_tree
   write_grub_cfg
+  write_efi_boot_files  
   create_manifest
   write_diskdefines
   create_efi_image

@@ -112,12 +112,24 @@ Alles ausführen
 **Starten**
 
     export PROFILE=headless 
-    sudo qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso" \
-                            -nographic -serial mon:stdio
+    qemu-system-x86_64  -m 8192 -enable-kvm -cpu host \
+                        -drive "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64-hybrid.iso",format=raw \
+                        -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
+                        -drive if=pflash,format=raw,file=/tmp/OVMF_VARS_4M.fd \
+                        -nographic -serial mon:stdio
 
     export PROFILE=gui 
     sudo chmod 666 /dev/kvm    
-    qemu-system-x86_64 -m 8192 -enable-kvm -cpu host -cdrom "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso"
+    qemu-system-x86_64  -m 8192 -enable-kvm -cpu host \
+                        -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
+                        -drive if=pflash,format=raw,file=/tmp/OVMF_VARS_4M.fd \    
+                        -drive "build-${PROFILE}/ubuntu-${PROFILE}-live-noble-amd64.iso",format=raw \
+    
+Wenn Grub nicht startet:
+  
+    set root=(cd0,msdos1)
+    set prefix=(cd0,msdos1)/isolinux
+    configfile (cd0,msdos1)/isolinux/grub.cfg  
     
 **Boot Disk erstellen**
     
