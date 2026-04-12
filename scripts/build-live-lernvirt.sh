@@ -17,16 +17,14 @@ set -Eeuo pipefail
 #
 # Optional als First-Boot root-Skripte:
 #   - nfsshare.sh
-#   - storage-patch.sh
-#   - vpn.sh
 #
 # Verwendung:
-#   chmod +x build-live-lerncloud.sh
-#   PROFILE=headless sudo ./build-live-lerncloud.sh
-#   PROFILE=gui      sudo ./build-live-lerncloud.sh
+#   chmod +x build-live-lernvirt.sh
+#   PROFILE=headless sudo ./build-live-lernvirt.sh
+#   PROFILE=gui      sudo ./build-live-lernvirt.sh
 #
 # Optional:
-#   WORKDIR="$(pwd)/build" ISO_NAME=my.iso PROFILE=gui sudo ./build-live-lerncloud.sh
+#   WORKDIR="$(pwd)/build" ISO_NAME=my.iso PROFILE=gui sudo ./build-live-lernvirt.sh
 # ============================================================================
 
 UBUNTU_CODENAME="${UBUNTU_CODENAME:-noble}"
@@ -45,8 +43,8 @@ HOSTNAME_LIVE="${HOSTNAME_LIVE:-ubuntu-live}"
 USERNAME="${USERNAME:-ubuntu}"
 PASSWORD="${PASSWORD:-ubuntu}"
 
-LERNCLOUD_BASE="${LERNCLOUD_BASE:-https://raw.githubusercontent.com/mc-b/lerncloud/main/services}"
-LERNCLOUD_DIR_IN_IMAGE="/opt/lerncloud"
+lernvirt_BASE="${lernvirt_BASE:-https://raw.githubusercontent.com/mc-b/lernvirt/main/services}"
+lernvirt_DIR_IN_IMAGE="/opt/lernvirt"
 
 ENABLE_FIRSTBOOT_SCRIPTS="${ENABLE_FIRSTBOOT_SCRIPTS:-yes}"
 
@@ -108,6 +106,7 @@ curl
 wget
 ca-certificates
 git
+git-lfs
 jq
 vim
 apt-utils
@@ -118,7 +117,6 @@ wireguard
 wireguard-tools
 nfs-kernel-server
 open-iscsi
-multipath-tools
 python3
 python3-venv
 python3-pip
@@ -671,15 +669,15 @@ GUISVC
 
 write_firstboot_runner() {
   log "Erzeuge First-Boot Runner"
-  mkdir -p "$CHROOT_DIR/usr/local/sbin" "$CHROOT_DIR/var/lib/lerncloud"
+  mkdir -p "$CHROOT_DIR/usr/local/sbin" "$CHROOT_DIR/var/lib/lernvirt"
 
-  cat > "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh" <<EOF
+  cat > "$CHROOT_DIR/usr/local/sbin/lernvirt-firstboot.sh" <<EOF
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-LOGFILE="/var/log/lerncloud-firstboot.log"
-MARKER="/var/lib/lerncloud/firstboot.done"
-LERNCLOUD_DIR="$LERNCLOUD_DIR_IN_IMAGE"
+LOGFILE="/var/log/lernvirt-firstboot.log"
+MARKER="/var/lib/lernvirt/firstboot.done"
+lernvirt_DIR="$lernvirt_DIR_IN_IMAGE"
 
 exec > >(tee -a "\$LOGFILE") 2>&1
 
@@ -689,9 +687,9 @@ log() {
 
 run_script() {
   local script="\$1"
-  if [[ -x "\$LERNCLOUD_DIR/\$script" ]]; then
+  if [[ -x "\$lernvirt_DIR/\$script" ]]; then
     log "Starte \$script als root"
-    bash "\$LERNCLOUD_DIR/\$script"
+    bash "\$lernvirt_DIR/\$script"
   else
     log "Ueberspringe \$script, nicht gefunden"
   fi
@@ -717,12 +715,14 @@ main() {
     exit 0
   fi
 
-  mkdir -p /var/lib/lerncloud
+  mkdir -p /var/lib/lernvirt
   wait_for_network
 
   run_script nfsshare.sh || true
-  run_script storage-patch.sh || true
-  run_script vpn.sh || true
+  
+  systemctl daemon-reload
+  systemctl enable jupyterlab.service
+  systemctl restart jupyterlab.service  
 
   touch "\$MARKER"
   log "First-Boot abgeschlossen"
@@ -731,7 +731,88 @@ main() {
 main "\$@"
 EOF
 
-  chmod +x "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh"
+  chmod +x "$CHROOT_DIR/usr/local/sbin/lernvirt-firstboot.sh"
+}
+
+
+# ============================================================================
+# AI Libraries
+
+install_ai_libraries_in_chroot() {
+  log "Installiere AI Libraries direkt im chroot"
+
+  cat > "$CHROOT_DIR/root/install-ai-libraries.sh" <<'EOF'
+#!/usr/bin/env bash
+set +e
+export DEBIAN_FRONTEND=noninteractive
+# -------------------------
+# Jupyter Base
+# -------------------------
+python3 -m venv /opt/jupyter 
+pip install --upgrade pip 
+pip install jupyterlab ipykernel 
+python3 -m ipykernel install --sys-prefix --name=jupyter --display-name="Python (jupyter)"
+
+# -------------------------
+# AI Kernel
+# -------------------------
+python3 -m venv /opt/ai 
+pip install openai pydantic
+pip install ipykernel requests
+pip install nbconvert
+python3 -m ipykernel install --user --name=ai --display-name "Python (ai)"
+
+# -------------------------
+# Hugging Face Kernel
+# -------------------------
+python3 -m venv /opt/hf 
+pip install --upgrade pip 
+pip install -U ipykernel ipywidgets datasets pyarrow huggingface_hub fsspec transformers accelerate sentence-transformers sentencepiece peft pypdf requests tqdm numpy einops
+python3 -m ipykernel install --user --name=rag --display-name "Python (hf)"
+
+# -------------------------
+# MCP Kernel
+# -------------------------
+python3 -m venv /opt/mcp 
+pip install --upgrade pip 
+pip install ipykernel mcp requests
+pip install openai
+python3 -m ipykernel install --user --name=mcp --display-name "Python (mcp)"
+
+# -------------------------
+# Agent Kernel
+# -------------------------
+python3 -m venv /opt/dapr 
+pip install --upgrade pip 
+pip install openai-agents dapr dapr-ext-grpc
+pip install ipykernel
+python3 -m ipykernel install --user --name=dapr --display-name "Python (dapr)"
+
+# Jupyter Lab as Service
+cat <<%EOF% | sudo tee /etc/systemd/system/jupyterlab.service
+[Unit]
+Description=Jupyter Lab
+
+[Service]
+Type=simple
+PIDFile=/run/jupyter.pid
+ExecStart=/home/ubuntu/.jupyter/bin/jupyter lab --ip=0.0.0.0 --port=32188 --no-browser --ServerApp.default_url=/lab --ServerApp.token=''
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+%EOF%
+
+EOF
+
+  chmod +x "$CHROOT_DIR/root/install-ai-libraries.sh"
+  chroot "$CHROOT_DIR" /bin/bash /root/install-ai-libraries.sh
+  rm -f "$CHROOT_DIR/root/install-ai-libraries.sh"
+
 }
 
 # ============================================================================
@@ -903,17 +984,15 @@ EOF
 
 download_root_firstboot_scripts() {
   log "Lade optionale root-First-Boot Skripte ins Image"
-  mkdir -p "$CHROOT_DIR$LERNCLOUD_DIR_IN_IMAGE"
+  mkdir -p "$CHROOT_DIR$lernvirt_DIR_IN_IMAGE"
 
   local scripts=(
     nfsshare.sh
-    storage-patch.sh
-    vpn.sh
   )
 
   for s in "${scripts[@]}"; do
-    curl -fsSL "$LERNCLOUD_BASE/$s" -o "$CHROOT_DIR$LERNCLOUD_DIR_IN_IMAGE/$s"
-    chmod +x "$CHROOT_DIR$LERNCLOUD_DIR_IN_IMAGE/$s"
+    curl -fsSL "$lernvirt_BASE/$s" -o "$CHROOT_DIR$lernvirt_DIR_IN_IMAGE/$s"
+    chmod +x "$CHROOT_DIR$lernvirt_DIR_IN_IMAGE/$s"
   done
 }
 
@@ -922,15 +1001,15 @@ download_root_firstboot_scripts() {
 
 write_firstboot_runner() {
   log "Erzeuge First-Boot Runner"
-  mkdir -p "$CHROOT_DIR/usr/local/sbin" "$CHROOT_DIR/var/lib/lerncloud"
+  mkdir -p "$CHROOT_DIR/usr/local/sbin" "$CHROOT_DIR/var/lib/lernvirt"
 
-  cat > "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh" <<EOF
+  cat > "$CHROOT_DIR/usr/local/sbin/lernvirt-firstboot.sh" <<EOF
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-LOGFILE="/var/log/lerncloud-firstboot.log"
-MARKER="/var/lib/lerncloud/firstboot.done"
-LERNCLOUD_DIR="$LERNCLOUD_DIR_IN_IMAGE"
+LOGFILE="/var/log/lernvirt-firstboot.log"
+MARKER="/var/lib/lernvirt/firstboot.done"
+lernvirt_DIR="$lernvirt_DIR_IN_IMAGE"
 
 exec > >(tee -a "\$LOGFILE") 2>&1
 
@@ -940,9 +1019,9 @@ log() {
 
 run_script() {
   local script="\$1"
-  if [[ -x "\$LERNCLOUD_DIR/\$script" ]]; then
+  if [[ -x "\$lernvirt_DIR/\$script" ]]; then
     log "Starte \$script als root"
-    bash "\$LERNCLOUD_DIR/\$script"
+    bash "\$lernvirt_DIR/\$script"
   else
     log "Ueberspringe \$script, nicht gefunden"
   fi
@@ -968,12 +1047,10 @@ main() {
     exit 0
   fi
 
-  mkdir -p /var/lib/lerncloud
+  mkdir -p /var/lib/lernvirt
   wait_for_network
 
   run_script nfsshare.sh || true
-  run_script storage-patch.sh || true
-  run_script vpn.sh || true
 
   touch "\$MARKER"
   log "First-Boot abgeschlossen"
@@ -982,7 +1059,7 @@ main() {
 main "\$@"
 EOF
 
-  chmod +x "$CHROOT_DIR/usr/local/sbin/lerncloud-firstboot.sh"
+  chmod +x "$CHROOT_DIR/usr/local/sbin/lernvirt-firstboot.sh"
 }
 
 write_firstboot_service() {
@@ -990,16 +1067,16 @@ write_firstboot_service() {
 
   mkdir -p "$CHROOT_DIR/etc/systemd/system"
 
-  cat > "$CHROOT_DIR/etc/systemd/system/lerncloud-firstboot.service" <<'EOF'
+  cat > "$CHROOT_DIR/etc/systemd/system/lernvirt-firstboot.service" <<'EOF'
 [Unit]
-Description=Lerncloud First Boot Initialisierung
+Description=lernvirt First Boot Initialisierung
 Wants=network-online.target
 After=network-online.target NetworkManager.service ssh.service
-ConditionPathExists=!/var/lib/lerncloud/firstboot.done
+ConditionPathExists=!/var/lib/lernvirt/firstboot.done
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/sbin/lerncloud-firstboot.sh
+ExecStart=/usr/local/sbin/lernvirt-firstboot.sh
 RemainAfterExit=yes
 StandardOutput=journal+console
 StandardError=journal+console
@@ -1008,7 +1085,7 @@ StandardError=journal+console
 WantedBy=multi-user.target
 EOF
 
-  chroot "$CHROOT_DIR" systemctl enable lerncloud-firstboot.service
+  chroot "$CHROOT_DIR" systemctl enable lernvirt-firstboot.service
 }
 
 # ============================================================================
@@ -1260,6 +1337,7 @@ main() {
   fi
 
   install_cloud_tools_in_chroot
+  install_ai_libraries_in_chroot
 
   if [[ "$ENABLE_FIRSTBOOT_SCRIPTS" == "yes" ]]; then
     download_root_firstboot_scripts
@@ -1283,7 +1361,7 @@ main() {
   echo "Profil: $PROFILE"
   echo "ISO erstellt: $ISO_PATH"
   if [[ "$ENABLE_FIRSTBOOT_SCRIPTS" == "yes" ]]; then
-    echo "First-Boot Log im Live-System: /var/log/lerncloud-firstboot.log"
+    echo "First-Boot Log im Live-System: /var/log/lernvirt-firstboot.log"
   fi
 }
 
