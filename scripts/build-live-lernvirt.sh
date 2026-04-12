@@ -475,22 +475,20 @@ KBD
   echo "user-db:user" > /etc/dconf/profile/user
   echo "system-db:local" >> /etc/dconf/profile/user
   
-  mkdir -p /etc/dconf/db/local.d
-  cat > /etc/dconf/db/local.d/00-keyboard <<EOF
-  [org/gnome/desktop/input-sources]
-  sources=[('xkb', 'ch+de'), ('xkb', 'ch')]
+mkdir -p /etc/dconf/db/local.d
+cat > /etc/dconf/db/local.d/00-keyboard <<'DCONFEOF'
+[org/gnome/desktop/input-sources]
+sources=[('xkb', 'ch+de'), ('xkb', 'ch')]
+DCONFEOF
 
-  # Wichtig: Die dconf-Datenbank aktualisieren
-  dconf update || true  
-  
-  systemctl enable serial-getty@ttyS0.service || true
-  
-  apt-get purge -y 'libreoffice*' || true
-  apt-get autoremove -y || true
-  apt-get clean
-  rm -rf /var/lib/apt/lists/*
-  rm -rf /tmp/*  
-EOF
+dconf update || true
+systemctl enable serial-getty@ttyS0.service || true
+
+apt-get purge -y 'libreoffice*' || true
+apt-get autoremove -y || true
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+rm -rf /tmp/*
 
   chmod +x "$CHROOT_DIR/root/configure-live.sh"
 }
