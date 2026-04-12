@@ -397,7 +397,7 @@ NMEOF
   
   # Deaktiviere networkd, damit NM alleinige Macht hat
   systemctl disable systemd-networkd.service
-  systemctl disable systemd-networkd-wait-online.service# Lösche eventuell vorhandene Default-Configs, die stören könnten
+  systemctl disable systemd-networkd-wait-online.service
   rm -f /etc/netplan/*.yaml
 
   # Erzeuge eine saubere Netplan-Config für ALLE Interfaces
