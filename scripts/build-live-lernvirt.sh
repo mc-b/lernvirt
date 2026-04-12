@@ -1199,7 +1199,8 @@ create_squashfs() {
   mksquashfs "$CHROOT_DIR" "$IMAGE_DIR/casper/filesystem.squashfs" \
     -noappend -no-duplicates -no-recovery \
     -wildcards \
-    -comp xz -b 1M -Xdict-size 100% \
+    -comp zstd \
+    -Xcompression-level 3 \
     -e "var/cache/apt/archives/*" \
     -e "root/*" \
     -e "root/.*" \
