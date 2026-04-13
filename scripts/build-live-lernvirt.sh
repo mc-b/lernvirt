@@ -747,6 +747,52 @@ EOF
 # ============================================================================
 # podman, kind, frps
 
+install_gpu_in_chroot() {
+  log "Installiere gpu direkt im chroot"
+
+  cat > "$CHROOT_DIR/root/install-gpu.sh" <<'EOF'
+#!/usr/bin/env bash
+set +e
+export DEBIAN_FRONTEND=noninteractive
+
+# Intel GPU
+
+  echo "Installiere Intel GPU-toolkit ..."
+  apt install -y \
+    pciutils \
+    intel-media-va-driver \
+    vainfo \
+    intel-gpu-tools \
+    mesa-vulkan-drivers \
+    libvulkan1 \
+    vulkan-tools \
+    mesa-utils
+  
+  echo "Installiere nvidia-toolkit ..."
+  sudo apt-get update
+  sudo apt-get install -y --no-install-recommends ca-certificates curl gnupg2
+  
+  curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
+    sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+  
+  curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+    sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+  
+  sudo apt-get update
+  sudo apt-get install -y nvidia-driver-580 nvidia-utils-580
+  sudo apt-get install -y nvidia-container-toolkit
+
+EOF
+
+  chmod +x "$CHROOT_DIR/root/install-gpu.sh.sh"
+  chroot "$CHROOT_DIR" /bin/bash /root/install-gpu.sh.sh
+  rm -f "$CHROOT_DIR/root/install-gpu.sh"
+}
+
+# ============================================================================
+# podman, kind, frps
+
 install_containers_in_chroot() {
   log "Installiere Containers direkt im chroot"
 
@@ -1358,7 +1404,8 @@ main() {
     install_vscode_in_chroot
     write_gui_firstboot_extras    
   fi
-
+  
+  install_gpu_in_chroot
   install_containers_in_chroot
   install_cloud_tools_in_chroot
   install_ai_libraries_in_chroot
