@@ -734,14 +734,14 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 %EOF%
+  
+  systemctl enable jupyterlab
 
 EOF
 
   chmod +x "$CHROOT_DIR/root/install-ai-libraries.sh"
   chroot "$CHROOT_DIR" /bin/bash /root/install-ai-libraries.sh
   rm -f "$CHROOT_DIR/root/install-ai-libraries.sh"
-  
-  systemctl enable jupyterlab
 }
 
 # ============================================================================
