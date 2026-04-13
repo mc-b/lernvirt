@@ -991,6 +991,23 @@ main() {
   
   systemctl enable jupyterlab
   systemctl start  jupyterlab
+  
+  # Repositories
+  su - ubuntu -s /bin/bash -c "git clone https://github.com/mc-b/lernvirt"
+
+  # SSH Key
+  mkdir -p /home/ubuntu/.ssh
+  curl -SsL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/ssh/lerncloud.pub -o /home/ubuntu/.ssh/authorized_keys 
+  curl -SsL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/ssh/lerncloud -o /home/ubuntu/.ssh/id_rsa
+  cat <<EOFCONFIG >/home/ubuntu/.ssh/config
+StrictHostKeyChecking no
+UserKnownHostsFile /dev/null
+LogLevel error
+EOFCONFIG
+
+  chown ubuntu:ubuntu -R /home/ubuntu/.ssh   
+  chmod 700 /home/ubuntu/.ssh
+  chmod 600 /home/ubuntu/.ssh/*
 
   touch "\$MARKER"
   log "First-Boot abgeschlossen"
