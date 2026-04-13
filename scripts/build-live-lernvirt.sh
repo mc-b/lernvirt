@@ -408,48 +408,6 @@ NMEOF
   # Deaktiviere networkd, damit NM alleinige Macht hat
   systemctl disable systemd-networkd.service
   systemctl disable systemd-networkd-wait-online.service
-  rm -f /etc/netplan/*.yaml
-
-  # Erzeuge eine saubere Netplan-Config für ALLE Interfaces
-  cat > /etc/netplan/01-netcfg.yaml <<'NETEOF'
-network:
-  version: 2
-  renderer: NetworkManager
-  ethernets:
-    all-en:
-      match:
-        name: "en*"
-      dhcp4: true
-    all-eth:
-      match:
-        name: "eth*"
-      dhcp4: true
-NETEOF
-
-  chmod 600 /etc/netplan/01-netcfg.yaml
-
-  # NetworkManager konfigurieren
-  cat > /etc/NetworkManager/NetworkManager.conf <<'NMEOF'
-[main]
-rc-manager=none
-plugins=ifupdown,keyfile
-dns=systemd-resolved
-
-[ifupdown]
-managed=true
-
-[device]
-wifi.scan-rand-mac-address=no
-NMEOF
-
-  # WICHTIG: Services korrekt schalten
-  systemctl unmask NetworkManager.service
-  systemctl enable NetworkManager.service
-  systemctl enable systemd-resolved.service
-  
-  # Deaktiviere networkd, damit NM alleinige Macht hat
-  systemctl disable systemd-networkd.service
-  systemctl disable systemd-networkd-wait-online.service
 fi
 
   # Tastatur: Schweiz / Deutsch
@@ -752,7 +710,8 @@ EOF
   chmod +x "$CHROOT_DIR/root/install-ai-libraries.sh"
   chroot "$CHROOT_DIR" /bin/bash /root/install-ai-libraries.sh
   rm -f "$CHROOT_DIR/root/install-ai-libraries.sh"
-
+  
+  systemctl enable jupyterlab
 }
 
 # ============================================================================
@@ -991,9 +950,6 @@ main() {
   wait_for_network
 
   run_script nfsshare.sh || true
-  
-  systemctl enable jupyterlab
-  systemctl start  jupyterlab
   
   # Repositories
   su - ubuntu -s /bin/bash -c "git clone https://github.com/mc-b/lernvirt"
