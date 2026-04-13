@@ -745,6 +745,107 @@ EOF
 }
 
 # ============================================================================
+# podman, kind, frps
+
+install_containers_in_chroot() {
+  log "Installiere Containers direkt im chroot"
+
+  cat > "$CHROOT_DIR/root/install-containers.sh" <<'EOF'
+#!/usr/bin/env bash
+set +e
+export DEBIAN_FRONTEND=noninteractive
+source /etc/os-release
+
+echo "🚀 [INFO] Starte podman buildah skopeo (Containers) Installation..."
+sudo apt-get install -y podman buildah skopeo podman-compose  
+loginctl enable-linger ubuntu
+sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+echo "✅ [INFO] podman buildah skopeo (Containers) wurde erfolgreich installiert!"
+
+echo "🚀 [INFO] Starte FRP (Fast Reverse Proxy) und kind (Kubernetes in Docker) Installation..."
+
+curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl
+sudo mv kubectl /usr/local/bin/
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+echo "- 🚀 [INFO] Starte FRP (Fast Reverse Proxy) Installation..."
+export FRP_TOKEN=$(openssl rand -hex 16)
+
+FRP_VERSION=$(curl -sI https://github.com/fatedier/frp/releases/latest | grep -i '^location:' | sed -E 's|.*/tag/v([^[:space:]]+)|\1|' | tr -d '\r')
+wget -nv -O /tmp/frp.tar.gz https://github.com/fatedier/frp/releases/latest/download/frp_${FRP_VERSION}_linux_amd64.tar.gz
+tar -xzf /tmp/frp.tar.gz -C /opt
+mv /opt/frp_*/frps /usr/local/bin/frps
+mkdir -p /etc/frp
+envsubst <<EOF > /etc/frp/frps.ini
+[common]
+bind_port = 7000
+vhost_http_port = 8000
+vhost_https_port = 8443
+dashboard_port = 7500
+dashboard_user = admin
+dashboard_pwd = insecure
+token = ${FRP_TOKEN}
+EOF
+
+chown root:root /usr/local/bin/frps
+chmod +x /usr/local/bin/frps
+
+cat <<EOFFRPS > /etc/systemd/system/frps.service
+[Unit]
+Description=FRP Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/frps -c /etc/frp/frps.ini
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOFFRPS
+
+systemctl enable frps
+
+echo "- 🚀 [INFO] Starte kind (Kubernetes in Docker) Installation..."  
+
+curl -Lo kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64 && chmod +x kind && sudo mv ./kind /usr/local/bin/kind
+
+cat <<EOFKIND > /home/ubuntu/kind-config.yaml
+# kind-config.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    extraMounts:
+      - hostPath: /data
+        containerPath: /data
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+  - role: worker
+    extraMounts:
+      - hostPath: /data
+        containerPath: /data
+  - role: worker
+    extraMounts:
+      - hostPath: /data
+        containerPath: /data
+EOFKIND
+
+echo "✅ [INFO] FRP (Fast Reverse Proxy) und kind (Kubernetes in Docker) ist eingerichtet"
+EOF
+
+  chmod +x "$CHROOT_DIR/root/install-containers.sh.sh"
+  chroot "$CHROOT_DIR" /bin/bash /root/install-containers.sh.sh
+  rm -f "$CHROOT_DIR/root/install-containers.sh"
+}
+
+# ============================================================================
 # Cloud CLI Installation
 
 install_cloud_tools_in_chroot() {
@@ -1296,6 +1397,7 @@ main() {
     write_gui_firstboot_extras    
   fi
 
+  install_containers_in_chroot
   install_cloud_tools_in_chroot
   install_ai_libraries_in_chroot
 
