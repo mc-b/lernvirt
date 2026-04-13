@@ -138,7 +138,7 @@ Alles ausführen
 
 **Im Live System**
 
-Kubernetes in PodMan starten
+Kubernetes in PodMan `kind` starten
 
     kind create cluster --config kind-config.yaml --name kind --retain
     
@@ -149,6 +149,12 @@ Dashboard aktivieren
     kubectl apply -f https://raw.githubusercontent.com/mc-b/lerncloud/master/addons/dashboard-admin.yaml  
     kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml 
     kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/args/-\",\"value\":\"--kubelet-insecure-tls\"}]'
+
+K3s Kubernetes starten 
+
+    mkdir -p /tmp/k3sdata/k3s
+    curl -sfL https://get.k3s.io | \
+      INSTALL_K3S_EXEC='server --cluster-init --disable traefik --disable servicelb --data-dir /tmp/k3sdata/k3s' sh -
 
 **Debugging**
 
