@@ -732,7 +732,7 @@ Description=Jupyter Lab
 [Service]
 Type=simple
 PIDFile=/run/jupyter.pid
-ExecStart=/home/ubuntu/.jupyter/bin/jupyter lab --ip=0.0.0.0 --port=32188 --no-browser --ServerApp.default_url=/lab --ServerApp.token=''
+ExecStart=/opt/jupyter/bin/jupyter lab --ip=0.0.0.0 --port=32188 --no-browser --ServerApp.default_url=/lab --ServerApp.token='' 
 User=ubuntu
 Group=ubuntu
 WorkingDirectory=/home/ubuntu
@@ -987,6 +987,9 @@ main() {
   wait_for_network
 
   run_script nfsshare.sh || true
+  
+  systemctl enable jupyterlab
+  systemctl start  jupyterlab
 
   touch "\$MARKER"
   log "First-Boot abgeschlossen"
