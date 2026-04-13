@@ -490,7 +490,9 @@ apt-get install -y \
   gnupg \
   apt-transport-https \
   software-properties-common \
-  lsb-release || echo "[WARN] Einige Prerequisites konnten nicht installiert werden"
+  lsb-release \
+  desktop-file-utils \
+  || echo "[WARN] Einige Prerequisites konnten nicht installiert werden"
 
 if command -v code >/dev/null 2>&1; then
   echo "[INFO] VS Code ist bereits installiert"
@@ -516,7 +518,6 @@ if [ -f /usr/share/code/chrome-sandbox ]; then
   chmod 4755 /usr/share/code/chrome-sandbox
 fi
 
-# Workaround fuer Electron/GPU-Probleme im Live-System
 mkdir -p /etc/profile.d
 cat > /etc/profile.d/vscode-live.sh <<'ENVEOF'
 export ELECTRON_OZONE_PLATFORM_HINT=x11
@@ -525,15 +526,35 @@ ENVEOF
 mkdir -p /usr/local/bin
 cat > /usr/local/bin/code-live <<'WRAPEOF'
 #!/usr/bin/env bash
-exec /usr/bin/code --no-sandbox
+exec /usr/share/code/code --no-sandbox "$@"
 WRAPEOF
 chmod +x /usr/local/bin/code-live
 
-# Desktop-Launcher zusaetzlich auf die stabilere Variante biegen
 if [ -f /usr/share/applications/code.desktop ]; then
-  sed -i 's#^Exec=/usr/share/code/code --unity-launch %F#Exec=/usr/local/bin/code-live %F#' /usr/share/applications/code.desktop || true
-  sed -i 's#^Exec=/usr/share/code/code --new-window %F#Exec=/usr/local/bin/code-live %F#' /usr/share/applications/code.desktop || true
+  cp /usr/share/applications/code.desktop /usr/share/applications/code.desktop.bak
+
+  sed -i \
+    -e 's#^Exec=.*#Exec=/usr/local/bin/code-live %F#' \
+    /usr/share/applications/code.desktop || true
+
+  desktop-file-validate /usr/share/applications/code.desktop || true
 fi
+
+if [ -f /usr/share/applications/code-url-handler.desktop ]; then
+  cp /usr/share/applications/code-url-handler.desktop /usr/share/applications/code-url-handler.desktop.bak
+
+  sed -i \
+    -e 's#^Exec=.*#Exec=/usr/local/bin/code-live --open-url %U#' \
+    /usr/share/applications/code-url-handler.desktop || true
+
+  desktop-file-validate /usr/share/applications/code-url-handler.desktop || true
+fi
+
+update-desktop-database /usr/share/applications || true
+
+echo "[INFO] Resultierende Exec-Zeilen:"
+grep '^Exec=' /usr/share/applications/code.desktop 2>/dev/null || true
+grep '^Exec=' /usr/share/applications/code-url-handler.desktop 2>/dev/null || true
 
 apt-get clean
 rm -rf /var/lib/apt/lists/*
@@ -541,6 +562,11 @@ EOF
 
   chmod +x "$CHROOT_DIR/root/install-vscode.sh"
   chroot "$CHROOT_DIR" /bin/bash /root/install-vscode.sh
+
+  log "Pruefe VS Code Launcher im chroot"
+  grep '^Exec=' "$CHROOT_DIR/usr/share/applications/code.desktop" 2>/dev/null || true
+  grep '^Exec=' "$CHROOT_DIR/usr/share/applications/code-url-handler.desktop" 2>/dev/null || true
+
   rm -f "$CHROOT_DIR/root/install-vscode.sh"
 }
 
