@@ -745,7 +745,7 @@ EOF
 }
 
 # ============================================================================
-# podman, kind, frps
+# GPUs
 
 install_gpu_in_chroot() {
   log "Installiere gpu direkt im chroot"
@@ -791,7 +791,7 @@ EOF
 }
 
 # ============================================================================
-# podman, kind, frps
+# podman und kind
 
 install_containers_in_chroot() {
   log "Installiere Containers direkt im chroot"
@@ -828,13 +828,6 @@ nodes:
     extraMounts:
       - hostPath: /data
         containerPath: /data
-    extraPortMappings:
-      - containerPort: 80
-        hostPort: 80
-        protocol: TCP
-      - containerPort: 443
-        hostPort: 443
-        protocol: TCP
   - role: worker
     extraMounts:
       - hostPath: /data
@@ -845,7 +838,9 @@ nodes:
         containerPath: /data
 EOFKIND
 
-echo "✅ [INFO] FRP (Fast Reverse Proxy) und kind (Kubernetes in Docker) ist eingerichtet"
+chown ubuntu:ubuntu /home/ubuntu/kind-config.yaml
+
+echo "✅ [INFO] kind (Kubernetes in PodMan) ist eingerichtet"
 EOF
 
   chmod +x "$CHROOT_DIR/root/install-containers.sh"

@@ -136,6 +136,13 @@ Alles ausführen
     sync
     sudo udisksctl power-off -b /dev/sda    
 
+**Im Live System**
+
+Kubernetes in PodMan starten
+
+    kind create cluster --config kind-config.yaml --name kind --retain
+    
+
 **Debugging**
 
 Allgemeiner Schnellcheck nach dem Boot
