@@ -560,6 +560,10 @@ MARKER="/var/lib/gui-firstboot.done"
 
 exec > >(tee -a "$LOGFILE") 2>&1
 
+log() {
+  printf '\n[%s] %s\n' "\$(date '+%F %T')" "$*"
+}
+
 wait_for_network() {
   log "Warte auf Netzwerk"
   local i
