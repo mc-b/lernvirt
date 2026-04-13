@@ -785,8 +785,8 @@ export DEBIAN_FRONTEND=noninteractive
 
 EOF
 
-  chmod +x "$CHROOT_DIR/root/install-gpu.sh.sh"
-  chroot "$CHROOT_DIR" /bin/bash /root/install-gpu.sh.sh
+  chmod +x "$CHROOT_DIR/root/install-gpu.sh"
+  chroot "$CHROOT_DIR" /bin/bash /root/install-gpu.sh
   rm -f "$CHROOT_DIR/root/install-gpu.sh"
 }
 
@@ -848,8 +848,8 @@ EOFKIND
 echo "✅ [INFO] FRP (Fast Reverse Proxy) und kind (Kubernetes in Docker) ist eingerichtet"
 EOF
 
-  chmod +x "$CHROOT_DIR/root/install-containers.sh.sh"
-  chroot "$CHROOT_DIR" /bin/bash /root/install-containers.sh.sh
+  chmod +x "$CHROOT_DIR/root/install-containers.sh"
+  chroot "$CHROOT_DIR" /bin/bash /root/install-containers.sh
   rm -f "$CHROOT_DIR/root/install-containers.sh"
 }
 
