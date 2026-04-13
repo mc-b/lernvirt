@@ -603,14 +603,17 @@ MARKER="/var/lib/gui-firstboot.done"
 exec > >(tee -a "$LOGFILE") 2>&1
 
 wait_for_network() {
+  log "Warte auf Netzwerk"
   local i
   for i in $(seq 1 60); do
-    if ping -c1 -W2 1.1.1.1 >/dev/null 2>&1 || ping -c1 -W2 snapcraft.io >/dev/null 2>&1; then
+    if curl -fsS --connect-timeout 3 https://github.com >/dev/null 2>&1; then
+      log "Netzwerk verfuegbar"
       return 0
     fi
     sleep 5
   done
-  return 1
+  log "Netzwerk nicht bestaetigt, fahre trotzdem fort"
+  return 0
 }
 
 wait_for_snapd() {
@@ -967,8 +970,8 @@ run_script() {
 wait_for_network() {
   log "Warte auf Netzwerk"
   local i
-  for i in \$(seq 1 60); do
-    if ping -c1 -W2 1.1.1.1 >/dev/null 2>&1 || ping -c1 -W2 github.com >/dev/null 2>&1; then
+  for i in $(seq 1 60); do
+    if curl -fsS --connect-timeout 3 https://github.com >/dev/null 2>&1; then
       log "Netzwerk verfuegbar"
       return 0
     fi
