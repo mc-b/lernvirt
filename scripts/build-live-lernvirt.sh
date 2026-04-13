@@ -970,7 +970,7 @@ run_script() {
 wait_for_network() {
   log "Warte auf Netzwerk"
   local i
-  for i in $(seq 1 60); do
+  for i in \$(seq 1 60); do
     if curl -fsS --connect-timeout 3 https://github.com >/dev/null 2>&1; then
       log "Netzwerk verfuegbar"
       return 0
