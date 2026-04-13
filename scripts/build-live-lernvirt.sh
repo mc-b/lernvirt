@@ -693,7 +693,7 @@ source /opt/ai/bin/activate
 pip install openai pydantic
 pip install ipykernel requests
 pip install nbconvert
-python3 -m ipykernel install --user --name=ai --display-name "Python (ai)"
+su - ubuntu -s /bin/bash -c "HOME=/home/ubuntu /opt/ai/bin/python3 -m ipykernel install --user --name='ai' --display-name='Python (ai)'"
 
 # -------------------------
 # Hugging Face Kernel
@@ -702,7 +702,7 @@ python3 -m venv /opt/hf
 source /opt/hf/bin/activate
 pip install --upgrade pip 
 pip install -U ipykernel ipywidgets datasets pyarrow huggingface_hub fsspec transformers accelerate sentence-transformers sentencepiece peft pypdf requests tqdm numpy einops
-python3 -m ipykernel install --user --name=rag --display-name "Python (hf)"
+su - ubuntu -s /bin/bash -c "HOME=/home/ubuntu /opt/hf/bin/python3 -m ipykernel install --user --name='rag' --display-name='Python (hf)'"
 
 # -------------------------
 # MCP Kernel
@@ -712,7 +712,8 @@ source /opt/mcp/bin/activate
 pip install --upgrade pip 
 pip install ipykernel mcp requests
 pip install openai
-python3 -m ipykernel install --user --name=mcp --display-name "Python (mcp)"
+su - ubuntu -s /bin/bash -c "HOME=/home/ubuntu /opt/mcp/bin/python3 -m ipykernel install --user --name='mcp' --display-name='Python (mcp)'"
+
 
 # -------------------------
 # Agent Kernel
@@ -722,7 +723,7 @@ source /opt/dapr/bin/activate
 pip install --upgrade pip 
 pip install openai-agents dapr dapr-ext-grpc
 pip install ipykernel
-python3 -m ipykernel install --user --name=dapr --display-name "Python (dapr)"
+su - ubuntu -s /bin/bash -c "HOME=/home/ubuntu /opt/dapr/bin/python3 -m ipykernel install --user --name='dapr' --display-name='Python (dapr)'"
 
 # Jupyter Lab as Service
 cat <<%EOF% | sudo tee /etc/systemd/system/jupyterlab.service
