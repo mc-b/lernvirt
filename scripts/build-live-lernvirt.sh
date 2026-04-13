@@ -1091,7 +1091,8 @@ main() {
   run_script nfsshare.sh || true
   
   # Repositories
-  su - ubuntu -s /bin/bash -c "git clone https://github.com/mc-b/lernvirt"
+  su - ubuntu -s /bin/bash -c "git clone https://gitlab.com/ch-tbz-wb/Stud/cna.git"
+  su - ubuntu -s /bin/bash -c "git clone https://gitlab.com/ch-tbz-wb/Stud/cna-ai.git"
 
   # SSH Key
   mkdir -p /home/ubuntu/.ssh
