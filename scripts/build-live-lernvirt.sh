@@ -805,7 +805,12 @@ source /etc/os-release
 echo "🚀 [INFO] Starte podman buildah skopeo (Containers) Installation..."
 sudo apt-get install -y podman buildah skopeo podman-compose  
 loginctl enable-linger ubuntu
-sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+# rootless podman zulassen
+cat <<EOFSYS >/etc/sysctl.d/99-local.conf
+kernel.apparmor_restrict_unprivileged_userns=0
+EOFSYS
+
 echo "✅ [INFO] podman buildah skopeo (Containers) wurde erfolgreich installiert!"
 
 echo "🚀 [INFO] Starte FRP (Fast Reverse Proxy) und kind (Kubernetes in Docker) Installation..."
