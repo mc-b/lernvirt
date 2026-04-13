@@ -152,9 +152,11 @@ Dashboard aktivieren
 
 K3s Kubernetes starten 
 
+    sudo rm /usr/local/bin/kubectl      
     mkdir -p /tmp/k3sdata/k3s
     curl -sfL https://get.k3s.io | \
-      INSTALL_K3S_EXEC='server --cluster-init --disable traefik --disable servicelb --data-dir /tmp/k3sdata/k3s' sh -
+      INSTALL_K3S_EXEC='server --cluster-init --data-dir /tmp/k3sdata/k3s' sh -
+    sudo chmod +r /etc/rancher/k3s/k3s.yaml
 
 **Debugging**
 
