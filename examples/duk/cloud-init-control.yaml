@@ -17,20 +17,45 @@ packages:
   - shellinabox
   - ca-certificates
   - curl
-
+  - git
+  - git-lfs
+  
 runcmd:
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsshare.sh | bash -  
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/storage-patch.sh | bash -  
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/vpn.sh | bash -
-  - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k3scontrol.sh | bash -
-  - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k3scontroladdons.sh | bash -    
-  - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/jupyter-notebook.sh | bash -"
-  - sudo su - ubuntu -c "git clone https://github.com/mc-b/duk.git"      
-  - sudo su - ubuntu -c "git clone https://github.com/mc-b/k8sd2o.git" 
-  - sudo su - ubuntu -c "git clone https://github.com/mc-b/cascpm.git --branch v2.0.0"     
-  - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k8stools.sh | bash -  
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/docker.sh | bash -
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/containers.sh | bash -  
-  - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/istio-zipkin.sh | bash -"
-  - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/istio-patch.sh | bash -"  
+  - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k3scontrol.sh | bash -
+  - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k3scontroladdons.sh | bash - 
+  - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/jupyter-lab.sh | SKIP_LIBRARIES=false bash -"
+  - |
+    runuser -l ubuntu -c '  
+      git clone https://github.com/mc-b/duk --branch v2 &&
+      git clone https://github.com/mc-b/k8sd2o --branch v2 &&
+      git clone https://github.com/mc-b/platen --branch v2 && 
+      git clone https://github.com/mc-b/llmeng --branch v2 &&    
+      git clone https://github.com/mc-b/terra         
+    '
+  - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/istio-zipkin.sh | bash -"
+  - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/istio-patch.sh | bash -"  
+  - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/knative.sh | bash -"
+  - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/knative-patch.sh | bash -"  
+  - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/cert-manager.sh | bash -"
+  - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -"
+  - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/longhorn.sh | bash -" 
+  - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/argocd.sh | bash -"
+  - runuser -l ubuntu -c "wget https://github.com/goharbor/harbor/releases/download/v2.12.2/harbor-offline-installer-v2.12.2.tgz && tar xzf harbor-offline-installer-v2.12.2.tgz"
+  - curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | sudo os=ubuntu dist=noble bash -
+  - sudo EXTERNAL_URL="http://$(cat /home/ubuntu/data/server-ip:9999)" apt-get install -y gitlab-ce  
+  - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k8stools.sh | bash -  
+  # IIoT Deklarationen und Operator
+  - |
+    runuser -l ubuntu -c '   
+      kubectl apply -f https://gitlab.com/ch-mc-b/autoshop-ms/infra/argocd/-/raw/main/iiot-crd.yaml &&
+      kubectl apply -f https://gitlab.com/ch-mc-b/autoshop-ms/infra/argocd/-/raw/main/iiot-m5stack.yaml &&
+      kubectl apply -f https://gitlab.com/ch-mc-b/autoshop-ms/infra/argocd/-/raw/main/iiot-operator.yaml 
+    '
+    
+  - echo "✅ [INFO] Alle Installationen abgeschlossen."
     

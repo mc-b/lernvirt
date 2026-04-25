@@ -21,7 +21,7 @@ Host spezifische Werte festlegen
 
     HELM_VALUES_HOST=hosts/<host>.yaml
     
-    helm install lab . -n duk --create-namespace -f examples/duk/values.yaml -f ${HELM_VALUES_HOST}
+    helm install duk . -n duk --create-namespace -f ${HELM_VALUES_HOST} -f examples/duk/values.yaml
     
 Kontrolle
 
@@ -29,11 +29,11 @@ Kontrolle
     
 Löschen
 
-    helm uninstall lab -n duk && kubectl delete ns duk    
+    helm uninstall duk -n duk && kubectl delete ns duk    
     
 Testen
 
-    virtctl console vm-0 -n duk   
+    virtctl console duk-lernvirt-vm-0 -n duk   
     
     ssh -i ~/.ssh/lerncloud ubuntu@10.10.1.10  
     
