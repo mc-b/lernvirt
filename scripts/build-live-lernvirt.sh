@@ -670,51 +670,55 @@ export DEBIAN_FRONTEND=noninteractive
 # -------------------------
 # Jupyter Base
 # -------------------------
-python3 -m venv /opt/jupyter 
-source /opt/jupyter/bin/activate
+python3 -m venv /home/ubuntu/.jupyter 
+source /home/ubuntu/.jupyter/bin/activate
 pip install --upgrade pip 
 pip install jupyterlab ipykernel 
+chown -R ubuntu:ubuntu /home/ubuntu/.jupyter
 python3 -m ipykernel install --sys-prefix --name=jupyter --display-name="Python (jupyter)"
 
 # -------------------------
 # AI Kernel
 # -------------------------
-python3 -m venv /opt/ai 
-source /opt/ai/bin/activate
+python3 -m venv /home/ubuntu/.ai 
+source /home/ubuntu/.ai/bin/activate
 pip install openai pydantic
 pip install ipykernel requests
 pip install nbconvert
-su - ubuntu -s /bin/bash -c "HOME=/home/ubuntu /opt/ai/bin/python3 -m ipykernel install --user --name='ai' --display-name='Python (ai)'"
+chown -R ubuntu:ubuntu /home/ubuntu/.ai
+su - ubuntu -s /bin/bash -c "HOME=/home/ubuntu /home/ubuntu/.ai/bin/python3 -m ipykernel install --user --name='ai' --display-name='Python (ai)'"
 
 # -------------------------
 # Hugging Face Kernel
 # -------------------------
-python3 -m venv /opt/hf 
-source /opt/hf/bin/activate
+python3 -m venv /home/ubuntu/.hf 
+source /home/ubuntu/.hf/bin/activate
 pip install --upgrade pip 
 pip install -U ipykernel ipywidgets datasets pyarrow huggingface_hub fsspec transformers accelerate sentence-transformers sentencepiece peft pypdf requests tqdm numpy einops
-su - ubuntu -s /bin/bash -c "HOME=/home/ubuntu /opt/hf/bin/python3 -m ipykernel install --user --name='rag' --display-name='Python (hf)'"
+chown -R ubuntu:ubuntu /home/ubuntu/.hf
+su - ubuntu -s /bin/bash -c "HOME=/home/ubuntu /home/ubuntu/.hf/bin/python3 -m ipykernel install --user --name='rag' --display-name='Python (hf)'"
 
 # -------------------------
 # MCP Kernel
 # -------------------------
-python3 -m venv /opt/mcp 
-source /opt/mcp/bin/activate
+python3 -m venv /home/ubuntu/.mcp 
+source /home/ubuntu/.mcp/bin/activate
 pip install --upgrade pip 
 pip install ipykernel mcp requests
 pip install openai
-su - ubuntu -s /bin/bash -c "HOME=/home/ubuntu /opt/mcp/bin/python3 -m ipykernel install --user --name='mcp' --display-name='Python (mcp)'"
-
+chown -R ubuntu:ubuntu /home/ubuntu/.mcp
+su - ubuntu -s /bin/bash -c "HOME=/home/ubuntu /home/ubuntu/.mcp/bin/python3 -m ipykernel install --user --name='mcp' --display-name='Python (mcp)'"
 
 # -------------------------
 # Agent Kernel
 # -------------------------
-python3 -m venv /opt/dapr 
-source /opt/dapr/bin/activate
+python3 -m venv /home/ubuntu/.dapr 
+source /home/ubuntu/.dapr/bin/activate
 pip install --upgrade pip 
 pip install openai-agents dapr dapr-ext-grpc
 pip install ipykernel
-su - ubuntu -s /bin/bash -c "HOME=/home/ubuntu /opt/dapr/bin/python3 -m ipykernel install --user --name='dapr' --display-name='Python (dapr)'"
+chown -R ubuntu:ubuntu /home/ubuntu/.dapr
+su - ubuntu -s /bin/bash -c "HOME=/home/ubuntu /home/ubuntu/.dapr/bin/python3 -m ipykernel install --user --name='dapr' --display-name='Python (dapr)'"
 
 # Jupyter Lab as Service
 cat <<%EOF% | sudo tee /etc/systemd/system/jupyterlab.service
@@ -724,7 +728,7 @@ Description=Jupyter Lab
 [Service]
 Type=simple
 PIDFile=/run/jupyter.pid
-ExecStart=/opt/jupyter/bin/jupyter lab --ip=0.0.0.0 --port=32188 --no-browser --ServerApp.default_url=/lab --ServerApp.token='' 
+ExecStart=/home/ubuntu/.jupyter/bin/jupyter lab --ip=0.0.0.0 --port=32188 --no-browser --ServerApp.default_url=/lab --ServerApp.token=''
 User=ubuntu
 Group=ubuntu
 WorkingDirectory=/home/ubuntu
