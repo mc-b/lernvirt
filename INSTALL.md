@@ -228,7 +228,7 @@ MetalLB ist eine Load-Balancer-Implementierung für Bare-Metal -Kubernetes- Clus
 
 MetalLB kann wie folgt in microk8s aktiviert werden:
 
-    microk8s enable "metallb:10.0.24.XXX-10.0.24.XXX"
+    microk8s enable 'metallb:10.10.0.30-10.10.0.90'
     
 XXX ist durch den eigenen IP-Range zu ersetzen.
 
