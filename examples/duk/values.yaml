@@ -20,6 +20,6 @@ vm-0:
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/duk/cloud-init-control.yaml
   ports:
     - 16443
-    - 32188
+    - 33188
     - 30443
    

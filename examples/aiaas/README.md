@@ -103,7 +103,7 @@ Im JupyterLab stehen einige Notebooks zur Verfügung, die zur Demonstration der 
 
 **Alternative**: Repository lernvirt clonen `git clone https://github.com/mc-b/lernvirt`. Dann sind die Notebooks im Verzeichnis `lernvirt/examples/aiaas`.
 
-Die JupyterLab Umgebung läuft auf dem Port **32188**.
+Die JupyterLab Umgebung läuft auf dem Port **33188**.
 
 Neben der Standard Jupyter Umgebung, stehen folgende weitere zur Verfügung:
 * `~/.ai` - OpenAI API
