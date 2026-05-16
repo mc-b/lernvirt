@@ -12,7 +12,7 @@ für sichere Netzwerkverbindungen eingerichtet sind.
 
 Zusätzlich:
 * vm-0: Alpine ohne Zusatzsoftware
-* vm-1: Docker und Juypter-Lab auf Port 33188 (ohne RAG, wegen Abhängigkeit zu `onnxruntime`)
+* vm-1: Docker und Juypter-Lab auf Port 18888 (ohne RAG, wegen Abhängigkeit zu `onnxruntime`)
 * vm-2: k3s Kubernetes (FIXME `doas chmod +r /etc/rancher/k3s/k3s.yaml` falls `kubectl` reklamiert)
 
 Weitere Software wird unter Alpine einfach über den Paketmanager **`apk`** installiert, z. B. mit `apk add <paketname>`. 

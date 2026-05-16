@@ -5,7 +5,7 @@
 vm:
   count: 5
   ports:
-    - 33188
+    - 18888
   
   # AI Clients
   cpu: 2

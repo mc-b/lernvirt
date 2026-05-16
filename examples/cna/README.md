@@ -36,8 +36,8 @@ Kontrolle
     
 WireGuard aktivieren und dann sind die AI Notebooks und das CNA README wie folgt erreichbar:
 
-* [AI Notebooks](http://10.10.1.10:33188/lab)
-* [CNA README](http://10.10.1.10:33188/lab/tree/CnA/2_Unterrichtsressourcen/A-infra/README.ipynb )    
+* [AI Notebooks](http://10.10.1.10:18888/lab)
+* [CNA README](http://10.10.1.10:18888/lab/tree/CnA/2_Unterrichtsressourcen/A-infra/README.ipynb )    
     
 Löschen
 

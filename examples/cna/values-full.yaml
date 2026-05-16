@@ -21,6 +21,6 @@ vm-0:
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/cna/cloud-init-control-full.yaml
   ports:
     - 16443
-    - 33188
+    - 18888
     - 30443
    

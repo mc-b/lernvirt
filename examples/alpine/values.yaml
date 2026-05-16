@@ -14,7 +14,7 @@ vm-1:
   storage: 8Gi
   userdata: https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/examples/alpine/cloud-init-ai.yaml
   ports:
-    - 33188
+    - 18888
 
 # Alpine mit k3s
 vm-2:
