@@ -310,6 +310,42 @@ Lösung Namensauflösung mittels Kubernetes wieder aktivieren. Kubernetes Namesp
    
 ---
 
+### VM kann keine neue IP lösen nach Stromausfall KubeVirt Host
+
+> **Warum kann die VM keine neue IP-Adresse lösen bei einem Reboot/Stromausfall des KubeVirt Hosts**
+
+
+In `/etc/netplan/50-cloud-init.yaml` steht fix die MAC-Adresse drin. Diese wechselt jedoch noch einem Stromausfall des KubeVirt Hosts.
+
+    network:
+      version: 2
+      ethernets:
+        enp1s0:
+          match:
+            macaddress: "ee:23:a5:e1:35:e5"
+
+Lösung `/etc/netplan/50-cloud-init.yaml` neu erstellen mit folgendem Inhalt
+
+    sudo rm -f /etc/netplan/50-cloud-init.yaml
+    
+    sudo tee /etc/netplan/01-enp1s0.yaml >/dev/null <<EOF
+    network:
+      version: 2
+      renderer: networkd
+      ethernets:
+        enp1s0:
+          dhcp4: true
+          dhcp6: false
+    EOF
+    
+    sudo netplan generate
+    sudo netplan apply
+    sudo systemctl enable --now systemd-networkd
+
+**Alternativen**: [kubemacpool](https://github.com/k8snetworkplumbingwg/kubemacpool)
+
+---
+
 ### Multi Arch Container Images
 
 > **ARM-basierende Hardware wird immer attraktiver – wie erstelle ich ein Multiarch-Container-Image, das sowohl auf x86_64 als auch auf ARM läuft?**
