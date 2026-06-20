@@ -65,6 +65,9 @@ if ! chown -R ubuntu:ubuntu /data 2>/dev/null; then
 fi
 chmod 777 /data/storage || warn "Konnte Berechtigungen für /data/storage nicht setzen."
 
+# Kompatibilitaet storage.sh
+sudo ln -s /data /home/ubuntu/data
+
 # NFS-Exports schreiben
 cat >/etc/exports <<EOF
 # /etc/exports: NFS Export-Konfiguration
