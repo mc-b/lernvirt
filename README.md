@@ -24,13 +24,17 @@ Die Umgebung eignet sich besonders für:
 
 **Module aus [Modulbaukasten (MBK)](https://www.modulbaukasten.ch/)**
 
+Host spezifische Werte festlegen (wird beim Erstellen der lernvirt Umgebung erstellt)
+
+    HELM_VALUES_HOST=hosts/<host>.yaml
+
 Modul M122 - Automatisieren mit Skripten. Cloud-init Deklaration von [https://github.com/tbz-it/M122](https://github.com/tbz-it/M122) wird verwendet
 
-    helm install m122-ap21a-ben . -n ap21a --create-namespace 
+    helm install m122-ap21a-ben . -n ap21a --create-namespace -f ${HELM_VALUES_HOST} 
     
 Modul M169 Services mit Containern bereitstellen. Cloud-init Script von [lernmaas]() wird verwendet.
 
-    helm install m169k3s-ap21a-ben . -n ap21a --create-namespace 
+    helm install m169k3s-ap21a-ben . -n ap21a --create-namespace -f ${HELM_VALUES_HOST} 
   
 Aufbau Helm Instanz Namen: [Modul]-[Klasse]-[Lehrerkürzel]
     
