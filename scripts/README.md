@@ -1,7 +1,7 @@
 Hilfsscripte
 ------------
 
-## ServiceAccount & kubeconfig Script
+## ServiceAccount & gen-kubeconfig.sh Script
 
 Dieses Script erstellt für eine Lehrperson einen **dedizierten Kubernetes ServiceAccount** mit **Cluster-Admin-Rechten** und erzeugt daraus eine **eigene kubeconfig-Datei**.
 
@@ -15,11 +15,11 @@ Die kubeconfig kann unabhängig von der globalen `.kube/config` verteilt und bei
 
 **Verwendung**
 
-    ./script/create-kubeconfig.sh <KUERZEL>
+    ./script/gen-kubeconfig.sh <KUERZEL>
 
 Beispiel:
 
-    ./script/create-kubeconfig.sh ALP
+    ./script/gen-kubeconfig.sh ALP
 
 **Ergebnis**
 
@@ -27,9 +27,27 @@ Beispiel:
 - ClusterRoleBinding: `cluster-admin`
 - kubeconfig Datei: `ALP-kubeconfig.yaml`
 
+**Rechte entziehen**
+
+Die vergebenen Rechte können wieder entzogen werden, indem das zugehörige `ClusterRoleBinding` gelöscht wird. Dadurch verliert der ServiceAccount die `cluster-admin`-Berechtigung, bleibt aber weiterhin im Cluster bestehen.
+
+    kubectl delete clusterrolebinding te-alp-admin
+
+Falls der Zugriff vollständig entfernt werden soll, kann zusätzlich der ServiceAccount gelöscht werden:
+
+    kubectl delete serviceaccount te-alp -n kube-system
+
 **Test**
 
     KUBECONFIG=ALP-kubeconfig.yaml kubectl auth whoami
+    
+## Rechner per Wake-on-LAN starten
+
+Dieses Skript sendet ein Wake-on-LAN-Paket an einen definierten Rechner. Als Parameter wird der Rechnername übergeben, zum Beispiel `dl380-02`. Das Skript ermittelt automatisch das erste aktive Ethernet-Interface, wählt anhand des Rechnernamens die passende MAC-Adresse aus und sendet anschliessend das Magic Packet mit `etherwake`.
+
+**Verwendung**
+
+    ./wol.sh dl380-02
 
 ## Build-Script (`build.sh`)
 
