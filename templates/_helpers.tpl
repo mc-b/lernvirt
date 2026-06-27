@@ -77,3 +77,17 @@ Resolve final image URL (original or mirror)
 {{- end -}}
 
 {{- end -}}
+
+{{/*
+Generate deterministic locally administered unicast MAC address.
+*/}}
+{{- define "lernvirt.macAddress" -}}
+{{- $root := .root -}}
+{{- $index := .index -}}
+{{- $mac := default dict (index $root.Values "mac") -}}
+{{- $seed := default "" (index $mac "seed") -}}
+{{- $input := printf "%s/%s/%s/%d" $seed $root.Release.Namespace $root.Release.Name $index -}}
+{{- $hash := sha256sum $input -}}
+{{- printf "02:%s:%s:%s:%s:%s" (substr 0 2 $hash) (substr 2 4 $hash) (substr 4 6 $hash) (substr 6 8 $hash) (substr 8 10 $hash) -}}
+{{- end -}}
+

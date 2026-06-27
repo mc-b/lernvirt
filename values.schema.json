@@ -79,6 +79,19 @@
           }
         }
       }
+    },
+    
+    "mac": {
+      "type": "object",
+      "description": "Optionen für deterministische MAC-Adressen.",
+      "properties": {
+        "seed": {
+          "type": "string",
+          "default": "",
+          "description": "Optionaler Seed für deterministische MAC-Adressen. Unterschiedlich setzen, wenn mehrere K8s-Cluster im gleichen L2-Netzwerk VMs betreiben."
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

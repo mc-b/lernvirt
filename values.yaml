@@ -76,5 +76,8 @@ images:
       ws2022:
         amd64: https://image-mirror/windows-server-2022-amd64.qcow2
 
-
+# Optionaler Seed für deterministische MAC-Adressen.
+# Unterschiedlich setzen, wenn mehrere K8s-Cluster im gleichen L2-Netzwerk VMs betreiben.
+mac:
+  seed: ""
   
