@@ -23,7 +23,7 @@ fi
 
 case "$HOST" in
   dl380-01)
-    MAC="..."
+    MAC="ec:b1:d7:75:28:e4"
     ;;
 
   dl380-02)
