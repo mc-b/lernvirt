@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Wake on LAN 
+# Wake on LAN
 
-ETH=$(ip -o link show | awk -F': ' '$2 ~ /^en/ && $0 ~ /UP/ {print $2; exit}')
+if ip -o link show br0 2>/dev/null | grep -q "UP"; then
+  ETH="br0"
+else
+  ETH=$(ip -o link show | awk -F': ' '$2 ~ /^en/ && $0 ~ /UP/ {print $2; exit}')
+fi
 
 if [ -z "${ETH:-}" ]; then
   echo "Kein aktives Ethernet-Interface gefunden."
@@ -19,7 +23,7 @@ fi
 
 case "$HOST" in
   dl380-01)
-    MAC="..."
+    MAC="ec:b1:d7:75:28:e4"
     ;;
 
   dl380-02)
