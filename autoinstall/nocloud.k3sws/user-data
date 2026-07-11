@@ -90,6 +90,7 @@ autoinstall:
       - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/cert-manager.sh | bash -"    
       - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -"
       - runuser -l ubuntu -c "kubectl -n kubevirt patch kubevirt kubevirt --type=merge --patch '{\"spec\":{\"configuration\":{\"developerConfiguration\":{\"useEmulation\":false}}}}'"
+      - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/opentelemetry.sh | bash -"    
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/xfce4.sh | DEFAULT_TARGET=graphical bash -     
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/vscode.sh | bash -        
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/cloud-cli.sh | bash -        
