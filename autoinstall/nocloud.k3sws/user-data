@@ -71,7 +71,7 @@ autoinstall:
     runcmd:
       - echo "ubuntu:insecure" | chpasswd
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/issue-patch.sh | bash -
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/scripts/install-lernvirt.sh | bash -
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/nfsshare.sh | bash -  
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/storage-patch.sh | bash -  
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/docker.sh | bash -
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/containers.sh | bash -      
@@ -80,13 +80,6 @@ autoinstall:
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/nvidia-gpu-operator.sh | bash -
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/intel-gpu-operator.sh | bash -      
       - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/jupyter-lab.sh | SKIP_LIBRARIES=true APPNAME=k3sws bash -"
-      - |
-        runuser -l ubuntu -c '  
-          git clone https://github.com/mc-b/duk --branch v2 &&
-          git clone https://github.com/mc-b/k8sd2o --branch v2 &&
-          git clone https://github.com/mc-b/platen --branch v2 &&
-          git clone https://github.com/mc-b/llmeng --branch v2
-        '
       - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/cert-manager.sh | bash -"    
       - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -"
       - runuser -l ubuntu -c "kubectl -n kubevirt patch kubevirt kubevirt --type=merge --patch '{\"spec\":{\"configuration\":{\"developerConfiguration\":{\"useEmulation\":false}}}}'"
@@ -96,11 +89,4 @@ autoinstall:
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/cloud-cli.sh | bash -        
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k8stools.sh | bash -
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -  
-      - |
-        runuser -l ubuntu -c '  
-          git clone https://gitlab.com/ch-mc-b/autoshop-ms/infra/iiot.git
-          cd iiot
-          kubectl apply -f crd &&
-          kubectl apply -f m5stack/sensors -f m5stack/actors -f m5stack/devices
-        '  
-          
+         
