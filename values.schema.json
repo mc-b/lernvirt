@@ -93,5 +93,26 @@
       },
       "additionalProperties": false
     }
-  }
+  },
+  "datasource": {
+    "type": "object",
+    "description": "Optionale zentrale Datasource für Cloud-init-Scripts wie nfsclient.sh.",
+    "required": [
+      "enabled",
+      "serverIP"
+    ],
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Erzeugt /etc/datasource.conf innerhalb der virtuellen Maschinen."
+      },
+      "serverIP": {
+        "type": "string",
+        "format": "ipv4",
+        "description": "IPv4-Adresse des zentralen Datasource- beziehungsweise NFS-Servers."
+      }
+    },
+    "additionalProperties": false
+  }  
 }

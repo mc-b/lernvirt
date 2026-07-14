@@ -23,3 +23,5 @@ vm-0:
     - 18888
     - 30443
    
+datasource:
+  enabled: false
