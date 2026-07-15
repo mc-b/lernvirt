@@ -273,13 +273,12 @@ Lehrpersonen-Kürzel, zum Beispiel:
 </p>
 <pre><code>gen-kubeconfig.sh ben</code></pre>
 
-<h3>Kubernetes Dashboard</h3>
+<h3>Headlamp</h3>
 <p>
-Das Kubernetes-Dashboard ist auf dem Server über <code>https</code> und Port <code>30443</code> erreichbar.
-Ein Zugriff ist mittels Token möglich. Dieses kann mit folgendem Befehl generiert werden:
+Headlamp (Kubernetes Dashboard) ist auf dem Server über <code>http</code> und Port <code>30444</code> erreichbar.
+Die Anmeldung erfolgt mittels Token. Dieses kann mit folgendem Befehl generiert werden:
 </p>
-<pre><code>kubectl -n kubernetes-dashboard create token dashboard-readonly --duration=8h</code></pre>
-
+<pre><code>kubectl create token headlamp-admin -n kube-system --duration=8h</code></pre>
 
 <h3>PXE Boot (dnsmsaq)</h3>
 <p>
