@@ -75,7 +75,7 @@ autoinstall:
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8saddons.sh | bash -
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/nvidia-gpu-operator.sh | bash -
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/intel-gpu-operator.sh | bash -      
-      - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/jupyter-lab.sh | SKIP_LIBRARIES=true APPNAME=k8sws bash -"
+      - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/jupyter-lab.sh | SKIP_LIBRARIES=false APPNAME=k8sws bash -"
       - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/cert-manager.sh | bash -"    
       - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -"
       - runuser -l ubuntu -c "kubectl -n kubevirt patch kubevirt kubevirt --type=merge --patch '{\"spec\":{\"configuration\":{\"developerConfiguration\":{\"useEmulation\":false}}}}'"

@@ -46,7 +46,5 @@ autoinstall:
     runcmd:
       - echo "ubuntu:insecure" | chpasswd
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/issue-patch.sh | bash -
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/nvidia-gpu-operator.sh | bash -
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/intel-gpu-operator.sh | bash -      
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -    
       
