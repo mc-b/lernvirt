@@ -63,6 +63,6 @@ autoinstall:
       - curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-pxe.sh | bash -     
       - curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-alpine.sh | bash - 
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -
-      - snap install k9s 
+      - snap install k9s && ln -sf /snap/k9s/current/bin/k9s /usr/local/bin/k9s
                 
       
