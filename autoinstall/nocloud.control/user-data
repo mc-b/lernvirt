@@ -56,7 +56,8 @@ autoinstall:
       - microk8s kubectl apply -f https://raw.githubusercontent.com/headlamp-k8s/headlamp/main/kubernetes-headlamp.yaml
       - microk8s kubectl -n kube-system create serviceaccount headlamp-admin 
       - microk8s kubectl create clusterrolebinding headlamp-admin --serviceaccount=kube-system:headlamp-admin --clusterrole=cluster-admin 
-      - microk8s kubectl patch svc headlamp -n kube-system --type=merge -p '{"spec":{"type":"NodePort","ports":[{"port":80,"targetPort":4466,"nodePort":30444}]}}'      
+      - microk8s kubectl patch svc headlamp -n kube-system --type=merge -p '{"spec":{"type":"NodePort","ports":[{"port":80,"targetPort":4466,"nodePort":30444}]}}'
+      - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/connectivity-init.sh | TS_HOSTNAME=control bash -"     
       - curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-pxe.sh | bash -     
       - curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-alpine.sh | bash -       
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -    
