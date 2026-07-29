@@ -116,7 +116,7 @@ inject_userdata_key() {
   log "user-data von lernvirt holen"
   if wget -nv -O "$temp_userdata" "${USERDATA_URL}"; then
     log "Injektiere neuen SSH-Key in user-data"
-    sed -i "s|ssh-rsa .* insecure@lerncloud|${pub_key}|" "$temp_userdata"
+    # sed -i "s|ssh-rsa .* insecure@lerncloud|${pub_key}|" "$temp_userdata"
     mv "$temp_userdata" "${WWW}/autoinstall/user-data"
   else
     warn "Konnte user-data nicht laden von ${USERDATA_URL}."
