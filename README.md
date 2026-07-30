@@ -190,8 +190,9 @@ Auf einem Windows-Client:
 
 * [Autoinstall, PXE Boot, eigenes Netzwerk](CONFIG.md)
 
-## 12. FAQ
+## 12. Security und FAQ
 
+* [Security Empfehlungen](SECURITY.md)
 * [Fragen und Antworten](FAQ.md)
 
 
