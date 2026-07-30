@@ -1,54 +1,52 @@
-## Automatische Serverinstallation auf Bare-Metal-Hardware
-
-### ubuntu-....iso Image patchen
+## Serverinstallation auf Bare-Metal-Hardware
 
 **ubuntu-...iso Image downloaden**
 
 z.B. von [Ubuntu Server download](https://ubuntu.com/download/server).
 
-Abstellen, z.B. unter ~/ISO/ubuntu-24.04.3-live-server-amd64.iso
+Abstellen, z.B. unter ~/ISO/ubuntu-24.04.4-live-server-amd64.iso
 
     mkdir -p ~/ISO
+    cd ~/ISO
+    wget https://releases.ubuntu.com/24.04.4/ubuntu-24.04.4-live-server-amd64.iso
+    
+**Repository clonen**
+
+    git clone https://github.com/mc-b/lernvirt
+    cd lernvirt/autoinstall    
 
 **Tools installieren**
 
-    sudo apt install xorrubuntu-24.04.3-live-server-amd64.iso qemu-utils qemu-system-x86 -y
+    sudo apt install -y xorriso
     
-**Optional: Arbeitsverzeichnis und ubuntu-24.04.3-live-server-amd64.iso-Inhalt holen **
+**Optional: Weitere Installationsumgebungen hinzufügen**
 
-    rm -rf ~/ws/ubuntu-custom
-    mkdir -p ~/ws/ubuntu-custom/{mnt,extract}
-    cd ~/ws/ubuntu-custom
-    
-    sudo mount -o loop ${ubuntu-24.04.3-live-server-amd64.iso} mnt
-    rsync -a mnt/ extract/
-    sudo umount mnt
+Passende Umgebung `nocloud.*` aussuchen und Verzeichnis kopieren, z.B. auf `nocloud.myenv`
 
-**Optional: NoCloud-Autoinstall einbauen**
+    cp -rp nocloud.control nocloud.myenv
 
-`user-data` und `meta-data` von `control` (Kubevirt Controller) oder `worker` (Worker Node) kopieren
+`user-data` und `meta-data` Anpassen.
 
-    sudo mkdir -p extract/nocloud
-    sudo cp ~/ws/lernvirt/autoinstall/control/* extract/nocloud    
+Grub Menu anpassen, bzw. erweitern
 
-**Optional: GRUB-Eintrag anpassen für Autoinstall**
+    vi boot/grub/grub.cfg
 
-    sudo vi extract/boot/grub/grub.cfg
+`xorriso` Befehl um eigene Umgebung erweitern
 
-Im Eintrag z.B. `menuentry 'Try or Install Ubuntu Server' { ... }` die `linux`-Zeile von etwas wie:
+    xorriso \
+      -indev ~/ISO/ubuntu-24.04.4-live-server-amd64.iso \
+      -outdev ubuntu-autoinstall.iso \
+      ...
+      -map nocloud.gui /nocloud.myenv \
+      ...
 
-    linux   /casper/vmlinuz --- quiet
+**Neues Autoinstall Ubuntu bauen**
 
-auf so etwas ändern:
-
-    linux   /casper/vmlinuz autoinstall ds=nocloud\;s=/cdrom/nocloud/ ---
-
-**Neues Autoinstall-ubuntu-24.04.3-live-server-amd64.iso bauen (Bootstruktur vom Original übernehmen)**
-
+    cd lernvirt/autoinstall
     rm -f ubuntu-autoinstall.iso
     
     xorriso \
-      -indev ~/ISO/ubuntu-24.04.3-live-server-amd64.iso \
+      -indev ~/ISO/ubuntu-24.04.4-live-server-amd64.iso \
       -outdev ubuntu-autoinstall.iso \
       -map nocloud.control /nocloud.control \
       -map nocloud.min /nocloud.min \
@@ -62,39 +60,10 @@ auf so etwas ändern:
 
 Damit bleibt BIOS/UEFI-Boot wie im Original, nur `grub.cfg` und `nocloud/` werden ersetzt bzw. hinzugefügt.
 
-**Optional: Virtuelle Disk anlegen**
-
-    rm -f disk.img
-    qemu-img create -f qcow2 disk.img 40G
-
-**Optional: VM starten (Autoinstall, seriell im Terminal)**
-
-Im aktuellen Terminalfenster (funktoniert auch in ssh-Verbindung) starten:
-
-    qemu-system-x86_64 \
-      -machine accel=tcg \
-      -m 4096 \
-      -cpu qemu64 \
-      -cdrom ubuntu-autoinstall.iso \
-      -boot d \
-      -drive file=disk.img,format=qcow2,if=virtio \
-      -serial mon:stdio \
-      -nographic
-
-Als separates Fenster (besser zum stoppen):
-
-    qemu-system-x86_64 \
-      -machine accel=tcg \
-      -m 4096 \
-      -cpu qemu64 \
-      -cdrom ubuntu-autoinstall.iso \
-      -boot d \
-      -drive file=disk.img,format=qcow2,if=virtio
-
 **USB Stick schreiben**
 
     sudo dd if=ubuntu-autoinstall.iso of=/dev/sda bs=4M status=progress oflag=sync
     sync
     sudo udisksctl power-off -b /dev/sda
 
-**ACHTUNG**: USB Stick Device `/dev/sda` erst durch `lsblk` ermitteln ansonsten wird der Harddisk überschrieben.
+**ACHTUNG**: USB Stick Device `/dev/sda` erst durch `lsblk` ermitteln im schlimmsten Fall wird der Harddisk überschrieben.
