@@ -25,6 +25,11 @@ Die auskommentierten Zeilen in `/srv/tftp/grub/grub.cfg` wieder aktivieren.
 
 Worker wieder einschalten.
 
+### Aktive Geräte im Subnetz ermitteln
+
+Der Befehl durchsucht das Subnetz und zeigt alle aktuell erreichbaren Geräte an.
+
+    sudo nmap -sn 10.0.51.0/24
 
 ### Kubeconfig (merge)
 
