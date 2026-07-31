@@ -1,5 +1,31 @@
 ## 12. FAQ
 
+### Neuinstallation aller Worker erzwingen
+
+Nach einer Neuinstallation vom Control kann der SSH-Zugriff vom Control auf die Worker fehlschlagen, weil neue SSH-Keys erzeugt wurden. In diesem Fall müssen alle Worker neu installiert werden.
+
+Auf dem Control in `/srv/tftp/grub/grub.cfg` folgende Zeilen auskommentieren:
+
+    if search --no-floppy --file --set=root /boot/lernvirt-installed; then
+        set default="0"
+    fi
+
+In `/var/www/html/autoinstall/user-data` vor `late-commands` einfügen:
+
+    shutdown: poweroff
+      
+    late-commands:
+      - curtin in-target --target=/target -- touch /boot/lernvirt-installed
+
+Alle Worker ausschalten und wieder einschalten.
+
+Warten, bis die Worker nach der Neuinstallation selbstständig herunterfahren.
+
+Die auskommentierten Zeilen in `/srv/tftp/grub/grub.cfg` wieder aktivieren.
+
+Worker wieder einschalten.
+
+
 ### Kubeconfig (merge)
 
 > **Wie kann ich mehrere Kubernetes-Cluster in einer einzigen `kubeconfig` bündeln und effizient zwischen Clustern, Contexts und Namespaces wechseln, ohne Konfigurationen manuell anzupassen?**
