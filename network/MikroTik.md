@@ -123,7 +123,7 @@ Konfiguration vervollständigen
     
     [Peer]
     PublicKey = <Ausgabe von MikroTik oben>
-    Endpoint = 192.168.1.33:51820
+    Endpoint = <Öffentliche Adresse>:51820
     AllowedIPs = 10.10.1.0/24, 10.0.51.0/24
 
 **MikroTik**
