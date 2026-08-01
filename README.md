@@ -55,6 +55,7 @@ Aufbau Helm Instanz Namen: [Modul]-[Klasse]-[Lehrerkürzel]
 
 ## 2. + 3. Voraussetzungen und Installation
 
+* [Netzwerk einrichten](network/MikroTik.md)
 * [Installation](INSTALL.md)
 * Für bestehende lernMAAS Umgebungen siehe [Migration](MIGRATION.md)
 
