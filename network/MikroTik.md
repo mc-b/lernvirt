@@ -1,14 +1,18 @@
 ## MikroTik
 
-### Gerät resetten (nur wenn keine WLAN Verbindung möglich)
+### Gerät zurücksetzen
 
-`reset` mit Kugelschreiber o.ä. eindrücken, Gerät mit Strom verbinden.
+*(Nur erforderlich, wenn keine WLAN-Verbindung möglich ist.)*
 
-Sobald die grüne LED zu blinken anfügt, loslassen.
+1. Die **Reset-Taste** mit einem Kugelschreiber oder einem ähnlichen Gegenstand gedrückt halten.
+2. Das Gerät mit dem Strom verbinden.
+3. Sobald die grüne LED zu blinken beginnt, die Reset-Taste loslassen.
+4. Mit dem WLAN **`MikroTik-xxxxx`** verbinden. Wifi Key auf der Unterseite des Geräts.
+5. Im Browser **[192.168.88.1](http://192.168.88.1/)** aufrufen.
+6. Mit folgenden Zugangsdaten anmelden:
 
-Mit WLAN `MikroTik-xxxxx` verbinden und im Browser [192.168.88.1](http://192.168.88.1/) anwählen.
-
-User ist `admin`, Password steht unten auf dem Gerät.
+   * **Benutzername:** `admin`
+   * **Passwort:** auf der Unterseite des Geräts
 
 ### Systemupdate durchführen
 
@@ -36,6 +40,22 @@ Danach sollte auch die RouterBOARD-Firmware aktualisiert werden:
 /system routerboard upgrade
 /system reboot
 ```
+
+### PC über Wake-on-LAN starten
+
+Wake-on-LAN auf dem PC aktivieren. Dazu muss das Cloud-init-Script folgende Zeile enthalten:
+
+    - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -
+
+Dann auf dem MikroTik folgenden Befehl ausführen:
+
+    /tool wol mac=80:EE:73:EF:xx:yy interface=bridge
+
+Falls der PC direkt an einer bestimmten Ethernet-Schnittstelle angeschlossen ist, kann statt bridge beispielsweise ether2 verwendet werden:
+
+    /tool wol mac=80:EE:73:EF:xx:yy interface=ether2
+
+Der MikroTik-Router sendet anschliessend ein Wake-on-LAN-Magic-Packet an den PC. Der PC sollte sich innerhalb weniger Sekunden einschalten.
 
 ### Verbindungsprobleme mit Windows 11
 
