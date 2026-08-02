@@ -119,6 +119,9 @@ add interface=wireguard1 list=LAN
 
 /ip firewall filter
 add chain=input action=accept protocol=udp dst-port=51820 in-interface-list=WAN comment="Allow WireGuard"
+
+/ip firewall filter
+move [find where comment="Allow WireGuard"] destination=[find where comment="defconf: drop all not coming from LAN"]  
 ```
 
 Kontrolle und Anzeige Public Key
@@ -144,7 +147,7 @@ Konfiguration vervollständigen
     [Peer]
     PublicKey = <Ausgabe von MikroTik oben>
     Endpoint = <Öffentliche Adresse>:51820
-    AllowedIPs = 10.10.1.0/24, 10.0.51.0/24
+    AllowedIPs = 10.10.1.0/24, 10.10.1.0/24
 
 **MikroTik**
 
@@ -235,7 +238,7 @@ Fehlerhafte Regeln entfernen
      └─ bestehendes Netz/VPN zu 10.10.1.0/24
           └─ UDP 10.10.1.11:51820
                └─ zweiter WireGuard-Tunnel zum MikroTik 
-                  └─ MikroTik Netzwerk 10.0.51.0/24 
+                  └─ MikroTik Netzwerk 10.10.1.0/24 
 
 Port freischalten               
                
