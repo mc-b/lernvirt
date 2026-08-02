@@ -100,7 +100,7 @@ Portweiterleitungen kontrollieren:
 
     /ip firewall nat print where comment~"SSH"
 
-### WireGuard einrichten
+### WireGuard Gateway einrichten
 
 * WireGuard-Interface erstellen:
 * WireGuard-IP setzen
@@ -125,7 +125,7 @@ Kontrolle und Anzeige Public Key
 
     /interface wireguard print detail where name=wireguard1
     
-#### Client hinzufügen
+#### WireGuard Client hinzufügen
 
 **Windows-Client**
 
@@ -161,6 +161,69 @@ Client löschen, wenn nicht mehr gebraucht
 
     /interface wireguard peers 
     remove [find where comment="Client-01"]
+    
+### Wireguard Peer Netzwerk 
+
+Diese Konfiguration richtet den MikroTik als **WireGuard-Client** ein und verbindet ihn sicher mit einem entfernten Netzwerk.
+    
+    /interface wireguard
+    add name=wg-xxx private-key="<Private Key>" mtu=1420 comment="WireGuard Client XXX"
+    
+    /ip address
+    add address=10.10.1.11/24 interface=wg-xxx comment="WireGuard XXX"
+    
+    /interface wireguard peers
+    add interface=wg-xxx public-key="<Public Key>" \
+        endpoint-address=cloud.xxx.ch \
+        endpoint-port=51820 \
+        allowed-address=10.10.1.11/24 \
+        persistent-keepalive=25s \
+        comment="XXX Peer"
+    
+Kontrolieren
+
+    /interface wireguard peers print detail 
+    
+SSH Zugriff via WireGuard erlauben
+
+    /ip service
+    set ssh disabled=no port=22 address=10.10.1.0/24
+    
+    /ip firewall filter
+    add chain=input action=accept \
+        protocol=tcp dst-port=22 \
+        in-interface=wg-tbz \
+        src-address=10.10.1.0/24 \
+        comment="SSH ueber WireGuard"
+        
+    /ip firewall filter move \
+        [find where comment="SSH ueber WireGuard"] \
+        destination=[find where comment="defconf: drop all not coming from LAN"] 
+        
+Menü Zugriff via WireGuard erlauben
+
+    /ip firewall filter
+    add chain=input \
+        action=accept \
+        protocol=tcp \
+        dst-port=80 \
+        in-interface=wg-tbz \
+        src-address=10.10.1.0/24 \
+        comment="WebFig HTTP ueber WireGuard"
+    
+    /ip firewall filter
+    add chain=input \
+        action=accept \
+        protocol=tcp \
+        dst-port=80 \
+        in-interface=wg-tbz \
+        src-address=10.10.1.0/24 \
+        place-before=[find where comment="defconf: drop all not coming from LAN"] \
+        comment="WebFig HTTP ueber WireGuard"  
+        
+Firewall Regeln und Reihenfolge kontrollieren
+
+    /ip firewall filter print where chain=input
 
 ### Nützliche Befehle
 
