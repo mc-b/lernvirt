@@ -184,7 +184,7 @@ Kontrolieren
 
     /interface wireguard peers print detail 
     
-SSH Zugriff via WireGuard erlauben
+**SSH Zugriff via WireGuard erlauben**
 
     /ip service
     set ssh disabled=no port=22 address=10.10.1.0/24
@@ -192,7 +192,7 @@ SSH Zugriff via WireGuard erlauben
     /ip firewall filter
     add chain=input action=accept \
         protocol=tcp dst-port=22 \
-        in-interface=wg-tbz \
+        in-interface=wg-xxx \
         src-address=10.10.1.0/24 \
         comment="SSH ueber WireGuard"
         
@@ -200,14 +200,14 @@ SSH Zugriff via WireGuard erlauben
         [find where comment="SSH ueber WireGuard"] \
         destination=[find where comment="defconf: drop all not coming from LAN"] 
         
-Menü Zugriff via WireGuard erlauben
+**Menü Zugriff via WireGuard erlauben**
 
     /ip firewall filter
     add chain=input \
         action=accept \
         protocol=tcp \
         dst-port=80 \
-        in-interface=wg-tbz \
+        in-interface=wg-xxx \
         src-address=10.10.1.0/24 \
         comment="WebFig HTTP ueber WireGuard"
     
@@ -216,7 +216,7 @@ Menü Zugriff via WireGuard erlauben
         action=accept \
         protocol=tcp \
         dst-port=80 \
-        in-interface=wg-tbz \
+        in-interface=wg-xxx \
         src-address=10.10.1.0/24 \
         place-before=[find where comment="defconf: drop all not coming from LAN"] \
         comment="WebFig HTTP ueber WireGuard"  
@@ -224,6 +224,33 @@ Menü Zugriff via WireGuard erlauben
 Firewall Regeln und Reihenfolge kontrollieren
 
     /ip firewall filter print where chain=input
+    
+Fehlerhafte Regeln entfernen
+
+    /ip firewall filter remove <No>
+    
+**WireGuard über WireGuard erlauben**
+
+    PC
+     └─ bestehendes Netz/VPN zu 10.10.1.0/24
+          └─ UDP 10.10.1.11:51820
+               └─ zweiter WireGuard-Tunnel zum MikroTik 
+                  └─ MikroTik Netzwerk 10.0.51.0/24 
+
+Port freischalten               
+               
+    /ip firewall filter
+    add chain=input \
+        action=accept \
+        protocol=udp \
+        dst-address=10.10.1.11 \
+        dst-port=51820 \
+        in-interface=wg-xxx \
+        src-address=10.10.1.0/24 \
+        place-before=[find where comment="defconf: drop all not coming from LAN"] \
+        comment="Zweiter WireGuard Handshake ueber wg-xxx"
+        
+Hinweis: besser Port forwards verwenden.        
 
 ### Nützliche Befehle
 
