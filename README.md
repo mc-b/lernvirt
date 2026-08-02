@@ -1,11 +1,11 @@
 # Lernumgebung mit KubeVirt auf microk8s
 
-<img src="https://kubevirt.io/user-guide/assets/architecture-simple.png"
+<img src="images/big-picture.png"
      alt="KubeVirt Architektur"
      style="max-width: 60%;">
 
 
-Quelle: [KubeVirt Architektur – User Guide](https://kubevirt.io/user-guide/architecture/)
+Quelle: KI generiert mit ChatGPT
 
 - - -
 
