@@ -109,13 +109,13 @@ Portweiterleitungen kontrollieren:
 
 ```
 /interface wireguard
-add name=wireguard1 listen-port=51820 mtu=1420
+add name=wg-gateway listen-port=51820 mtu=1420
 
 /ip address
-add address=10.10.1.1/24 interface=wireguard1
+add address=10.10.1.1/24 interface=wg-gateway
 
 /interface list member
-add interface=wireguard1 list=LAN
+add interface=wg-gateway list=LAN
 
 /ip firewall filter
 add chain=input action=accept protocol=udp dst-port=51820 in-interface-list=WAN comment="Allow WireGuard"
@@ -126,7 +126,7 @@ move [find where comment="Allow WireGuard"] destination=[find where comment="def
 
 Kontrolle und Anzeige Public Key
 
-    /interface wireguard print detail where name=wireguard1
+    /interface wireguard print detail where name=wg-gateway
     
 #### WireGuard Client hinzufügen
 
@@ -154,7 +154,7 @@ Konfiguration vervollständigen
 Den öffentlichen Schlüssel, des Clients, im MikroTik eintragen
 
     /interface wireguard peers
-    add interface=wireguard1 public-key="CLIENT-PUBLIC-KEY" allowed-address=10.10.1.11/32 comment="Client-01"
+    add interface=wg-gateway public-key="CLIENT-PUBLIC-KEY" allowed-address=10.10.1.11/32 comment="Client-01"
     
 Kontrolle
 
