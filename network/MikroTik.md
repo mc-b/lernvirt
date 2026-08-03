@@ -183,7 +183,7 @@ Diese Konfiguration richtet den MikroTik als **WireGuard-Client** ein und verbin
         persistent-keepalive=25s \
         comment="XXX Peer"
     
-Kontrolieren
+Kontrollieren
 
     /interface wireguard peers print detail 
     
