@@ -1,5 +1,7 @@
 ## MikroTik
 
+**Vor evtl. Anpassungen muss der MikroTik-Router auf RouterOS 7.23.2 oder neuer aktualisiert werden.**
+
 ### Gerät zurücksetzen
 
 *(Nur erforderlich, wenn keine WLAN-Verbindung möglich ist.)*
@@ -40,6 +42,20 @@ Danach sollte auch die RouterBOARD-Firmware aktualisiert werden:
 /system routerboard upgrade
 /system reboot
 ```
+
+### WLAN-Sendeleistung
+
+Es wird empfohlen, die WLAN-Sendeleistung des MikroTik-Routers auf **5 dBm** zu begrenzen. Dadurch wird die Funkabdeckung auf den tatsächlich benötigten Bereich beschränkt und das Risiko von Überschneidungen sowie Störungen mit benachbarten WLAN-Netzen reduziert.
+
+    /interface/wifi/set wifi1 configuration.tx-power=5
+
+Falls die reduzierte Sendeleistung zu einer unzureichenden WLAN-Abdeckung führt, sollte die Begrenzung wieder entfernt werden. Der Router verwendet danach erneut die automatisch ermittelte, zulässige Sendeleistung.
+
+    /interface/wifi/set wifi1 configuration.tx-power=""
+    
+Anzeige der aktuellen Werte
+
+    /interface/wifi/print detail    
 
 ### PC über Wake-on-LAN starten
 
