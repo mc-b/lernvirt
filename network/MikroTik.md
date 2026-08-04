@@ -128,7 +128,7 @@ Portweiterleitungen kontrollieren:
 add name=wg-gateway listen-port=51820 mtu=1420
 
 /ip address
-add address=10.10.1.1/24 interface=wg-gateway
+add address=10.1.51.1/24 interface=wg-gateway
 
 /interface list member
 add interface=wg-gateway list=LAN
@@ -158,19 +158,19 @@ Konfiguration vervollständigen
 
     [Interface]
     PrivateKey = <von WireGuard erzeugt>
-    Address = 10.10.1.11/32
+    Address = 10.1.51.11/32
     
     [Peer]
     PublicKey = <Ausgabe von MikroTik oben>
     Endpoint = <Öffentliche Adresse>:51820
-    AllowedIPs = 10.10.1.0/24, 10.10.0.0/24
+    AllowedIPs = 10.1.51.0/24, 10.10.0.0/24
 
 **MikroTik**
 
 Den öffentlichen Schlüssel, des Clients, im MikroTik eintragen
 
     /interface wireguard peers
-    add interface=wg-gateway public-key="CLIENT-PUBLIC-KEY" allowed-address=10.10.1.11/32 comment="Client-01"
+    add interface=wg-gateway public-key="CLIENT-PUBLIC-KEY" allowed-address=10.1.51.11/32 comment="Client-01"
     
 Kontrolle
 
@@ -181,38 +181,16 @@ Client löschen, wenn nicht mehr gebraucht
     /interface wireguard peers 
     remove [find where comment="Client-01"]
     
-### Wireguard Peer Netzwerk 
-
-Diese Konfiguration richtet den MikroTik als **WireGuard-Client** ein und verbindet ihn sicher mit einem entfernten Netzwerk.
-    
-    /interface wireguard
-    add name=wg-xxx private-key="<Private Key>" mtu=1420 comment="WireGuard Client XXX"
-    
-    /ip address
-    add address=10.10.1.11/24 interface=wg-xxx comment="WireGuard XXX"
-    
-    /interface wireguard peers
-    add interface=wg-xxx public-key="<Public Key>" \
-        endpoint-address=cloud.xxx.ch \
-        endpoint-port=51820 \
-        allowed-address=10.10.1.11/24 \
-        persistent-keepalive=25s \
-        comment="XXX Peer"
-    
-Kontrollieren
-
-    /interface wireguard peers print detail 
-    
 **SSH Zugriff via WireGuard erlauben**
 
     /ip service
-    set ssh disabled=no port=22 address=10.10.1.0/24
+    set ssh disabled=no port=22 address=10.1.51.0/24
     
     /ip firewall filter
     add chain=input action=accept \
         protocol=tcp dst-port=22 \
         in-interface=wg-xxx \
-        src-address=10.10.1.0/24 \
+        src-address=10.1.51.0/24 \
         comment="SSH ueber WireGuard"
         
     /ip firewall filter move \
@@ -227,7 +205,7 @@ Kontrollieren
         protocol=tcp \
         dst-port=80 \
         in-interface=wg-xxx \
-        src-address=10.10.1.0/24 \
+        src-address=10.1.51.0/24 \
         comment="WebFig HTTP ueber WireGuard"
     
     /ip firewall filter
@@ -236,7 +214,7 @@ Kontrollieren
         protocol=tcp \
         dst-port=80 \
         in-interface=wg-xxx \
-        src-address=10.10.1.0/24 \
+        src-address=10.1.51.0/24 \
         place-before=[find where comment="defconf: drop all not coming from LAN"] \
         comment="WebFig HTTP ueber WireGuard"  
         
@@ -248,26 +226,43 @@ Fehlerhafte Regeln entfernen
 
     /ip firewall filter remove <No>
     
-**WireGuard über WireGuard erlauben**
+### Verschachteltete WireGuard-Verbindung
 
-    PC
-     └─ bestehendes Netz/VPN zu 10.10.1.0/24
-          └─ UDP 10.10.1.11:51820
-               └─ zweiter WireGuard-Tunnel zum MikroTik 
-                  └─ MikroTik Netzwerk 10.10.1.0/24 
+Der MikroTik-Router wird zunächst in ein bereits bestehendes Netzwerk integriert. Auf dem Client wird die vorhandene WireGuard-Verbindung zum Netz `10.1.24.0/24` eingerichtet und aktiviert. Über das WireGuard-Gateway `10.1.24.11:51820` wird anschliessend ein zweiter WireGuard-Tunnel zum MikroTik aufgebaut.
 
-Port freischalten               
-               
+Dieser zweite Tunnel verwendet das WireGuard-Netz `10.1.51.0/24` und ermöglicht den Zugriff auf das eigentliche MikroTik-Netz `10.0.51.0/24`.
+
+```text
+PC
+└─ bestehender WireGuard-Tunnel: 10.1.24.0/24
+   └─ WireGuard-Gateway: 10.1.24.11:51820
+      └─ zweiter WireGuard-Tunnel: 10.1.51.0/24
+         └─ MikroTik-Netzwerk: 10.0.51.0/24
+```
+
+    /interface wireguard
+    add name=wg-2-24 private-key="<Private Key>" mtu=1420
+    
+    /ip address
+    add address=10.2.24.14/24 interface=wg-2-24
+    
+    /interface wireguard peers
+    add interface=wg-2-24 public-key="<Public Key>" \
+        endpoint-address=cloud.xxx.ch \
+        endpoint-port=51820 \
+        allowed-address=10.2.24.14/24 \
+        persistent-keepalive=25s
+    
     /ip firewall filter
     add chain=input \
         action=accept \
         protocol=udp \
-        dst-address=10.10.1.11 \
+        src-address=10.2.24.0/24 \
+        dst-address=10.2.24.14 \
+        in-interface=wg-2-24 \
         dst-port=51820 \
-        in-interface=wg-xxx \
-        src-address=10.10.1.0/24 \
         place-before=[find where comment="defconf: drop all not coming from LAN"] \
-        comment="Zweiter WireGuard Handshake ueber wg-xxx"
+        comment="WireGuard Handshake ueber wg-2-24"
         
 Hinweis: besser Port forwards verwenden.        
 
