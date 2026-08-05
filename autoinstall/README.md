@@ -67,3 +67,16 @@ Damit bleibt BIOS/UEFI-Boot wie im Original, nur `grub.cfg` und `nocloud/` werde
     sudo udisksctl power-off -b /dev/sda
 
 **ACHTUNG**: USB Stick Device `/dev/sda` erst durch `lsblk` ermitteln im schlimmsten Fall wird der Harddisk überschrieben.
+
+
+### Boot Ablauf
+
+```
+[ GRUB ] -> vmlinuz + initrd (TFTP)
+   |
+   v
+[/boot/lernvirt-installed] -> vorhanden -> lokal Boot || Neuinstallation
+   |
+   v
+[ Ubuntu Installer ] -> cloud-init (HTTP) -- touch /boot/lernvirt-installed
+```
