@@ -41,7 +41,10 @@ Der bestehende Router bleibt weiterhin **normaler DHCP-Server** (IP, Gateway, DN
 [ GRUB ] -> vmlinuz + initrd (TFTP)
    |
    v
-[ Ubuntu Installer ] -> cloud-init (HTTP)
+[/boot/lernvirt-installed] -> vorhanden -> lokal Boot || Neuinstallation
+   |
+   v
+[ Ubuntu Installer ] -> cloud-init (HTTP) -- touch /boot/lernvirt-installed
 ```
 
 ---
@@ -101,6 +104,12 @@ autoinstall:
 * Client starten
 * **„Ubuntu Server 24.04 Autoinstall (lernvirt)“** auswählen
 * Installation läuft vollständig automatisch
+
+Oder
+* mittels ssh mit dem Client verbinden
+* `sudo rm /boot/lernvirt-installed`
+* `sudo reboot`
+* Die Neuinstallation läuft vollständig automatisch
 
 ---
 
