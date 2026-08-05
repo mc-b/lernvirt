@@ -191,22 +191,6 @@ Client löschen, wenn nicht mehr gebraucht
     /interface wireguard peers 
     remove [find where comment="Client-01"]
     
-**SSH Zugriff via WireGuard erlauben**
-
-    /ip service
-    set ssh disabled=no port=22 address=10.1.51.0/24
-    
-    /ip firewall filter
-    add chain=input action=accept \
-        protocol=tcp dst-port=22 \
-        in-interface=wg-xxx \
-        src-address=10.1.51.0/24 \
-        comment="SSH ueber WireGuard"
-        
-    /ip firewall filter move \
-        [find where comment="SSH ueber WireGuard"] \
-        destination=[find where comment="defconf: drop all not coming from LAN"] 
-        
 **Menü Zugriff via WireGuard erlauben**
 
     /ip firewall filter
