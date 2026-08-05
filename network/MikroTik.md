@@ -2,6 +2,16 @@
 
 **Vor evtl. Anpassungen muss der MikroTik-Router auf RouterOS 7.23.2 oder neuer aktualisiert werden.**
 
+### Backup und Restore der Konfiguration
+    
+Backup erstellen (als Script Datei `mikrotik-config.rsc`)
+
+    /export show-sensitive file=mikrotik-config
+
+Restore
+
+    /import file-name="mikrotik-config.rsc"  
+
 ### Gerät zurücksetzen
 
 *(Nur erforderlich, wenn keine WLAN-Verbindung möglich ist.)*
@@ -89,11 +99,11 @@ WPA3 benötigt Protected Management Frames. Bei älteren RouterOS-Versionen und 
 Kubernetes-Nodes sollten dauerhaft dieselbe IP-Adresse erhalten. Dafür werden auf dem DHCP-Server statische Leases anhand der MAC-Adresse eingerichtet.
 
     /ip dhcp-server lease
-    add address=10.0.51.5 mac-address=80:EE:73:EF:xx:yy client-id="" comment="control-01"
-    add address=10.0.51.6 mac-address=80:EE:73:EF:xx:yy client-id="" comment="worker-01"
-    add address=10.0.51.7 mac-address=80:EE:73:EF:xx:yy client-id="" comment="worker-02"
-    add address=10.0.51.8 mac-address=80:EE:73:EF:xx:yy client-id="" comment="worker-03"
-    add address=10.0.51.9 mac-address=80:EE:73:EF:xx:yy client-id="" comment="worker-04"
+    add address=10.0.51.10 mac-address=80:EE:73:ED:F0:0B client-id="" comment="control-01"
+    add address=10.0.51.11 mac-address=80:EE:73:ED:EB:AD client-id="" comment="worker-01"
+    add address=10.0.51.12 mac-address=80:EE:73:F0:D5:11 client-id="" comment="worker-02"
+    add address=10.0.51.13 mac-address=80:EE:73:EB:8A:43 client-id="" comment="worker-03"
+    add address=10.0.51.14 mac-address=80:EE:73:F2:2F:0D client-id="" comment="worker-04"
 
 **Wichtig:** `client-id` muss leer sein. Die Client-ID kann sich bei einer Neuinstallation des Betriebssystems ändern. Die Zuordnung erfolgt dadurch ausschliesslich über die MAC-Adresse.
 
@@ -264,7 +274,7 @@ PC
         place-before=[find where comment="defconf: drop all not coming from LAN"] \
         comment="WireGuard Handshake ueber wg-2-24"
         
-Hinweis: besser Port forwards verwenden.        
+Hinweis: besser Port forwards verwenden.
 
 ### Nützliche Befehle
 
@@ -287,5 +297,9 @@ Aktuelle RouterOS-Version anzeigen:
 Installierte Pakete anzeigen:
 
     /system package print
+   
+Eigene MAC Adressen MikroTik ausgeben
 
+    /interface ethernet print detail
+    /ip dhcp-client print detail
 
