@@ -1,0 +1,25 @@
+# Automatisch generierte Host-Konfiguration für lernvirt
+
+vm:
+  count: 3
+
+wgClients:
+  count: 24
+  endpointNode: 10.0.51.10
+
+mirror:
+  enabled: true
+  mirrorBaseUrl: http://10.0.51.10
+
+datasource:
+  serverIP: 10.0.51.10
+
+os:
+  architecture: amd64
+
+auth:
+  # steuert das Erzeugen/Einspeisen des gemeinsamen SSH-Keys
+  manageSshKey: false
+
+  # steuert das Ersetzen von 'insecure' durch ein generiertes Passwort
+  managePassword: false
