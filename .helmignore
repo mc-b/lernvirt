@@ -5,13 +5,16 @@
 *.orig
 *.tmp
 *.log
+.continue
 addons/*
 advanced/*
 autoinstall/*
 cloud/*
 examples/*
+network/*
 multus/*
 hosts/*
+images/*
 pxe/*
 scripts/*
 env/*
@@ -22,3 +25,4 @@ build/*
 .helmignore
 .terraform
 terra*
+wg/*
