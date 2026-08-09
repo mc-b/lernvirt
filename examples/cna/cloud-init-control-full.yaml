@@ -34,7 +34,7 @@ runcmd:
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/vpn.sh | bash -
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k3scontrol.sh | bash -
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k3scontroladdons.sh | bash - 
-  - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/jupyter-lab.sh | bash -"
+  - sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/jupyter-lab.sh |  SKIP_LIBRARIES=false bash -"
   - sudo su - ubuntu -c "git clone https://gitlab.com/ch-tbz-wb/Stud/cna.git"
   - sudo su - ubuntu -c "git clone https://gitlab.com/ch-tbz-wb/Stud/cna-ai"
   - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/k8stools.sh | bash -  
