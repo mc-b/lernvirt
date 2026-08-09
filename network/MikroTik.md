@@ -2,70 +2,32 @@
 
 **Vor evtl. Anpassungen muss der MikroTik-Router auf RouterOS 7.23.2 oder neuer aktualisiert werden.**
 
-### Backup und Restore der Konfiguration
-    
-Backup erstellen (als Script Datei `mikrotik-config.rsc`)
+### Nützliche Befehle
 
-    /export show-sensitive file=mikrotik-config
+Alle bezogenen DHCP-Adressen anzeigen
 
-Restore
+    /ip dhcp-server lease print
 
-    /import file-name="mikrotik-config.rsc"  
+Alle konfigurierten IPv4-Adressen anzeigen:
 
-### Gerät zurücksetzen
+    /ip address print
 
-*(Nur erforderlich, wenn keine WLAN-Verbindung möglich ist.)*
+DHCP-Client am WAN-Port anzeigen:
 
-1. Die **Reset-Taste** mit einem Kugelschreiber oder einem ähnlichen Gegenstand gedrückt halten.
-2. Das Gerät mit dem Strom verbinden.
-3. Sobald die grüne LED zu blinken beginnt, die Reset-Taste loslassen.
-4. Mit dem WLAN **`MikroTik-xxxxx`** verbinden. Wifi Key auf der Unterseite des Geräts.
-5. Im Browser **[192.168.88.1](http://192.168.88.1/)** aufrufen.
-6. Mit folgenden Zugangsdaten anmelden:
+    /ip dhcp-client print detail
 
-   * **Benutzername:** `admin`
-   * **Passwort:** auf der Unterseite des Geräts
+Aktuelle RouterOS-Version anzeigen:
 
-### Systemupdate durchführen
+    /system resource print
 
-Vor dem Update empfiehlt sich ein Export der aktuellen Konfiguration:
+Installierte Pakete anzeigen:
 
-```
-/export file=before-update
-/system backup save name=before-update
-```
+    /system package print
+   
+Eigene MAC Adressen MikroTik ausgeben
 
-Anschliessend den Stable-Kanal auswählen, nach Updates suchen und die Installation starten:
-
-```
-/system package update
-set channel=stable
-check-for-updates
-install
-```
-
-Der Router startet nach der Installation neu.
-
-Danach sollte auch die RouterBOARD-Firmware aktualisiert werden:
-
-```
-/system routerboard upgrade
-/system reboot
-```
-
-### WLAN-Sendeleistung
-
-Es wird empfohlen, die WLAN-Sendeleistung des MikroTik-Routers auf **5 dBm** zu begrenzen. Dadurch wird die Funkabdeckung auf den tatsächlich benötigten Bereich beschränkt und das Risiko von Überschneidungen sowie Störungen mit benachbarten WLAN-Netzen reduziert.
-
-    /interface/wifi/set wifi1 configuration.tx-power=5
-
-Falls die reduzierte Sendeleistung zu einer unzureichenden WLAN-Abdeckung führt, sollte die Begrenzung wieder entfernt werden. Der Router verwendet danach erneut die automatisch ermittelte, zulässige Sendeleistung.
-
-    /interface/wifi/set wifi1 configuration.tx-power=""
-    
-Anzeige der aktuellen Werte
-
-    /interface/wifi/print detail    
+    /interface ethernet print detail
+    /ip dhcp-client print detail
 
 ### PC über Wake-on-LAN starten
 
@@ -83,16 +45,19 @@ Falls der PC direkt an einer bestimmten Ethernet-Schnittstelle angeschlossen ist
 
 Der MikroTik-Router sendet anschliessend ein Wake-on-LAN-Magic-Packet an den PC. Der PC sollte sich innerhalb weniger Sekunden einschalten.
 
-### Verbindungsprobleme mit Windows 11
+### Gerät zurücksetzen
 
-Bei Problemen mit Windows 11 kann der WPA2/WPA3-Mischbetrieb die Ursache sein. WPA3 deshalb testweise deaktivieren:
+*(Nur erforderlich, wenn keine WLAN-Verbindung möglich ist.)*
 
-```
-/interface wifiwave2
-set [find default-name=wifi1] security.authentication-types=wpa2-psk
-```
+1. Die **Reset-Taste** mit einem Kugelschreiber oder einem ähnlichen Gegenstand gedrückt halten.
+2. Das Gerät mit dem Strom verbinden.
+3. Sobald die grüne LED zu blinken beginnt, die Reset-Taste loslassen.
+4. Mit dem WLAN **`MikroTik-xxxxx`** verbinden. Wifi Key auf der Unterseite des Geräts.
+5. Im Browser **[192.168.88.1](http://192.168.88.1/)** aufrufen.
+6. Mit folgenden Zugangsdaten anmelden:
 
-WPA3 benötigt Protected Management Frames. Bei älteren RouterOS-Versionen und bestimmten Windows-WLAN-Treibern kann der WPA2/WPA3-Übergangsmodus zu instabilen Verbindungen oder fehlgeschlagenen Anmeldungen führen.
+   * **Benutzername:** `admin`
+   * **Passwort:** auf der Unterseite des Geräts
 
 ### Statische IP-Adressen setzen
 
@@ -259,31 +224,80 @@ PC
         comment="WireGuard Handshake ueber wg-2-24"
         
 Hinweis: besser Port forwards verwenden.
+    
+## Zugriff auf KubeVirt-/Calico-Netz über WireGuard (nicht getestet)
 
-### Nützliche Befehle
+**Windows 11**
 
-Alle bezogenen DHCP-Adressen anzeigen
+In der WireGuard-Konfiguration wird das Calico-Netz beim Peer unter `AllowedIPs` ergänzt:
 
-    /ip dhcp-server lease print
+```ini
+[Peer]
+PublicKey = ...
+AllowedIPs = 10.1.51.0/24, 10.0.51.0/24, 10.1.0.0/16
+Endpoint = 10.2.24.18:51820
+```
 
-Alle konfigurierten IPv4-Adressen anzeigen:
+WireGuard legt unter Windows die entsprechende Route automatisch an. Eine zusätzliche statische Windows-Route ist nicht notwendig.
 
-    /ip address print
+**MikroTik RouterOS**
 
-DHCP-Client am WAN-Port anzeigen:
+Beim entsprechenden WireGuard-Peer muss das Calico-Netz unter `allowed-address` eingetragen sein.
+Zusätzlich wird eine Route über das WireGuard-Interface benötigt:
 
-    /ip dhcp-client print detail
+    /interface/wireguard/peers
+    set [find interface=wg-gateway] allowed-address=10.1.51.0/24,10.0.51.0/24,10.1.0.0/16
+    /ip/route
+    add dst-address=10.1.0.0/16 gateway=wg-gateway
 
-Aktuelle RouterOS-Version anzeigen:
+**Hinweis zu den IP-Netzen**
 
-    /system resource print
+Das bestehende WireGuard-Netz `10.1.51.0/24` liegt innerhalb des Calico-Netzes `10.1.0.0/16`
 
-Installierte Pakete anzeigen:
+Das Routing funktioniert grundsätzlich aufgrund der spezifischeren `/24`-Route. Der Bereich `10.1.51.0/24` kann dadurch jedoch nicht gleichzeitig für Calico-Workloads verwendet werden.
 
-    /system package print
-   
-Eigene MAC Adressen MikroTik ausgeben
+Langfristig sollte das WireGuard-Netz deshalb in einen nicht überlappenden Bereich verschoben werden, z. B.:
 
-    /interface ethernet print detail
-    /ip dhcp-client print detail
+```text
+WireGuard: 10.250.51.0/24
+Calico:    10.1.0.0/16
+LAN:       10.0.51.0/24
+```
+ 
+### Verbindungsprobleme mit Windows 11
+
+Bei Problemen mit Windows 11 kann der WPA2/WPA3-Mischbetrieb die Ursache sein. WPA3 deshalb testweise deaktivieren:
+
+```
+/interface wifiwave2
+set [find default-name=wifi1] security.authentication-types=wpa2-psk
+```
+
+WPA3 benötigt Protected Management Frames. Bei älteren RouterOS-Versionen und bestimmten Windows-WLAN-Treibern kann der WPA2/WPA3-Übergangsmodus zu instabilen Verbindungen oder fehlgeschlagenen Anmeldungen führen.
+
+### WLAN-Sendeleistung
+
+Es wird empfohlen, die WLAN-Sendeleistung des MikroTik-Routers auf **5 dBm** zu begrenzen. Dadurch wird die Funkabdeckung auf den tatsächlich benötigten Bereich beschränkt und das Risiko von Überschneidungen sowie Störungen mit benachbarten WLAN-Netzen reduziert.
+
+    /interface/wifi/set wifi1 configuration.tx-power=5
+
+Falls die reduzierte Sendeleistung zu einer unzureichenden WLAN-Abdeckung führt, sollte die Begrenzung wieder entfernt werden. Der Router verwendet danach erneut die automatisch ermittelte, zulässige Sendeleistung.
+
+    /interface/wifi/set wifi1 configuration.tx-power=""
+    
+Anzeige der aktuellen Werte
+
+    /interface/wifi/print detail    
+ 
+### Backup und Restore der Konfiguration als Scriptdatei
+    
+Backup erstellen (als Script Datei `mikrotik-config.rsc`)
+
+    /export show-sensitive file=mikrotik-config
+
+Restore
+
+    /import file-name="mikrotik-config.rsc"  
+
+ 
 
