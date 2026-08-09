@@ -185,6 +185,27 @@ Fehlerhafte Regeln entfernen
 
     /ip firewall filter remove <No>
     
+## Zugriff auf KubeVirt-/Calico-Netz (VMs) über WireGuard
+
+Da das bestehende WireGuard-Netz `10.1.51.0/24` innerhalb des Kubernetes-(Calico)-Netzes `10.1.0.0/16` liegt muss es z.B. auf `10.250.51.0/24` geändert werden.
+
+    Windows (10.250.1.11)
+      |
+      | ssh -i ~/.ssh/lerncloud ubuntu@10.1.182.70
+      v
+    WireGuard (<Öffentliche Adresse>:51820)
+      |
+      v
+    MikroTik (10.0.51.1)
+      |
+      | Route 10.1.0.0/16 -> 10.0.51.10
+      v
+    Kubernetes Node (10.0.51.10)
+      |
+      | Calico VXLAN
+      v
+    KubeVirt VM 10.1.182.70    
+    
 ### Verschachteltete WireGuard-Verbindung
 
 Der MikroTik-Router wird zunächst in ein bereits bestehendes Netzwerk integriert. Auf dem Client wird die vorhandene WireGuard-Verbindung zum Netz `10.1.24.0/24` eingerichtet und aktiviert. Über das WireGuard-Gateway `10.1.24.11:51820` wird anschliessend ein zweiter WireGuard-Tunnel zum MikroTik aufgebaut.
@@ -224,46 +245,32 @@ PC
         comment="WireGuard Handshake ueber wg-2-24"
         
 Hinweis: besser Port forwards verwenden.
-    
-## Zugriff auf KubeVirt-/Calico-Netz über WireGuard (nicht getestet)
 
 **Windows 11**
 
-In der WireGuard-Konfiguration wird das Calico-Netz beim Peer unter `AllowedIPs` ergänzt:
+In der WireGuard-Konfiguration wird das Kubernetes-Netz beim Peer unter `AllowedIPs` ergänzt:
 
 ```ini
 [Peer]
 PublicKey = ...
-AllowedIPs = 10.1.51.0/24, 10.0.51.0/24, 10.1.0.0/16
-Endpoint = 10.2.24.18:51820
+AllowedIPs = 10.250.51.0/24, 10.0.51.0/24, 10.1.0.0/16
+Endpoint = <Öffentliche Adresse>:51820
 ```
 
 WireGuard legt unter Windows die entsprechende Route automatisch an. Eine zusätzliche statische Windows-Route ist nicht notwendig.
 
 **MikroTik RouterOS**
 
-Beim entsprechenden WireGuard-Peer muss das Calico-Netz unter `allowed-address` eingetragen sein.
-Zusätzlich wird eine Route über das WireGuard-Interface benötigt:
+Beim allen WireGuard-Peers darf das Kubernetes-Netz nicht unter `allowed-address` eingetragen sein, d.h. es ändert nur das Netzwerk.
 
     /interface/wireguard/peers
-    set [find interface=wg-gateway] allowed-address=10.1.51.0/24,10.0.51.0/24,10.1.0.0/16
+    add interface=wg-gateway public-key="CLIENT-PUBLIC-KEY" allowed-address="10.250.51.11/32" comment="Client-01"
+        
+Die Route legt den Weg über die Kubernetes Node:    
+
     /ip/route
-    add dst-address=10.1.0.0/16 gateway=wg-gateway
+    add dst-address=10.1.0.0/16 gateway=10.0.51.10 comment="Route Kubernetes Calico"
 
-**Hinweis zu den IP-Netzen**
-
-Das bestehende WireGuard-Netz `10.1.51.0/24` liegt innerhalb des Calico-Netzes `10.1.0.0/16`
-
-Das Routing funktioniert grundsätzlich aufgrund der spezifischeren `/24`-Route. Der Bereich `10.1.51.0/24` kann dadurch jedoch nicht gleichzeitig für Calico-Workloads verwendet werden.
-
-Langfristig sollte das WireGuard-Netz deshalb in einen nicht überlappenden Bereich verschoben werden, z. B.:
-
-```text
-WireGuard: 10.250.51.0/24
-Calico:    10.1.0.0/16
-LAN:       10.0.51.0/24
-```
- 
 ### Verbindungsprobleme mit Windows 11
 
 Bei Problemen mit Windows 11 kann der WPA2/WPA3-Mischbetrieb die Ursache sein. WPA3 deshalb testweise deaktivieren:
