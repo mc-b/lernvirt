@@ -204,7 +204,33 @@ Da das bestehende WireGuard-Netz `10.1.51.0/24` innerhalb des Kubernetes-(Calico
       |
       | Calico VXLAN
       v
-    KubeVirt VM 10.1.182.70    
+    KubeVirt VM 10.1.182.70   
+    
+**Windows 11**
+
+In der WireGuard-Konfiguration wird das Kubernetes-Netz beim Peer unter `AllowedIPs` ergänzt:
+
+```ini
+[Peer]
+PublicKey = ...
+AllowedIPs = 10.250.51.0/24, 10.0.51.0/24, 10.1.0.0/16
+Endpoint = <Öffentliche Adresse>:51820
+```
+
+WireGuard legt unter Windows die entsprechende Route automatisch an. Eine zusätzliche statische Windows-Route ist nicht notwendig.
+
+**MikroTik RouterOS**
+
+Beim allen WireGuard-Peers darf das Kubernetes-Netz nicht unter `allowed-address` eingetragen sein, d.h. es ändert nur das Netzwerk.
+
+    /interface/wireguard/peers
+    add interface=wg-gateway public-key="CLIENT-PUBLIC-KEY" allowed-address="10.250.51.11/32" comment="Client-01"
+        
+Die Route legt den Weg über die Kubernetes Node:    
+
+    /ip/route
+    add dst-address=10.1.0.0/16 gateway=10.0.51.10 comment="Route Kubernetes Calico"
+     
     
 ### Verschachteltete WireGuard-Verbindung
 
@@ -246,30 +272,6 @@ PC
         
 Hinweis: besser Port forwards verwenden.
 
-**Windows 11**
-
-In der WireGuard-Konfiguration wird das Kubernetes-Netz beim Peer unter `AllowedIPs` ergänzt:
-
-```ini
-[Peer]
-PublicKey = ...
-AllowedIPs = 10.250.51.0/24, 10.0.51.0/24, 10.1.0.0/16
-Endpoint = <Öffentliche Adresse>:51820
-```
-
-WireGuard legt unter Windows die entsprechende Route automatisch an. Eine zusätzliche statische Windows-Route ist nicht notwendig.
-
-**MikroTik RouterOS**
-
-Beim allen WireGuard-Peers darf das Kubernetes-Netz nicht unter `allowed-address` eingetragen sein, d.h. es ändert nur das Netzwerk.
-
-    /interface/wireguard/peers
-    add interface=wg-gateway public-key="CLIENT-PUBLIC-KEY" allowed-address="10.250.51.11/32" comment="Client-01"
-        
-Die Route legt den Weg über die Kubernetes Node:    
-
-    /ip/route
-    add dst-address=10.1.0.0/16 gateway=10.0.51.10 comment="Route Kubernetes Calico"
 
 ### Verbindungsprobleme mit Windows 11
 
