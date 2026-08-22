@@ -153,6 +153,9 @@ datasource:
 
 os:
   architecture: ${ARCH}
+  
+mac:
+  seed: "${HOSTNAME}"  
 EOF
 
 WWW_ROOT="/var/www/html"
