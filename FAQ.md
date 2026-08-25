@@ -1,6 +1,20 @@
 ## 12. FAQ
 
+### Aktive Geräte im Subnetz ermitteln
+
+Der Befehl durchsucht das Subnetz und zeigt alle aktuell erreichbaren Geräte an.
+
+    sudo nmap -sn 10.0.51.0/24
+    
+### Neuinstallation
+
+> **Wie kann ich eine Neuinstallation der Bare Metal Geräte auslösen**
+
+Lösche auf jedem Gerät die Datei `/boot/lernvirt-installed` und führe einen Reboot aus. 
+
 ### Neuinstallation aller Worker erzwingen
+
+> **Wie kann ich eine Neuinstallation der Worker Nodes erzwingen, wenn ich mit ssh nicht mehr darauf komme?**
 
 Nach einer Neuinstallation vom Control kann der SSH-Zugriff vom Control auf die Worker fehlschlagen, weil neue SSH-Keys erzeugt wurden. In diesem Fall müssen alle Worker neu installiert werden.
 
@@ -23,15 +37,9 @@ Warten, bis die Worker nach der Neuinstallation selbstständig herunterfahren.
 
 Die auskommentierten Zeilen in `/srv/tftp/grub/grub.cfg` wieder aktivieren.
 
-Worker wieder einschalten.
+Worker wieder einschalten.    
 
-### Aktive Geräte im Subnetz ermitteln
-
-Der Befehl durchsucht das Subnetz und zeigt alle aktuell erreichbaren Geräte an.
-
-    sudo nmap -sn 10.0.51.0/24
-
-### Kubeconfig (merge)
+### Kubeconfig (merge - besser Context Switch)
 
 > **Wie kann ich mehrere Kubernetes-Cluster in einer einzigen `kubeconfig` bündeln und effizient zwischen Clustern, Contexts und Namespaces wechseln, ohne Konfigurationen manuell anzupassen?**
 
