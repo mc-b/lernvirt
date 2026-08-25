@@ -59,16 +59,18 @@ Falls WireGuard benötigt wird (Werte entsprechend anpassen):
 
     curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/scripts/install-lernvirt.sh | bash -
     curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -
+    curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8saddons.sh | bash - 
+    microk8s disable ingress           
+    microk8s enable rbac
     sudo su - ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/kubevirt.sh | bash -"
     microk8s kubectl -n kubevirt patch kubevirt kubevirt --type=merge --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":false}}}}'
-    microk8s enable metrics-server
-    microk8s enable rbac
-    microk8s kubectl apply -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/addons/dashboard-readonly.yaml
-    microk8s kubectl apply -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/addons/dashboard-rbac.yaml 
+    runuser -l ubuntu -c "curl https://raw.githubusercontent.com/mc-b/lerncloud/main/ssh/lerncloud >~/.ssh/id_rsa"
+    runuser -l ubuntu -c "chmod 600 ~/.ssh/id_rsa"           
+    curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -      
     
-Das Kubernetes Dashboard ist mittels Port 30443 erreichbar. Für den Zugriff braucht es einen Token welche wie folgt generiert werden kann:
+Das neue Kubernetes Dashboard (HeadLamp) ist mittels Port 30444 erreichbar. Für den Zugriff braucht es einen Token welche wie folgt generiert werden kann:
 
-    kubectl -n kubernetes-dashboard create token dashboard-readonly --duration=8h 
+    kubectl create token headlamp-admin -n kube-system --duration=8h 
 
 weiter bei Punkt 3.5.
 
