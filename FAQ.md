@@ -278,42 +278,54 @@ Danach ist Ollama lokal erreichbar unter:
 
 ### ReadOnly Zugriff auf Kubernetes Cluster
 
-> **Wie kann ich den Lernenden ReadOnly Zugriff auf den Kubernetes Cluster gewähren?**
+> **Wie kann ich den Lernenden ReadOnly-Zugriff auf den Kubernetes-Cluster mit Headlamp gewähren?**
 
-Dazu muss das Dashboard aktiviert sind oder zumindestens dessen RBAC eingerichtet sein.
+Dazu wird ein ServiceAccount mit ReadOnly-RBAC für Headlamp eingerichtet:
 
-    kubectl apply -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/addons/dashboard-rbac.yaml
+    kubectl apply -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/addons/headlamp-rbac.yaml
     
-Token und minimale KUBECONFIG erzeugen
+Noch als Administrator am besten gleich den Token für den Zugriff auf headlamp erstellen mit einer Gültigkeit von 4 Monaten:
 
-    DASHBOARD_TOKEN=$(kubectl -n kubernetes-dashboard create token dashboard-readonly)
+    kubectl -n kube-system create token headlamp-readonly --duration=2880h
 
-    APISERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
-    CA=$(kubectl config view --raw --minify -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
-    
-    export KUBECONFIG=readonly.config
-    
-    cat <<EOF >${KUBECONFIG}
-    apiVersion: v1
-    kind: Config
-    clusters:
-    - name: cluster
-      cluster:
-        server: ${APISERVER}
-        certificate-authority-data: ${CA}
-    users:
-    - name: dashboard-readonly
-      user:
-        token: ${DASHBOARD_TOKEN}
-    contexts:
-    - name: dashboard-readonly
-      context:
-        cluster: cluster
-        user: dashboard-readonly
-    current-context: dashboard-readonly
-    EOF
-        
+Minimale `KUBECONFIG` bzw. Datei `readonly.config` erzeugen:
+
+```bash
+HEADLAMP_TOKEN=$(kubectl -n kube-system create token headlamp-readonly)
+APISERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+CA=$(kubectl config view --raw --minify -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
+export KUBECONFIG=readonly.config
+
+cat <<EOF >${KUBECONFIG}
+apiVersion: v1
+kind: Config
+clusters:
+- name: cluster
+  cluster:
+    server: ${APISERVER}
+    certificate-authority-data: ${CA}
+users:
+- name: headlamp-readonly
+  user:
+    token: ${HEADLAMP_TOKEN}
+contexts:
+- name: headlamp-readonly
+  context:
+    cluster: cluster
+    user: headlamp-readonly
+current-context: headlamp-readonly
+EOF
+```
+
+Zugriff testen:
+
     kubectl get dv,vmi
+    
+**Headlamp**
+
+Headlamp, dass neue Dashboard für Kubernetes ist mittels http auf Port 30444 erreichbar.
+
+Mittels dem Token von oben haben die Lernenden Readonly Zugriff auf Headlamp.
     
 **ACHTUNG**: dadurch sehen die Lernenden auch die VMs und Default Passwörter der anderen Klassen.    
 
