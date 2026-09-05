@@ -158,6 +158,8 @@ Dabei wird der **RDP-Port 3389** der jeweiligen VM über einen Kubernetes-Servic
 Ein direkt exponierter RDP-Port stellt ein erhöhtes Sicherheitsrisiko dar.
 Für produktive oder internet-exponierte Umgebungen wird dringend empfohlen, den Zugriff **über das WireGuard-VPN** durchzuführen oder den NodePort per Firewall einzuschränken.
 
+**Tipp**: für Remotedesktop mittels Browser siehe [Apache Guacamole](guacamole/README.md).
+
 ### 8.1 Service überprüfen
 
 Mit folgendem Befehl kann überprüft werden, ob der RDP-Service aktiv ist:
