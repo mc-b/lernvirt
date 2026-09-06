@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: guacamole-user-mapping
+  namespace: guacamole
+data:
+  user-mapping.xml: |
+    <user-mapping>
+
+        <authorize username="user1" password="insecure">
+            <connection name="terra1">
+                <protocol>rdp</protocol>
+                <param name="hostname">10.10.1.11</param>
+                <param name="port">3389</param>
+                <param name="username">ubuntu</param>
+                <param name="password">insecure</param>
+                <param name="security">any</param>
+                <param name="ignore-cert">true</param>
+            </connection>
+        </authorize>
+
+        <authorize username="user2" password="insecure">
+            <connection name="terra2">
+                <protocol>rdp</protocol>
+                <param name="hostname">10.10.1.12</param>
+                <param name="port">3389</param>
+                <param name="username">ubuntu</param>
+                <param name="password">insecure</param>
+                <param name="security">any</param>
+                <param name="ignore-cert">true</param>
+            </connection>
+        </authorize>
+
+        <authorize username="user3" password="insecure">
+            <connection name="terra3">
+                <protocol>rdp</protocol>
+                <param name="hostname">10.10.1.13</param>
+                <param name="port">3389</param>
+                <param name="username">ubuntu</param>
+                <param name="password">insecure</param>
+                <param name="security">any</param>
+                <param name="ignore-cert">true</param>
+            </connection>
+        </authorize>
+
+        <authorize username="user4" password="insecure">
+            <connection name="terra4">
+                <protocol>rdp</protocol>
+                <param name="hostname">10.10.1.14</param>
+                <param name="port">3389</param>
+                <param name="username">ubuntu</param>
+                <param name="password">insecure</param>
+                <param name="security">any</param>
+                <param name="ignore-cert">true</param>
+            </connection>
+        </authorize>
+
+        <authorize username="user5" password="insecure">
+            <connection name="terra5">
+                <protocol>rdp</protocol>
+                <param name="hostname">10.10.1.15</param>
+                <param name="port">3389</param>
+                <param name="username">ubuntu</param>
+                <param name="password">insecure</param>
+                <param name="security">any</param>
+                <param name="ignore-cert">true</param>
+            </connection>
+        </authorize>
+
+    </user-mapping>

@@ -34,17 +34,23 @@ Die eigentliche RDP-Anmeldung auf den Ubuntu-Systemen erfolgt über XRDP. Die da
 
 ### Guacamole starten
 
-Die Container können mit Docker Compose gestartet werden:
 
-    docker-compose up -d
+Die Container können mit `kubectl` gestartet werden:
+
+    kubectl apply -f guacamole/
 
 Der Status der Container lässt sich anschliessend prüfen:
 
-    docker compose ps
+    kubectl get all,ingress -n guacamole
+    
+Kontrolle der Logs bei Fehler
+
+    kubectl logs -n guacamole deployment/guacamole
+    kubectl logs -n guacamole deployment/guacd 
 
 Der Zugriff auf Guacamole erfolgt danach über den Browser:
 
-    http://<IP-Adresse-des-Guacamole-Servers>:8080/guacamole/
+    http://<IP-Adresse-des-Guacamole-Servers>/guacamole/
 
 Für die Anmeldung werden die vorkonfigurierten Guacamole-Benutzer verwendet, beispielsweise:
 
