@@ -62,6 +62,7 @@ Dabei bedeuten:
 
 Die Container können mit `kubectl` gestartet werden:
 
+    kubectl apply -f guacamole/workload.yaml
     kubectl apply -f guacamole/
 
 Der Status der Container lässt sich anschliessend prüfen:
@@ -76,6 +77,10 @@ Kontrolle der Logs bei Fehler
 Der Zugriff auf Guacamole erfolgt danach über den Browser:
 
     http://<IP-Adresse-des-Guacamole-Servers>/guacamole/
+    
+Falls Traefik nicht den Port 80 verwendet (z.B. bei k3s)
+
+    kubectl get svc -n kube-system traefik
 
 Für die Anmeldung werden die vorkonfigurierten Guacamole-Benutzer verwendet, beispielsweise:
 
