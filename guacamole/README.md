@@ -32,6 +32,31 @@ user5 --> ws05 --> 10.10.1.15
 
 Die eigentliche RDP-Anmeldung auf den Ubuntu-Systemen erfolgt über XRDP. Die dafür benötigten Zugangsdaten sind bereits in der [Guacamole-Konfiguration](config/user-mapping.xml) hinterlegt.
 
+### Konfiguration anpassen
+
+Die Zuordnung von Guacamole-Benutzern zu den Zielsystemen erfolgt in der `user-mapping.xml`, bzw. `configuration.yaml`
+
+Pro Benutzer können insbesondere folgende Werte angepasst werden:
+
+    <authorize username="user1" password="insecure">
+        <connection name="ws01">
+            <protocol>rdp</protocol>
+    
+            <param name="hostname">10.10.1.11</param>
+            <param name="port">3389</param>
+    
+            <param name="username">ubuntu</param>
+            <param name="password">insecure</param>
+        </connection>
+    </authorize>
+
+Dabei bedeuten:
+
+* username und password im <authorize>-Element: Login für Apache Guacamole
+* hostname: IP-Adresse oder Hostname des Zielsystems
+* port: RDP-Port, normalerweise 3389
+* username und password innerhalb von <connection>: Login für das entfernte XRDP-System
+
 ### Guacamole starten
 
 
