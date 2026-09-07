@@ -62,8 +62,10 @@ Dabei bedeuten:
 
 Die Container können mit `kubectl` gestartet werden:
 
-    kubectl apply -f guacamole/workload.yaml
-    kubectl apply -f guacamole/
+    kubectl create namespace guacamole
+    kubectl apply -n guacamole -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/guacamole/configuration.yaml
+    kubectl apply -n guacamole -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/guacamole/workload.yaml
+    kubectl apply -n guacamole -f https://raw.githubusercontent.com/mc-b/lernvirt/refs/heads/main/guacamole/network.yaml
 
 Der Status der Container lässt sich anschliessend prüfen:
 
