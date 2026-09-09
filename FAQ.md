@@ -276,6 +276,33 @@ Danach ist Ollama lokal erreichbar unter:
 
 ---
 
+### DHCP-Reservationen mit Windows DHCP
+
+> **Warum werden fixe IP-Reservationen bei einem Windows-DHCP-Server ignoriert?**
+
+Windows DHCP verwendet bei Linux-Clients unter Umständen die vom Client gesendete IAID/DUID als DHCP-Client-ID statt ausschliesslich die MAC-Adresse. 
+
+Dadurch kann eine auf dem Windows-DHCP-Server konfigurierte MAC-basierte Reservation nicht greifen und der Client erhält eine andere IP-Adresse.
+
+Damit die Reservation zuverlässig über die MAC-Adresse funktioniert, ist die Netzwerk-Konfiguration im `user-data` entsprechend zu ergänzen oder anzupassen:
+
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ethernet:
+      match:
+        name: "en*"
+      dhcp4: true
+      dhcp-identifier: mac
+      optional: true
+```
+
+`dhcp-identifier: mac` erzwingt, dass die MAC-Adresse als DHCP-Client-ID verwendet wird; `optional: true` sorgt dafür, dass der Bootvorgang nicht auf dieses Netzwerk-Interface warten muss.
+
+---
+
 ### ReadOnly Zugriff auf Kubernetes Cluster
 
 > **Wie kann ich den Lernenden ReadOnly-Zugriff auf den Kubernetes-Cluster mit Headlamp gewähren?**
