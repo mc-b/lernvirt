@@ -93,7 +93,6 @@ Nach erfolgreicher Anmeldung kann die zugewiesene Verbindung geöffnet werden. G
 
 ### Guacamole Konfiguration updaten
 
-    cd duk.te
     kubectl apply -n guacamole -f guacamole/configuration.yaml
     
 Container frisch starten
