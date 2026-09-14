@@ -90,3 +90,12 @@ Für die Anmeldung werden die vorkonfigurierten Guacamole-Benutzer verwendet, be
     Passwort: insecure
 
 Nach erfolgreicher Anmeldung kann die zugewiesene Verbindung geöffnet werden. Guacamole stellt anschliessend die RDP-Verbindung zum entsprechenden Ubuntu-System her.
+
+### Guacamole Konfiguration updaten
+
+    cd duk.te
+    kubectl apply -n guacamole -f guacamole/configuration.yaml
+    
+Container frisch starten
+
+    kubectl rollout restart deployment guacamole -n guacamole
