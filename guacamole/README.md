@@ -98,3 +98,36 @@ Nach erfolgreicher Anmeldung kann die zugewiesene Verbindung geöffnet werden. G
 Container frisch starten
 
     kubectl rollout restart deployment guacamole -n guacamole
+    
+Dann würde ich die Troubleshooting-Notiz auf genau den funktionierenden Ablauf reduzieren:
+
+### Remote Desktop (lightdm, xrdp) Session Troubleshooting
+
+Hängende XFCE-Prozesse prüfen:
+
+    ps -u "$USER" -f | grep -E 'xfce4-session|xfwm4|xfdesktop' | grep -v grep
+
+Betroffene Prozesse gezielt beenden:
+
+    sudo kill -9 <PID1> <PID2> <PID3>
+
+XFCE-Session-Cache löschen:
+
+    rm -rf ~/.cache/sessions/*
+
+Sessions prüfen:
+
+    loginctl list-sessions
+    
+Evtl. laufende lightdm Sessions beenden
+
+    loginctl terminate-session <SESSION-ID>    
+
+Display Manager und xrdp neu starten:
+
+    sudo systemctl restart lightdm.service
+    sudo systemctl restart xrdp.service
+
+
+
+   
