@@ -58,6 +58,7 @@ Aufbau Helm Instanz Namen: [Modul]-[Klasse]-[Lehrerkürzel]
 * [Netzwerk einrichten](network/MikroTik.md)
 * [Installation](INSTALL.md)
 * Für bestehende lernMAAS Umgebungen siehe [Migration](MIGRATION.md)
+* [KVM-over-IP-Lösung (Luckfox PicoKVM](network/LuckfoxPicoKVM.md)
 
 ---
 
