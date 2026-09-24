@@ -19,9 +19,44 @@ Die wichtigsten Funktionen des [Luckfox PicoKVM](https://wiki.luckfox.com/Luckfo
 * **Dateiübertragung** zwischen lokalem Rechner und Zielsystem. 
 * **Remote-Zugriff über VPN-/Overlay-Netzwerke**, unter anderem Tailscale, WireGuard, ZeroTier und NetBird. 
 * **Wake-on-LAN** zum Einschalten unterstützter Systeme. 
-* **Remote Power Control** über die optionale PicoKVM-Ext-Erweiterung. 
+* **Remote Power Control** über die optionale PicoKVM-Ext-Erweiterung (braucht zusätzliche HW). 
 * **Ethernet-Anschluss mit 10/100 Mbit/s** sowie DHCP oder statischer IP-Konfiguration. 
 * **SSH-Zugriff** auf das zugrunde liegende Embedded-Linux-System. 
+
+### Remote-Installation von Betriebssystemen
+
+* [Serverinstallation auf Bare-Metal-Hardware](../autoinstall/README.md) durchführen, um das Installationsmedium **`ubuntu-autoinstall.iso`** zu erstellen.
+* SD-Karte mit **FAT32** formatieren.
+* **`ubuntu-autoinstall.iso`** als Datei auf die SD-Karte kopieren.
+* SD-Karte in den **Luckfox PicoKVM** einstecken.
+* Die **KVM-over-IP-Adresse** im Browser öffnen.
+* Unten rechts **Virtual Media** öffnen:
+    * eventuell bereits eingebundene Datenträger unmounten
+    * **SD Card** auswählen
+    * **`ubuntu-autoinstall.iso`** mounten
+* PC neu starten und im BIOS/UEFI **`PicoKVM Virtual Media`** als Boot-Gerät auswählen.
+* Installation durchführen
+
+### Wake-on-LAN
+
+* Oben `Power` auswählen.
+* `Add device ...` anklicken und `Device Name` sowie `MAC Address` eintragen.
+* Sicherstellen, dass während der Installation über `cloud-init` folgendes Skript ausgeführt wird:
+
+```bash
+curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -
+```
+
+### SSH-Zugriff
+
+* `Settings` → `Advanced` öffnen.
+* Unter `SSH Public Key` den gewünschten öffentlichen SSH-Schlüssel eintragen, z. B. Schlüssel aus dem [lerncloud-Repository](https://github.com/mc-b/lerncloud/tree/main/ssh).
+* Mit `Update SSH Key` speichern.
+* Anschliessend per SSH als `root` verbinden:
+
+```bash
+ssh -i ~/.ssh/lerncloud root@<IP-des-Luckfox-PicoKVM>
+```
 
 ### Tailscale als Client
 
