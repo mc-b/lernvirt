@@ -23,6 +23,8 @@ autoinstall:
   storage:
     layout:
       name: direct
+      
+  # shutdown: poweroff      
 
   # Diese Befehle laufen NOCH VOR dem Reboot am Ende der Installation
   late-commands:
