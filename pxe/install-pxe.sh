@@ -170,7 +170,7 @@ WWW="/var/www/html"
 LOGFILE="/var/log/dnsmasq-pxe.log"
 
 UBUNTU_VER="24.04.4"
-AMD64_URL_BASE="https://releases.ubuntu.com/noble"
+AMD64_URL_BASE="https://mirror.init7.net/ubuntu-releases/noble"
 ARM64_URL_BASE="https://cdimage.ubuntu.com/releases/noble/release"
 
 AMD64_ISO="ubuntu-${UBUNTU_VER}-live-server-amd64.iso"
