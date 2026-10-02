@@ -4,47 +4,69 @@ set -Eeuo pipefail
 CONFIG="${CONFIG:-/srv/tftp/config/rack.conf}"
 source "$CONFIG"
 
-ISO="ubuntu-${UBUNTU_VERSION}-live-server-amd64.iso"
-ISO_URL="${UBUNTU_ISO_URL:-https://mirror.init7.net/ubuntu-releases/${UBUNTU_VERSION}/${ISO}}"
+UBUNTU_VERSION="${UBUNTU_VERSION:-24.04.4}"
+UBUNTU_CODENAME="${UBUNTU_CODENAME:-noble}"
 
-TFTP_DIR="$TFTP_ROOT/linux/ubuntu/$UBUNTU_CODENAME/amd64"
-HTTP_DIR="$HTTP_ROOT/linux/ubuntu/$UBUNTU_CODENAME/amd64"
-ISO_PATH="$HTTP_DIR/$ISO"
+AMD64_URL_BASE="${AMD64_URL_BASE:-https://mirror.init7.net/ubuntu-releases/${UBUNTU_CODENAME}}"
+ARM64_URL_BASE="${ARM64_URL_BASE:-https://cdimage.ubuntu.com/releases/${UBUNTU_CODENAME}/release}"
 
-mkdir -p "$TFTP_DIR" "$HTTP_DIR"
+AMD64_ISO="ubuntu-${UBUNTU_VERSION}-live-server-amd64.iso"
+ARM64_ISO="ubuntu-${UBUNTU_VERSION}-live-server-arm64.iso"
 
-if [[ ! -s "$ISO_PATH" ]]; then
-    echo "Download: $ISO_URL"
-    curl -fL --retry 5 --retry-delay 3 --continue-at - \
-        "$ISO_URL" -o "$ISO_PATH"
-fi
+AMD64_HTTP_DIR="$HTTP_ROOT/linux/ubuntu/$UBUNTU_CODENAME/amd64"
+ARM64_HTTP_DIR="$HTTP_ROOT/linux/ubuntu/$UBUNTU_CODENAME/arm64"
+AMD64_ISO_PATH="$AMD64_HTTP_DIR/$AMD64_ISO"
+ARM64_ISO_PATH="$ARM64_HTTP_DIR/$ARM64_ISO"
 
-if [[ ! -s "$TFTP_DIR/vmlinuz" || ! -s "$TFTP_DIR/initrd" ]]; then
+# TFTP-Pfade bewusst wie im bisherigen pxe/install-pxe.sh.
+AMD64_TFTP_DIR="$TFTP_ROOT/amd64"
+ARM64_TFTP_DIR="$TFTP_ROOT/arm64"
+
+mkdir -p "$AMD64_HTTP_DIR" "$ARM64_HTTP_DIR" "$AMD64_TFTP_DIR" "$ARM64_TFTP_DIR"
+
+fetch() {
+    local url=$1 dest=$2
+    if [[ -s "$dest" ]]; then
+        echo "Vorhanden: $dest"
+        return 0
+    fi
+    echo "Download: $url"
+    wget -nv -O "$dest" "$url"
+}
+
+extract_assets() {
+    local arch=$1 iso=$2 tftp_dir=$3
+    local mnt
     mnt="$(mktemp -d)"
-    cleanup() {
-        mountpoint -q "$mnt" && umount "$mnt" || true
+
+    if ! mount -o loop,ro "$iso" "$mnt"; then
         rmdir "$mnt" 2>/dev/null || true
-    }
-    trap cleanup EXIT
+        echo "ISO konnte nicht gemountet werden: $iso" >&2
+        return 1
+    fi
 
-    mount -o loop,ro "$ISO_PATH" "$mnt"
+    if [[ ! -s "$mnt/casper/vmlinuz" || ! -s "$mnt/casper/initrd" ]]; then
+        umount "$mnt" || true
+        rmdir "$mnt" 2>/dev/null || true
+        echo "vmlinuz/initrd fehlen in $iso" >&2
+        return 1
+    fi
 
-    [[ -s "$mnt/casper/vmlinuz" ]] || {
-        echo "casper/vmlinuz fehlt in $ISO_PATH" >&2
-        exit 1
-    }
-    [[ -s "$mnt/casper/initrd" ]] || {
-        echo "casper/initrd fehlt in $ISO_PATH" >&2
-        exit 1
-    }
+    install -m 0644 "$mnt/casper/vmlinuz" "$tftp_dir/vmlinuz"
+    install -m 0644 "$mnt/casper/initrd" "$tftp_dir/initrd"
+    umount "$mnt"
+    rmdir "$mnt" 2>/dev/null || true
+    echo "Kernel und Initrd fuer $arch extrahiert."
+}
 
-    install -m 0644 "$mnt/casper/vmlinuz" "$TFTP_DIR/vmlinuz"
-    install -m 0644 "$mnt/casper/initrd" "$TFTP_DIR/initrd"
+fetch "$AMD64_URL_BASE/$AMD64_ISO" "$AMD64_ISO_PATH"
+fetch "$ARM64_URL_BASE/$ARM64_ISO" "$ARM64_ISO_PATH"
 
-    cleanup
-    trap - EXIT
-fi
+extract_assets amd64 "$AMD64_ISO_PATH" "$AMD64_TFTP_DIR"
+extract_assets arm64 "$ARM64_ISO_PATH" "$ARM64_TFTP_DIR"
 
 echo "Ubuntu PXE Assets bereit:"
-echo "  TFTP: $TFTP_DIR/{vmlinuz,initrd}"
-echo "  HTTP: $ISO_PATH"
+echo "  AMD64 ISO: $AMD64_ISO_PATH"
+echo "  ARM64 ISO: $ARM64_ISO_PATH"
+echo "  AMD64 TFTP: $AMD64_TFTP_DIR/{vmlinuz,initrd}"
+echo "  ARM64 TFTP: $ARM64_TFTP_DIR/{vmlinuz,initrd}"

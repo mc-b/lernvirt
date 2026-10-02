@@ -1,30 +1,26 @@
 # lernvirt PXE Basis
 #
-# Regeln werden von oben nach unten ausgewertet; die letzte passende Regel
-# gewinnt. "*" gilt für alle Rechner.
+# install-pxe.sh ermittelt PXE_SERVER, PXE_INTERFACE, PXE_NETWORK und
+# PXE_NETMASK automatisch aus dem aktiven IPv4-Default-Interface. Diese
+# Beispielwerte sind deshalb nur Platzhalter.
 #
-# Format:
-#   "MAC|STACK|VARIANT"
-#
-# Die PXE-Basis enthält: ubuntu, cna, cna-full, platen und reset.
-# Weitere Stacks können durch separate Add-on-Scripts installiert werden.
+# HOSTS-Regeln werden von oben nach unten ausgewertet; die letzte passende
+# Regel gewinnt. "*" gilt für alle Rechner.
+# Format: "MAC|STACK|VARIANT"
 
 PXE_SERVER="192.168.1.101"
-PXE_INTERFACE="br0"
+PXE_INTERFACE=""
 PXE_NETWORK="192.168.1.0"
 PXE_NETMASK="255.255.255.0"
 
 TFTP_ROOT="/srv/tftp"
 HTTP_ROOT="/var/www/html"
-
 INSTALL_DISK="/dev/nvme0n1"
 
 UBUNTU_VERSION="24.04.4"
 UBUNTU_CODENAME="noble"
-
 ALPINE_VERSION="3.22"
 BOOT_TOOLS="1"
-
 GRUB_TIMEOUT="5"
 
 SSH_KEY_FILE="/etc/lernvirt/lerncloud.pub"

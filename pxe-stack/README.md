@@ -1,37 +1,23 @@
 # lernvirt PXE Stack
 
-`pxe-stack` stellt die PXE-Basis für lernvirt bereit. Die Basis ist bewusst auf Ubuntu-basierte Lernumgebungen reduziert. SUSE, OpenShift und HAProxy werden **nicht** durch `install-pxe.sh` eingerichtet, sondern über separate Add-on-Scripts.
-
-## Architektur
-
-Die PXE-Basis besteht aus:
-
-- `dnsmasq` als Proxy-DHCP und TFTP
-- GRUB UEFI Network Boot
-- `nginx` fest auf **Port 80**
-- Ubuntu Server Autoinstall
-- lernvirt Stacks `ubuntu`, `cna`, `cna-full`, `platen` und `reset`
-- Alpine und BusyBox als optionale RAM-/Boot-Tools ohne Installation
-- SSH Public Key unter `/etc/lernvirt/lerncloud.pub`
-- `/boot/lernvirt-installed` zur Umschaltung auf lokalen Boot
-
-Optionale Komponenten:
-
-- `install-suse.sh` installiert den SUSE-PXE-Stack
-- `install-openshift.sh` installiert den OpenShift/RHCOS-PXE-Stack
-- `install-haproxy.sh` richtet HAProxy separat für die OpenShift API/MCS ein
-
-`install-pxe.sh` installiert **weder SUSE noch OpenShift noch HAProxy**.
+`pxe-stack` erweitert die bestehende, funktionierende `pxe/install-pxe.sh` um eine generische Stack-/Hostauswahl. Die PXE-Basis selbst bleibt dabei kompatibel zur bisherigen Implementierung: Netzwerkdaten werden automatisch ermittelt, `dnsmasq` läuft als Proxy-DHCP/TFTP ohne fest verdrahtetes Interface und nginx liefert die Installationsdateien auf Port 80 aus.
 
 ## Installation
-
-Direkt:
 
 ```bash
 curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | STACK=cna bash -
 ```
 
-In cloud-init:
+Optional mit einem vorgegebenen Public Key:
+
+```bash
+curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | \
+  STACK=cna \
+  SSH_PUBLIC_KEY_URL=https://raw.githubusercontent.com/mc-b/lerncloud/main/ssh/lerncloud.pub \
+  bash -
+```
+
+Für cloud-init:
 
 ```yaml
 #cloud-config
@@ -39,83 +25,44 @@ runcmd:
   - [bash, -lc, 'curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | STACK=cna bash -']
 ```
 
-Andere Basis-Stacks:
+## Was `install-pxe.sh` einrichtet
 
-```bash
-curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | STACK=ubuntu bash -
-curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | STACK=cna-full bash -
-curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | STACK=platen bash -
-curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | STACK=reset bash -
-```
+- automatische Ermittlung von Default-Interface, IPv4-Adresse, Netz und Netzmaske
+- `dnsmasq` als Proxy-DHCP und TFTP entsprechend der bisherigen `pxe/install-pxe.sh`
+- x86_64- und ARM64-UEFI-PXE (`grubx64.efi`, `grubaa64.efi`)
+- Ubuntu Server ISO für amd64 und arm64
+- nginx auf Port 80 mit `/var/www/html`
+- SSH-Key für den Benutzer `ubuntu`; alternativ kann `SSH_PUBLIC_KEY_URL` vorgegeben werden
+- Stack-/Hostauswahl über `rack.conf`
+- `/boot/lernvirt-installed` für lokalen Boot
+- `reset` als normaler Stack mit `user-data-reset`
+- Alpine/BusyBox optional als RAM-Bootvarianten ohne Installation
 
-## Verzeichnisstruktur
+SUSE, OpenShift und HAProxy sind **kein Bestandteil von `install-pxe.sh`**. Sie werden ausschliesslich durch ihre separaten Add-on-Scripts eingerichtet.
 
-```text
-pxe-stack/
-├── install-pxe.sh
-├── install-suse.sh
-├── install-openshift.sh
-├── install-haproxy.sh
-├── README.md
-├── config/
-│   └── rack.conf.example
-├── autoinstall/
-│   ├── user-data
-│   └── user-data-reset
-├── bin/
-│   ├── import-legacy-autoinstall
-│   ├── prepare-alpine
-│   ├── prepare-ssh-key
-│   ├── prepare-ubuntu
-│   ├── pxe-prepare
-│   ├── pxe-render
-│   └── pxe-show
-├── grub/
-│   ├── grub.cfg
-│   ├── boot-tools.cfg
-│   └── stacks/
-│       ├── _ubuntu-install.cfg
-│       ├── ubuntu.cfg
-│       ├── cna.cfg
-│       ├── cna-full.cfg
-│       ├── platen.cfg
-│       └── reset.cfg
-└── addons/
-    ├── suse/
-    │   ├── bin/prepare-suse
-    │   └── grub/stacks/suse.cfg
-    └── openshift/
-        ├── bin/prepare-openshift
-        ├── bin/prepare-openshift-ignition
-        ├── config/openshift.conf.example
-        └── grub/stacks/openshift.cfg
-```
+## Stacks
 
-Nach der Basisinstallation liegen die Laufzeitdateien unter:
+Die PXE-Basis enthält:
 
 ```text
-/srv/tftp/
-├── bin/
-├── config/rack.conf
-├── grub/
-│   ├── grub.cfg
-│   ├── hosts.cfg
-│   ├── runtime.cfg
-│   └── stacks/
-└── linux/
+ubuntu
+cna
+cna-full
+platen
+reset
 ```
 
-HTTP-Inhalte liegen unter `/var/www/html` und werden durch nginx über Port 80 ausgeliefert.
+`reset` installiert Ubuntu mit `user-data-reset`. Die Reset-Autoinstallation entfernt `/boot/lernvirt-installed`, aktiviert Wake-on-LAN und fährt den Rechner anschliessend herunter.
 
-## Host- und Stack-Auswahl
+## Hostauswahl
 
-Die Hostregeln stehen in:
+Die Konfiguration liegt unter:
 
 ```text
 /srv/tftp/config/rack.conf
 ```
 
-Format:
+Regelformat:
 
 ```bash
 HOSTS=(
@@ -123,7 +70,7 @@ HOSTS=(
 )
 ```
 
-`*` gilt für alle Rechner. Die Regeln werden von oben nach unten ausgewertet; die **letzte passende Regel gewinnt**.
+`*` gilt für alle Rechner. Regeln werden von oben nach unten ausgewertet; die letzte passende Regel gewinnt.
 
 Alle Rechner CNA:
 
@@ -133,12 +80,23 @@ HOSTS=(
 )
 ```
 
-Default CNA, ein Rechner CNA Full:
+Default CNA, einzelner Host CNA Full:
 
 ```bash
 HOSTS=(
     "*|cna|"
     "80:EE:73:EF:0D:E9|cna-full|"
+)
+```
+
+Globaler Reset:
+
+```bash
+HOSTS=(
+    "*|cna|"
+    "80:EE:73:EF:0D:E9|cna-full|"
+
+    "*|reset|"
 )
 ```
 
@@ -149,325 +107,121 @@ sudo /srv/tftp/bin/pxe-render
 sudo /srv/tftp/bin/pxe-show
 ```
 
-## Reset
+## PXE Netzwerk
 
-`reset` ist ein normaler Stack. Es gibt keine separate Reset-Sonderkonfiguration.
-
-Globaler Reset für alle Rechner:
+Die Netzwerkparameter werden wie in `pxe/install-pxe.sh` automatisch ermittelt:
 
 ```bash
-HOSTS=(
-    "*|cna|"
-
-    # andere Overrides ...
-
-    "*|reset|"
-)
+IFACE="$(ip -4 route show default | awk '{print $5; exit}')"
 ```
 
-Die letzte `*|reset|`-Regel gewinnt gegen alle vorherigen Regeln.
+`dnsmasq` wird **nicht** auf einen erfundenen oder fest konfigurierten Interface-Namen gebunden. Die relevante Konfiguration entspricht dem bisherigen Ansatz:
 
-Der Reset-Stack installiert Ubuntu mit:
+```ini
+port=0
+
+dhcp-range=<Subnetz>,proxy,<Netzmaske>
+
+#interface=<ermitteltes Interface>
+#bind-interfaces
+bind-dynamic
+
+dhcp-match=set:efi-x86_64,option:client-arch,7
+dhcp-match=set:efi-x86_64,option:client-arch,9
+dhcp-match=set:efi-arm64,option:client-arch,11
+
+dhcp-boot=tag:efi-x86_64,grubx64.efi
+dhcp-boot=tag:efi-arm64,grubaa64.efi
+
+dhcp-option-force=66,<PXE-IP>
+
+enable-tftp
+tftp-root=/srv/tftp
+```
+
+Die Logs liegen standardmässig unter:
 
 ```text
-user-data-reset
+/var/log/dnsmasq-pxe.log
 ```
 
-Die Reset-Autoinstallation:
+## Ubuntu Images
 
-- installiert Ubuntu neu
-- übernimmt den SSH-Key
-- aktiviert Wake-on-LAN
-- erzeugt `/boot/lernvirt-installed`
-- fährt den Rechner danach herunter
+Wie beim bisherigen Installer werden beide Architekturen vorbereitet:
+
+```text
+/var/www/html/linux/ubuntu/noble/amd64/ubuntu-24.04.4-live-server-amd64.iso
+/var/www/html/linux/ubuntu/noble/arm64/ubuntu-24.04.4-live-server-arm64.iso
+
+/srv/tftp/amd64/vmlinuz
+/srv/tftp/amd64/initrd
+/srv/tftp/arm64/vmlinuz
+/srv/tftp/arm64/initrd
+```
+
+## SSH
+
+Ohne `SSH_PUBLIC_KEY_URL` wird das bisherige Verhalten verwendet:
+
+```text
+/home/ubuntu/.ssh/id_rsa_lernvirt
+/home/ubuntu/.ssh/id_rsa_lernvirt.pub
+```
+
+Fehlt der Key, wird er erzeugt. Der Public Key wird zusätzlich unter:
+
+```text
+/etc/lernvirt/lerncloud.pub
+```
+
+bereitgestellt und in die vorhandenen `user-data*`-Dateien eingefügt.
 
 ## `/boot/lernvirt-installed`
 
-Bei jedem PXE-Boot sucht GRUB lokal nach:
+Beim PXE-Boot wird lokal nach:
 
 ```text
 /boot/lernvirt-installed
 ```
 
-Ist der Marker vorhanden, wird standardmässig das lokal installierte System gebootet.
+gesucht. Ist der Marker vorhanden, ist der lokale Boot standardmässig ausgewählt. Dabei wird eine separate GRUB-Variable `localroot` verwendet, damit der TFTP-Zugriff für die Stack-Konfiguration erhalten bleibt.
 
-Die lokale Partition wird dabei mit einer separaten GRUB-Variable gesucht:
+Der Stack `reset` ignoriert den Marker bewusst und startet die Reset-Installation.
 
-```grub
-search --no-floppy --file --set=localroot /boot/lernvirt-installed
-```
+## Alpine / BusyBox
 
-Damit bleibt GRUBs `root` auf dem TFTP-Server und weitere TFTP-Dateien können weiterhin geladen werden.
-
-Der Stack `reset` ignoriert den Marker bewusst und startet die Neuinstallation trotzdem.
-
-## SSH Public Key
-
-Der Standardpfad ist:
-
-```text
-/etc/lernvirt/lerncloud.pub
-```
-
-`prepare-ssh-key` verwendet in dieser Reihenfolge:
-
-1. einen bereits vorhandenen Key unter `/etc/lernvirt/lerncloud.pub`
-2. einen passenden Key aus dem heruntergeladenen lernvirt-Repository
-3. `SSH_PUBLIC_KEY_URL`, falls gesetzt
-
-Der Key wird für Autoinstall zusätzlich unter nginx bereitgestellt:
-
-```text
-http://192.168.1.101/ssh/lerncloud.pub
-```
-
-Die Ubuntu-Autoinstallation übernimmt ihn nach:
-
-```text
-/home/ubuntu/.ssh/authorized_keys
-```
-
-## Ubuntu Images
-
-`prepare-ubuntu` lädt standardmässig:
-
-```text
-ubuntu-24.04.4-live-server-amd64.iso
-```
-
-und stellt bereit:
-
-```text
-TFTP: /srv/tftp/linux/ubuntu/noble/amd64/vmlinuz
-TFTP: /srv/tftp/linux/ubuntu/noble/amd64/initrd
-HTTP: /var/www/html/linux/ubuntu/noble/amd64/ubuntu-24.04.4-live-server-amd64.iso
-```
-
-`install-pxe.sh` ruft `pxe-prepare` standardmässig automatisch auf.
-
-Automatische Asset-Vorbereitung deaktivieren:
+Mit:
 
 ```bash
-curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | PREPARE_ASSETS=0 STACK=cna bash -
+BOOT_TOOLS=1
 ```
 
-Später manuell:
-
-```bash
-sudo /srv/tftp/bin/pxe-prepare
-```
-
-## Bestehende CNA/Platen Autoinstall-Dateien
-
-Für `cna`, `cna-full` und `platen` werden die bestehenden lernvirt `user-data-*`-Dateien weiterverwendet.
-
-Fehlt beispielsweise `user-data-cna`, versucht `import-legacy-autoinstall`, die Datei aus dem bisherigen `pxe/`-Bereich des lernvirt-Repositories zu übernehmen.
-
-Bestehende Dateien unter:
-
-```text
-/var/www/html/autoinstall/
-```
-
-werden nicht überschrieben.
-
-## Alpine und BusyBox
-
-Alpine und BusyBox sind keine Installations-Stacks. Sie erscheinen als zusätzliche GRUB-Menüeinträge und laufen aus RAM.
-
-Aktiv:
-
-```bash
-BOOT_TOOLS="1"
-```
+werden Alpine und eine BusyBox-Shell zusätzlich im x86_64-GRUB-Menü angeboten. Beide laufen im RAM und installieren nichts auf die lokale Platte.
 
 Deaktivieren:
 
 ```bash
-BOOT_TOOLS="0"
-sudo /srv/tftp/bin/pxe-render
+curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | STACK=cna BOOT_TOOLS=0 bash -
 ```
 
-Beide Varianten verwenden dieselben Alpine-Netboot-Artefakte.
+## Separate Add-ons
 
-## nginx
-
-nginx ist Bestandteil der PXE-Basis und lauscht fest auf:
-
-```text
-TCP 80
-```
-
-Konfiguration:
-
-```text
-/etc/nginx/sites-available/pxe-stack
-```
-
-Der Standard-nginx-Site-Link wird entfernt und durch `pxe-stack` ersetzt.
-
-Test:
-
-```bash
-curl -I http://192.168.1.101/
-curl -I http://192.168.1.101/ssh/lerncloud.pub
-```
-
-Es gibt in der PXE-Basis **keine Port-8080-Sonderbehandlung mehr**.
-
-## SUSE als separates Add-on
-
-SUSE wird nicht von `install-pxe.sh` installiert.
-
-Add-on installieren:
+SUSE:
 
 ```bash
 curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-suse.sh | bash -
 ```
 
-Mit ISO und direkter Asset-Vorbereitung:
-
-```bash
-curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-suse.sh | \
-  SUSE_ISO=/srv/iso/SLE-15-SP6-Full-x86_64-GM-Media1.iso bash -
-```
-
-Danach steht der Stack `suse` zur Verfügung:
-
-```bash
-HOSTS=(
-    "*|suse|"
-)
-```
-
-Optional kann `VARIANT` als AutoYaST-Dateiname verwendet werden:
-
-```bash
-HOSTS=(
-    "*|suse|"
-    "80:EE:73:EF:01:81|suse|terra4.xml"
-)
-```
-
-AutoYaST-Dateien liegen unter:
-
-```text
-/var/www/html/autoyast/
-```
-
-nginx bleibt dabei auf Port 80.
-
-## OpenShift als separates Add-on
-
-OpenShift wird nicht von `install-pxe.sh` installiert.
-
-PXE-Unterstützung und RHCOS Assets installieren:
+OpenShift:
 
 ```bash
 curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-openshift.sh | bash -
 ```
 
-Die OpenShift-Konfiguration wird beim ersten Aufruf angelegt als:
-
-```text
-/srv/tftp/config/openshift.conf
-```
-
-Danach können Hosts beispielsweise so zugewiesen werden:
-
-```bash
-HOSTS=(
-    "*|openshift|master"
-    "80:EE:73:EF:01:81|openshift|worker"
-)
-```
-
-Ignition wird bewusst separat ausgelöst, weil dafür Pull Secret und Cluster-Konfiguration vorhanden sein müssen:
-
-```bash
-sudo /srv/tftp/bin/prepare-openshift-ignition
-```
-
-Alternativ beim Add-on-Installer:
-
-```bash
-curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-openshift.sh | \
-  PREPARE_IGNITION=1 bash -
-```
-
-OpenShift ändert die nginx-Konfiguration nicht. RHCOS und Ignition werden ebenfalls über Port 80 ausgeliefert.
-
-## HAProxy separat
-
-HAProxy wird weder von `install-pxe.sh` noch von `install-openshift.sh` installiert.
-
-Nach angepasster `/srv/tftp/config/openshift.conf`:
+HAProxy:
 
 ```bash
 curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-haproxy.sh | bash -
 ```
 
-Das Script konfiguriert nur:
-
-```text
-6443   OpenShift Kubernetes API
-22623  Machine Config Server
-```
-
-Port 80 und Port 443 werden absichtlich nicht von diesem HAProxy-Script belegt. Damit bleibt nginx auf Port 80 unabhängig von HAProxy.
-
-## Erweiterung um weitere Stacks
-
-Die zentrale `grub.cfg` enthält keine feste Liste von Betriebssystemen.
-
-Ein installierter Stack besteht mindestens aus:
-
-```text
-/srv/tftp/grub/stacks/<stack>.cfg
-```
-
-GRUB lädt dynamisch:
-
-```grub
-source (tftp,${tftp_server})/grub/stacks/${stack}.cfg
-```
-
-Ein Stack kann mit:
-
-```text
-# PXE-ASSET: name
-```
-
-optional einen Asset-Preparer referenzieren:
-
-```text
-/srv/tftp/bin/prepare-name
-```
-
-Damit können weitere Betriebssysteme als separate Add-ons ergänzt werden, ohne `install-pxe.sh` oder die zentrale `grub.cfg` zu erweitern.
-
-## Wichtige Dateien auf dem PXE-Server
-
-```text
-/srv/tftp/config/rack.conf
-/srv/tftp/grub/grub.cfg
-/srv/tftp/grub/runtime.cfg
-/srv/tftp/grub/hosts.cfg
-/srv/tftp/grub/stacks/
-/srv/tftp/bin/
-/var/www/html/autoinstall/
-/etc/lernvirt/lerncloud.pub
-/etc/nginx/sites-available/pxe-stack
-```
-
-Status anzeigen:
-
-```bash
-sudo /srv/tftp/bin/pxe-show
-```
-
-GRUB-Konfiguration neu erzeugen:
-
-```bash
-sudo /srv/tftp/bin/pxe-render
-```
+Diese Komponenten werden durch `install-pxe.sh` weder installiert noch konfiguriert.

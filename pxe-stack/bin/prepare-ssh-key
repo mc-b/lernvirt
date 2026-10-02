@@ -2,18 +2,13 @@
 set -Eeuo pipefail
 
 CONFIG="${CONFIG:-/srv/tftp/config/rack.conf}"
-env_ssh_key_file="${SSH_KEY_FILE:-}"
-env_ssh_public_key_url="${SSH_PUBLIC_KEY_URL:-}"
-env_repo_root="${PXE_STACK_REPO_ROOT:-}"
-
+env_key_file="${SSH_KEY_FILE:-}"
+env_key_url="https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/ssh/lerncloud.pub"
 [[ -r "$CONFIG" ]] && source "$CONFIG"
 
-SSH_KEY_FILE="${env_ssh_key_file:-${SSH_KEY_FILE:-/etc/lernvirt/lerncloud.pub}}"
-SSH_PUBLIC_KEY_URL="${env_ssh_public_key_url:-${SSH_PUBLIC_KEY_URL:-}}"
-HTTP_ROOT="${HTTP_ROOT:-/var/www/html}"
-PXE_STACK_REPO_ROOT="${env_repo_root:-${PXE_STACK_REPO_ROOT:-}}"
-
-mkdir -p "$(dirname "$SSH_KEY_FILE")" "$HTTP_ROOT/ssh"
+SSH_KEY_FILE="${env_key_file:-${SSH_KEY_FILE:-/etc/lernvirt/lerncloud.pub}}"
+SSH_PUBLIC_KEY_URL="${env_key_url:-${SSH_PUBLIC_KEY_URL:-}}"
+SSH_PRIVATE_KEY="${SSH_PRIVATE_KEY:-/home/ubuntu/.ssh/id_rsa_lernvirt}"
 
 valid_key() {
     local file=$1
@@ -21,69 +16,58 @@ valid_key() {
     grep -Eq '^(ssh-(rsa|ed25519)|ecdsa-sha2-|sk-(ssh-ed25519|ecdsa-sha2-))' "$file"
 }
 
-# Vorhandener Key hat immer Vorrang.
-if valid_key "$SSH_KEY_FILE"; then
-    install -m 0644 "$SSH_KEY_FILE" "$HTTP_ROOT/ssh/lerncloud.pub"
-    echo "SSH Public Key vorhanden: $SSH_KEY_FILE"
-    exit 0
-fi
+mkdir -p "$(dirname "$SSH_KEY_FILE")"
 
-# Wenn der komplette lernvirt-Checkout verfügbar ist, zuerst einen vorhandenen
-# Public Key übernehmen. Das hält pxe-stack kompatibel mit dem bisherigen pxe/.
-if [[ -n "$PXE_STACK_REPO_ROOT" && -d "$PXE_STACK_REPO_ROOT" ]]; then
-    candidate="$(find "$PXE_STACK_REPO_ROOT" -type f -name 'lerncloud.pub' \
-        -size +20c -print 2>/dev/null | head -n1 || true)"
-    if [[ -z "$candidate" ]]; then
-        candidate="$(find "$PXE_STACK_REPO_ROOT" -type f -name '*.pub' \
-            -size +20c -print 2>/dev/null | head -n1 || true)"
-    fi
-
-    if [[ -n "$candidate" ]] && valid_key "$candidate"; then
-        install -m 0644 "$candidate" "$SSH_KEY_FILE"
-        install -m 0644 "$candidate" "$HTTP_ROOT/ssh/lerncloud.pub"
-        echo "SSH Public Key übernommen: $candidate"
-        exit 0
-    fi
-
-    # Das bisherige pxe/install-pxe.sh ist die Referenz. Falls es den Key von
-    # einer URL holt, übernehmen wir diese URL automatisch, ohne sie hier ein
-    # zweites Mal fest zu verdrahten.
-    legacy="$PXE_STACK_REPO_ROOT/pxe/install-pxe.sh"
-    if [[ -z "$SSH_PUBLIC_KEY_URL" && -r "$legacy" ]]; then
-        # Zuerst eindeutig auf .pub endende URLs, danach URLs mit ssh/key im Namen.
-        SSH_PUBLIC_KEY_URL="$(grep -Eo 'https?://[^[:space:]"'"'"'<>]+\.pub([?][^[:space:]"'"'"'<>]+)?' "$legacy" | head -n1 || true)"
-        if [[ -z "$SSH_PUBLIC_KEY_URL" ]]; then
-            SSH_PUBLIC_KEY_URL="$(grep -Eio 'https?://[^[:space:]"'"'"'<>]*(ssh|key|lerncloud)[^[:space:]"'"'"'<>]*' "$legacy" | head -n1 || true)"
-        fi
-    fi
-fi
-
+# Explizite URL aus pxe-stack hat Vorrang.
 if [[ -n "$SSH_PUBLIC_KEY_URL" ]]; then
     tmp="$(mktemp)"
     trap 'rm -f "$tmp"' EXIT
-
     echo "SSH Public Key laden: $SSH_PUBLIC_KEY_URL"
     curl -fsSL --retry 5 --retry-delay 2 "$SSH_PUBLIC_KEY_URL" -o "$tmp"
-
-    if ! valid_key "$tmp"; then
-        echo "Ungültiger SSH Public Key von: $SSH_PUBLIC_KEY_URL" >&2
-        exit 1
-    fi
-
+    valid_key "$tmp" || { echo "Ungueltiger SSH Public Key: $SSH_PUBLIC_KEY_URL" >&2; exit 1; }
     install -m 0644 "$tmp" "$SSH_KEY_FILE"
-    install -m 0644 "$tmp" "$HTTP_ROOT/ssh/lerncloud.pub"
     echo "SSH Public Key installiert: $SSH_KEY_FILE"
     exit 0
 fi
 
-cat >&2 <<EOF2
-SSH Public Key konnte nicht automatisch gefunden werden.
+# Bereits vorhandener Public Key bleibt erhalten.
+if valid_key "$SSH_KEY_FILE"; then
+    echo "SSH Public Key vorhanden: $SSH_KEY_FILE"
+    exit 0
+fi
 
-Entweder:
-  - $SSH_KEY_FILE vor dem Installer anlegen, oder
-  - SSH_PUBLIC_KEY_URL=<URL-zum-public-key> setzen.
+# Bestehender lernvirt-Key des ubuntu Users übernehmen.
+if valid_key "${SSH_PRIVATE_KEY}.pub"; then
+    install -m 0644 "${SSH_PRIVATE_KEY}.pub" "$SSH_KEY_FILE"
+    echo "SSH Public Key uebernommen: ${SSH_PRIVATE_KEY}.pub"
+    exit 0
+fi
 
-Der Installer sucht zusätzlich im heruntergeladenen lernvirt Repository und
-übernimmt die .pub-URL aus dem bisherigen pxe/install-pxe.sh, falls vorhanden.
-EOF2
-exit 1
+# Originalverhalten aus pxe/install-pxe.sh: Key für User ubuntu erzeugen.
+if ! id ubuntu >/dev/null 2>&1; then
+    echo "User 'ubuntu' existiert nicht; SSH-Key kann nicht erzeugt werden." >&2
+    exit 1
+fi
+
+ssh_dir="$(dirname "$SSH_PRIVATE_KEY")"
+install -d -m 700 -o ubuntu -g ubuntu "$ssh_dir"
+
+cat >"$ssh_dir/config" <<'CFG'
+StrictHostKeyChecking no
+UserKnownHostsFile /dev/null
+LogLevel error
+User ubuntu
+IdentityFile ~/.ssh/id_rsa_lernvirt
+CFG
+chown ubuntu:ubuntu "$ssh_dir/config"
+chmod 400 "$ssh_dir/config"
+
+if [[ ! -f "$SSH_PRIVATE_KEY" ]]; then
+    echo "Erzeuge neuen SSH-Key fuer User ubuntu"
+    ssh-keygen -t rsa -b 4096 -N "" -f "$SSH_PRIVATE_KEY" -C "ubuntu@lernvirt-$(date +%F)" >/dev/null
+    chown ubuntu:ubuntu "$SSH_PRIVATE_KEY" "${SSH_PRIVATE_KEY}.pub"
+    chmod 400 "$SSH_PRIVATE_KEY" "${SSH_PRIVATE_KEY}.pub"
+fi
+
+install -m 0644 "${SSH_PRIVATE_KEY}.pub" "$SSH_KEY_FILE"
+echo "SSH Public Key installiert: $SSH_KEY_FILE"
