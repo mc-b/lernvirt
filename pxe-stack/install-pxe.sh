@@ -31,7 +31,7 @@ ALPINE_VERSION="${ALPINE_VERSION:-3.22}"
 BOOT_TOOLS="${BOOT_TOOLS:-1}"
 GRUB_TIMEOUT="${GRUB_TIMEOUT:-5}"
 SSH_KEY_FILE="${SSH_KEY_FILE:-/etc/lernvirt/lerncloud.pub}"
-SSH_PUBLIC_KEY_URL="${SSH_PUBLIC_KEY_URL:-}"
+SSH_PUBLIC_KEY_URL="${SSH_PUBLIC_KEY_URL:-https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/ssh/lerncloud.pub}"
 PXE_STACK_ARCHIVE_URL="${PXE_STACK_ARCHIVE_URL:-https://github.com/mc-b/lernvirt/archive/refs/heads/main.tar.gz}"
 LOGFILE="${DNSMASQ_LOGFILE:-/var/log/dnsmasq-pxe.log}"
 
