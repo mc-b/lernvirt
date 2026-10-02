@@ -2,382 +2,370 @@
 set -Eeuo pipefail
 set -o pipefail
 
+# lernvirt PXE Basis
+#
+# Installiert und konfiguriert vollständig:
+#   - dnsmasq Proxy-DHCP/TFTP
+#   - nginx auf Port 80
+#   - GRUB UEFI für x86_64 und ARM64
+#   - Ubuntu Server ISO + Kernel/Initrd für amd64 und arm64
+#   - Basis-Stacks ubuntu/cna/cna-full/platen/reset
+#   - Alpine/BusyBox Boot-Tools (optional)
+#   - SSH-Key und Autoinstall-Dateien
+#
+# SUSE, OpenShift und HAProxy werden bewusst von separaten install-*.sh
+# Scripts eingerichtet.
+
 log()  { echo "[$(date -Iseconds)] INFO:  $*" >&2; }
 warn() { echo "[$(date -Iseconds)] WARN:  $*" >&2; }
 fail() { echo "[$(date -Iseconds)] FEHLER: $*" >&2; exit 1; }
 
 STACK="${STACK:-ubuntu}"
 VARIANT="${VARIANT:-}"
-BOOT_TOOLS="${BOOT_TOOLS:-1}"
-GRUB_TIMEOUT="${GRUB_TIMEOUT:-5}"
-PREPARE_ASSETS="${PREPARE_ASSETS:-1}"
-
-BASE="${TFTP_ROOT:-/srv/tftp}"
-WWW="${HTTP_ROOT:-/var/www/html}"
-LOGFILE="${PXE_LOGFILE:-/var/log/dnsmasq-pxe.log}"
+TFTP_ROOT="${TFTP_ROOT:-/srv/tftp}"
+HTTP_ROOT="${HTTP_ROOT:-/var/www/html}"
 INSTALL_DISK="${INSTALL_DISK:-/dev/nvme0n1}"
-
-UBUNTU_VER="${UBUNTU_VERSION:-24.04.4}"
+UBUNTU_VERSION="${UBUNTU_VERSION:-24.04.4}"
 UBUNTU_CODENAME="${UBUNTU_CODENAME:-noble}"
 ALPINE_VERSION="${ALPINE_VERSION:-3.22}"
-
+BOOT_TOOLS="${BOOT_TOOLS:-1}"
+GRUB_TIMEOUT="${GRUB_TIMEOUT:-5}"
 SSH_KEY_FILE="${SSH_KEY_FILE:-/etc/lernvirt/lerncloud.pub}"
 SSH_PUBLIC_KEY_URL="${SSH_PUBLIC_KEY_URL:-}"
-SSH_KEY_REQUIRED="${SSH_KEY_REQUIRED:-1}"
-
 PXE_STACK_ARCHIVE_URL="${PXE_STACK_ARCHIVE_URL:-https://github.com/mc-b/lernvirt/archive/refs/heads/main.tar.gz}"
-PXE_STACK_SOURCE_DIR="${PXE_STACK_SOURCE_DIR:-}"
+LOGFILE="${DNSMASQ_LOGFILE:-/var/log/dnsmasq-pxe.log}"
 
-TMP_ISO_BASE="/tmp/pxe-iso"
+TMP_ISO_BASE="/tmp/pxe-stack-iso"
 TMP_ISO_AMD64="${TMP_ISO_BASE}/amd64"
 TMP_ISO_ARM64="${TMP_ISO_BASE}/arm64"
-TMP_WORK=""
+TMP_REPO=""
 
 cleanup() {
-  for mp in "${TMP_ISO_AMD64:-}" "${TMP_ISO_ARM64:-}"; do
-    if [ -n "${mp}" ] && mountpoint -q "${mp}" 2>/dev/null; then
-      umount "${mp}" >/dev/null 2>&1 || true
-    fi
-  done
-  if [ -n "${TMP_WORK:-}" ] && [ -d "$TMP_WORK" ]; then
-    rm -rf "$TMP_WORK"
-  fi
+    for mp in "$TMP_ISO_AMD64" "$TMP_ISO_ARM64"; do
+        if mountpoint -q "$mp" 2>/dev/null; then
+            umount "$mp" >/dev/null 2>&1 || true
+        fi
+    done
+    [[ -n "$TMP_REPO" ]] && rm -rf "$TMP_REPO"
 }
 trap cleanup EXIT
 
-require_cmd() {
-  command -v "$1" >/dev/null 2>&1 || fail "Befehl nicht gefunden: $1"
-}
+[[ ${EUID:-$(id -u)} -eq 0 ]] || fail "Bitte als root/sudo ausführen."
 
-install_pkg_if_missing() {
-  local pkg="$1"
-  if dpkg -s "$pkg" >/dev/null 2>&1; then
-    log "Paket bereits installiert: $pkg"
-  else
-    log "Installiere Paket: $pkg"
-    apt-get install -y "$pkg" || fail "Konnte Paket nicht installieren: $pkg"
-  fi
+require_cmd() {
+    command -v "$1" >/dev/null 2>&1 || fail "Befehl nicht gefunden: $1"
 }
 
 copy_first_existing() {
-  local dst="$1"
-  shift
-  local src
-  for src in "$@"; do
-    if [ -f "$src" ]; then
-      cp -f "$src" "$dst"
-      return 0
-    fi
-  done
-  return 1
+    local dst="$1"
+    shift
+    local src
+    for src in "$@"; do
+        if [[ -f "$src" ]]; then
+            cp -f "$src" "$dst"
+            return 0
+        fi
+    done
+    return 1
 }
 
-set_config_value() {
-  local file="$1" key="$2" value="$3"
-  local escaped="${value//\/\\}"
-  escaped="${escaped//\"/\\\"}"
+download_file() {
+    local url="$1"
+    local dst="$2"
+    local part="${dst}.part"
 
-  if grep -qE "^${key}=" "$file"; then
-    sed -i -E "s|^${key}=.*$|${key}=\"${escaped}\"|" "$file"
-  else
-    printf '%s="%s"\n' "$key" "$escaped" >>"$file"
-  fi
-}
-
-inject_ssh_key_into_userdata() {
-  local pub_key=""
-  local file
-
-  [ -r "$SSH_KEY_FILE" ] || {
-    warn "SSH Public Key fehlt: $SSH_KEY_FILE"
-    return 0
-  }
-
-  pub_key="$(cat "$SSH_KEY_FILE")"
-  shopt -s nullglob
-  local files=("${WWW}"/autoinstall/user-data*)
-  shopt -u nullglob
-
-  for file in "${files[@]}"; do
-    [ -f "$file" ] || continue
-
-    if grep -Fq "$pub_key" "$file"; then
-      continue
+    mkdir -p "$(dirname "$dst")"
+    if [[ -s "$dst" ]]; then
+        log "Bereits vorhanden: $dst"
+        return 0
     fi
 
-    if grep -Eq '^[[:space:]]*-[[:space:]]+ssh-rsa .* insecure@lerncloud[[:space:]]*$' "$file"; then
-      log "Injektiere SSH-Key in $(basename "$file")"
-      sed -i "\|^[[:space:]]*-[[:space:]]*ssh-rsa .* insecure@lerncloud[[:space:]]*$|a\\      - ${pub_key}" "$file"
+    log "Download: $url"
+    curl -fL --retry 8 --retry-delay 4 --retry-all-errors --continue-at - \
+        "$url" -o "$part" || fail "Download fehlgeschlagen: $url"
+    [[ -s "$part" ]] || fail "Leerer Download: $url"
+    mv -f "$part" "$dst"
+}
+
+extract_iso_assets() {
+    local arch="$1"
+    local iso="$2"
+    local mnt="$3"
+    local tftp_dir="$4"
+
+    mkdir -p "$mnt" "$tftp_dir"
+    if mountpoint -q "$mnt"; then
+        umount "$mnt" || fail "Konnte bestehendes Mount nicht lösen: $mnt"
+    fi
+
+    mount -o loop,ro "$iso" "$mnt" || fail "Konnte ISO nicht mounten: $iso"
+    [[ -s "$mnt/casper/vmlinuz" ]] || fail "casper/vmlinuz fehlt in $iso"
+    [[ -s "$mnt/casper/initrd" ]] || fail "casper/initrd fehlt in $iso"
+
+    install -m 0644 "$mnt/casper/vmlinuz" "$tftp_dir/vmlinuz"
+    install -m 0644 "$mnt/casper/initrd" "$tftp_dir/initrd"
+    log "Kernel und Initrd für $arch extrahiert."
+}
+
+valid_public_key() {
+    local file="$1"
+    [[ -s "$file" ]] || return 1
+    grep -Eq '^(ssh-(rsa|ed25519)|ecdsa-sha2-|sk-(ssh-ed25519|ecdsa-sha2-))' "$file"
+}
+
+prepare_ssh_key() {
+    mkdir -p "$(dirname "$SSH_KEY_FILE")" "$HTTP_ROOT/ssh"
+
+    if [[ -n "$SSH_PUBLIC_KEY_URL" ]]; then
+        local tmp
+        tmp="$(mktemp)"
+        download_file "$SSH_PUBLIC_KEY_URL" "$tmp.key"
+        mv -f "$tmp.key" "$tmp"
+        valid_public_key "$tmp" || fail "Ungültiger SSH Public Key: $SSH_PUBLIC_KEY_URL"
+        install -m 0644 "$tmp" "$SSH_KEY_FILE"
+        rm -f "$tmp"
+    fi
+
+    if ! valid_public_key "$SSH_KEY_FILE"; then
+        if id ubuntu >/dev/null 2>&1; then
+            local ssh_dir="/home/ubuntu/.ssh"
+            local private="${ssh_dir}/id_rsa_lernvirt"
+            install -d -m 0700 -o ubuntu -g ubuntu "$ssh_dir"
+            cat >"$ssh_dir/config" <<'EOF_SSHCFG'
+StrictHostKeyChecking no
+UserKnownHostsFile /dev/null
+LogLevel error
+User ubuntu
+IdentityFile ~/.ssh/id_rsa_lernvirt
+EOF_SSHCFG
+            chown ubuntu:ubuntu "$ssh_dir/config"
+            chmod 0400 "$ssh_dir/config"
+            if [[ ! -s "$private" || ! -s "${private}.pub" ]]; then
+                log "Erzeuge SSH-Key für User ubuntu"
+                ssh-keygen -t rsa -b 4096 -N "" -f "$private" \
+                    -C "ubuntu@lernvirt-$(date +%F)" >/dev/null
+                chown ubuntu:ubuntu "$private" "${private}.pub"
+                chmod 0400 "$private" "${private}.pub"
+            fi
+            install -m 0644 "${private}.pub" "$SSH_KEY_FILE"
+        else
+            local private="/etc/lernvirt/lerncloud"
+            if [[ ! -s "$private" || ! -s "${private}.pub" ]]; then
+                log "Erzeuge SSH-Key unter /etc/lernvirt"
+                ssh-keygen -t rsa -b 4096 -N "" -f "$private" \
+                    -C "lernvirt-pxe-$(date +%F)" >/dev/null
+            fi
+            install -m 0644 "${private}.pub" "$SSH_KEY_FILE"
+        fi
+    fi
+
+    valid_public_key "$SSH_KEY_FILE" || fail "SSH Public Key konnte nicht bereitgestellt werden: $SSH_KEY_FILE"
+    install -m 0644 "$SSH_KEY_FILE" "$HTTP_ROOT/ssh/lerncloud.pub"
+    log "SSH Public Key: $SSH_KEY_FILE"
+}
+
+inject_public_key() {
+    local file="$1"
+    local pub
+    [[ -s "$file" ]] || return 0
+    pub="$(cat "$SSH_KEY_FILE")"
+
+    grep -Fqx "      - $pub" "$file" && return 0
+    if grep -q 'insecure@lerncloud' "$file"; then
+        sed -i "\\|insecure@lerncloud|a\\      - ${pub}" "$file"
+        log "SSH-Key in $(basename "$file") ergänzt."
     else
-      warn "Kein 'insecure@lerncloud'-Referenzkey in $file gefunden; Datei bleibt unverändert."
+        warn "Kein insecure@lerncloud-Eintrag in $file; SSH-Key wurde dort nicht automatisch injiziert."
     fi
-  done
 }
 
-### ROOT CHECK ###
-if [ "${EUID:-$(id -u)}" -ne 0 ]; then
-  fail "Bitte als root/sudo ausfuehren."
-fi
-
-### REQUIREMENTS / PACKAGES ###
-export DEBIAN_FRONTEND=noninteractive
-
-log "APT Index aktualisieren"
-apt-get update -y || fail "apt-get update fehlgeschlagen."
-
-log "Pakete installieren"
-for pkg in \
-  ca-certificates curl dnsmasq git nginx openssh-client \
-  wget unzip syslinux-common grub-common grub-efi-amd64-bin; do
-  install_pkg_if_missing "$pkg"
-done
-
-for cmd in ip awk sed wget curl mount umount cp mkdir ssh-keygen systemctl dpkg mountpoint tar; do
-  require_cmd "$cmd"
-done
-
-### AKTIVES NETZWERK-INTERFACE & IP ERMITTELN ###
-# Bewusst aus der bestehenden lernvirt/pxe/install-pxe.sh übernommen.
+# Netzwerkermittlung absichtlich wie in der bestehenden lernvirt/pxe/install-pxe.sh.
 IFACE="$(ip -4 route show default 2>/dev/null | awk '{print $5; exit}')"
-if [ -z "${IFACE}" ]; then
-  IFACE="$(ip -o link show 2>/dev/null | awk -F': ' '$2 !~ /lo/ {print $2; exit}')"
+if [[ -z "$IFACE" ]]; then
+    IFACE="$(ip -o link show 2>/dev/null | awk -F': ' '$2 !~ /lo/ {print $2; exit}')"
 fi
-[ -n "${IFACE}" ] || fail "Konnte aktives Netzwerkinterface nicht ermitteln."
+[[ -n "$IFACE" ]] || fail "Konnte aktives Netzwerkinterface nicht ermitteln."
 
-CIDR="$(ip -4 addr show dev "${IFACE}" 2>/dev/null | awk '/inet / {print $2}' | head -n1)"
-[ -n "${CIDR}" ] || fail "Konnte keine IPv4-Adresse fuer ${IFACE} finden."
-
+CIDR="$(ip -4 addr show dev "$IFACE" 2>/dev/null | awk '/inet / {print $2}' | head -n1)"
+[[ -n "$CIDR" ]] || fail "Konnte keine IPv4-Adresse für $IFACE finden."
 PXE_IP="${CIDR%%/*}"
 PREFIX="${CIDR##*/}"
 
-IFS='.' read -r o1 o2 o3 o4 <<< "${PXE_IP}"
+IFS='.' read -r o1 o2 o3 o4 <<<"$PXE_IP"
 IP_INT=$(( (o1 << 24) + (o2 << 16) + (o3 << 8) + o4 ))
-MASK_INT=$(( (0xFFFFFFFF << (32 - PREFIX)) & 0xFFFFFFFF ))
-NET_INT=$(( IP_INT & MASK_INT ))
-
-NET1=$(( (NET_INT >> 24) & 255 ))
-NET2=$(( (NET_INT >> 16) & 255 ))
-NET3=$(( (NET_INT >> 8) & 255 ))
-NET4=$(( NET_INT & 255 ))
-SUBNET="${NET1}.${NET2}.${NET3}.${NET4}"
-
-M1=$(( (MASK_INT >> 24) & 255 ))
-M2=$(( (MASK_INT >> 16) & 255 ))
-M3=$(( (MASK_INT >> 8) & 255 ))
-M4=$(( MASK_INT & 255 ))
-NETMASK="${M1}.${M2}.${M3}.${M4}"
-
-log "Verwende Interface: ${IFACE}, IP: ${PXE_IP}, Netz: ${SUBNET}/${PREFIX}"
-
-### pxe-stack QUELLEN LADEN ###
-TMP_WORK="$(mktemp -d)"
-tmp="$TMP_WORK"
-src=""
-repo_root=""
-
-if [ -n "$PXE_STACK_SOURCE_DIR" ]; then
-  src="$(readlink -f "$PXE_STACK_SOURCE_DIR")"
-  [ -d "$src" ] || fail "PXE_STACK_SOURCE_DIR existiert nicht: $src"
-  repo_root="$(dirname "$src")"
+if (( PREFIX == 0 )); then
+    MASK_INT=0
 else
-  log "pxe-stack Quellen laden"
-  curl -fsSL --retry 5 --retry-delay 3 "$PXE_STACK_ARCHIVE_URL" -o "$tmp/lernvirt.tar.gz" \
-    || fail "Konnte pxe-stack Quellen nicht laden: $PXE_STACK_ARCHIVE_URL"
-  tar -xzf "$tmp/lernvirt.tar.gz" -C "$tmp" || fail "Konnte Quellarchiv nicht entpacken."
-  src="$(find "$tmp" -mindepth 2 -maxdepth 2 -type d -name pxe-stack -print -quit)"
-  [ -n "$src" ] && [ -d "$src" ] || fail "pxe-stack/ im Quellarchiv nicht gefunden."
-  repo_root="$(dirname "$src")"
+    MASK_INT=$(( (0xFFFFFFFF << (32 - PREFIX)) & 0xFFFFFFFF ))
+fi
+NET_INT=$(( IP_INT & MASK_INT ))
+SUBNET="$(( (NET_INT >> 24) & 255 )).$(( (NET_INT >> 16) & 255 )).$(( (NET_INT >> 8) & 255 )).$(( NET_INT & 255 ))"
+NETMASK="$(( (MASK_INT >> 24) & 255 )).$(( (MASK_INT >> 16) & 255 )).$(( (MASK_INT >> 8) & 255 )).$(( MASK_INT & 255 ))"
+
+log "Verwende Interface: $IFACE, IP: $PXE_IP, Netz: $SUBNET/$PREFIX"
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y
+apt-get install -y \
+    ca-certificates curl wget rsync git \
+    dnsmasq nginx \
+    grub-common grub-efi-amd64-bin \
+    openssh-client
+
+for cmd in ip awk sed curl mount umount mountpoint ssh-keygen systemctl; do
+    require_cmd "$cmd"
+done
+
+mkdir -p \
+    "$TFTP_ROOT/bin" \
+    "$TFTP_ROOT/config" \
+    "$TFTP_ROOT/grub/stacks" \
+    "$TFTP_ROOT/linux/ubuntu/$UBUNTU_CODENAME/amd64" \
+    "$TFTP_ROOT/linux/ubuntu/$UBUNTU_CODENAME/arm64" \
+    "$HTTP_ROOT/autoinstall" \
+    "$HTTP_ROOT/linux/ubuntu/$UBUNTU_CODENAME/amd64" \
+    "$HTTP_ROOT/linux/ubuntu/$UBUNTU_CODENAME/arm64" \
+    "$TMP_ISO_AMD64" "$TMP_ISO_ARM64"
+
+# Bei lokaler Ausführung die Dateien aus demselben pxe-stack-Verzeichnis nehmen.
+# Bei curl | bash werden die Quellen aus dem Repository-Archiv geladen.
+SCRIPT_SOURCE="${BASH_SOURCE[0]:-}"
+SCRIPT_DIR=""
+if [[ -n "$SCRIPT_SOURCE" && "$SCRIPT_SOURCE" != "-" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SOURCE")" 2>/dev/null && pwd || true)"
 fi
 
-### VERZEICHNISSE / PXE-STACK INSTALLIEREN ###
-log "Verzeichnisse anlegen"
-mkdir -p \
-  "$BASE/bin" \
-  "$BASE/config" \
-  "$BASE/grub/stacks" \
-  "$BASE/grub/x86_64-efi" \
-  "$BASE/grub/arm64-efi" \
-  "$BASE/amd64" \
-  "$BASE/arm64" \
-  "$WWW/autoinstall" \
-  "$WWW/linux/ubuntu/$UBUNTU_CODENAME/amd64" \
-  "$WWW/linux/ubuntu/$UBUNTU_CODENAME/arm64" \
-  "$TMP_ISO_AMD64" \
-  "$TMP_ISO_ARM64" \
-  "$(dirname "$LOGFILE")"
+if [[ -n "$SCRIPT_DIR" && -r "$SCRIPT_DIR/grub/grub.cfg" && -x "$SCRIPT_DIR/bin/pxe-update" ]]; then
+    SRC="$SCRIPT_DIR"
+    REPO_ROOT="$(dirname "$SRC")"
+    log "Verwende lokale pxe-stack Quellen: $SRC"
+else
+    TMP_REPO="$(mktemp -d)"
+    log "Lade pxe-stack Quellen"
+    download_file "$PXE_STACK_ARCHIVE_URL" "$TMP_REPO/lernvirt.tar.gz"
+    tar -xzf "$TMP_REPO/lernvirt.tar.gz" -C "$TMP_REPO"
+    SRC="$(find "$TMP_REPO" -mindepth 2 -maxdepth 2 -type d -name pxe-stack -print -quit)"
+    [[ -n "$SRC" && -d "$SRC" ]] || fail "pxe-stack/ im Quellarchiv nicht gefunden."
+    REPO_ROOT="$(dirname "$SRC")"
+fi
 
-log "PXE Stack-Dateien installieren"
-install -m 0644 "$src/grub/grub.cfg" "$BASE/grub/grub.cfg"
-install -m 0644 "$src/grub/boot-tools.cfg" "$BASE/grub/boot-tools.cfg"
-
-shopt -s nullglob
-stack_files=("$src"/grub/stacks/*.cfg)
-bin_files=("$src"/bin/*)
-shopt -u nullglob
-
-((${#stack_files[@]} > 0)) || fail "Keine GRUB-Basis-Stacks gefunden."
-((${#bin_files[@]} > 0)) || fail "Keine PXE-Hilfsscripts gefunden."
-
-for f in "${stack_files[@]}"; do
-  install -m 0644 "$f" "$BASE/grub/stacks/$(basename "$f")"
-done
-for f in "${bin_files[@]}"; do
-  [ -f "$f" ] || continue
-  install -m 0755 "$f" "$BASE/bin/$(basename "$f")"
+# Nur die zwei administrativen Werkzeuge werden im laufenden System benötigt.
+install -m 0755 "$SRC/bin/pxe-update" "$TFTP_ROOT/bin/pxe-update"
+install -m 0755 "$SRC/bin/pxe-show" "$TFTP_ROOT/bin/pxe-show"
+install -m 0644 "$SRC/grub/grub.cfg" "$TFTP_ROOT/grub/grub.cfg"
+install -m 0644 "$SRC/grub/boot-tools.cfg" "$TFTP_ROOT/grub/boot-tools.cfg"
+for f in "$SRC"/grub/stacks/*.cfg; do
+    install -m 0644 "$f" "$TFTP_ROOT/grub/stacks/$(basename "$f")"
 done
 
-RACK_CONFIG="$BASE/config/rack.conf"
-if [ ! -e "$RACK_CONFIG" ]; then
-  cat >"$RACK_CONFIG" <<EOF_RACK
-PXE_SERVER="${PXE_IP}"
-PXE_INTERFACE="${IFACE}"
-PXE_NETWORK="${SUBNET}"
-PXE_NETMASK="${NETMASK}"
-
-TFTP_ROOT="${BASE}"
-HTTP_ROOT="${WWW}"
-INSTALL_DISK="${INSTALL_DISK}"
-
-UBUNTU_VERSION="${UBUNTU_VER}"
-UBUNTU_CODENAME="${UBUNTU_CODENAME}"
-ALPINE_VERSION="${ALPINE_VERSION}"
-BOOT_TOOLS="${BOOT_TOOLS}"
-GRUB_TIMEOUT="${GRUB_TIMEOUT}"
-
-SSH_KEY_FILE="${SSH_KEY_FILE}"
-SSH_PUBLIC_KEY_URL="${SSH_PUBLIC_KEY_URL}"
+if [[ ! -e "$TFTP_ROOT/config/rack.conf" ]]; then
+    cat >"$TFTP_ROOT/config/rack.conf" <<EOF_RACK
+PXE_SERVER="$PXE_IP"
+TFTP_ROOT="$TFTP_ROOT"
+HTTP_ROOT="$HTTP_ROOT"
+INSTALL_DISK="$INSTALL_DISK"
+UBUNTU_VERSION="$UBUNTU_VERSION"
+UBUNTU_CODENAME="$UBUNTU_CODENAME"
+ALPINE_VERSION="$ALPINE_VERSION"
+BOOT_TOOLS="$BOOT_TOOLS"
+GRUB_TIMEOUT="$GRUB_TIMEOUT"
 
 HOSTS=(
-    "*|${STACK}|${VARIANT}"
+    "*|$STACK|$VARIANT"
 )
 EOF_RACK
 else
-  log "Bestehendes $RACK_CONFIG bleibt erhalten; Netzwerkwerte werden aktualisiert."
-  set_config_value "$RACK_CONFIG" PXE_SERVER "$PXE_IP"
-  set_config_value "$RACK_CONFIG" PXE_INTERFACE "$IFACE"
-  set_config_value "$RACK_CONFIG" PXE_NETWORK "$SUBNET"
-  set_config_value "$RACK_CONFIG" PXE_NETMASK "$NETMASK"
-  set_config_value "$RACK_CONFIG" TFTP_ROOT "$BASE"
-  set_config_value "$RACK_CONFIG" HTTP_ROOT "$WWW"
+    log "Bestehendes $TFTP_ROOT/config/rack.conf bleibt unverändert."
 fi
 
-# Ab hier gelten bei Wiederholungsinstallationen die Werte aus rack.conf.
+# Ab jetzt ist rack.conf die zentrale Laufzeitkonfiguration.
 # shellcheck disable=SC1090
-source "$RACK_CONFIG"
+source "$TFTP_ROOT/config/rack.conf"
+if [[ "$PXE_SERVER" != "$PXE_IP" ]]; then
+    warn "rack.conf verwendet PXE_SERVER=$PXE_SERVER, aktuell erkannt wurde $PXE_IP."
+fi
 
-### AUTOINSTALL BASIS ###
+prepare_ssh_key
+
+# Basis-Autoinstall-Dateien nicht überschreiben.
 for profile in user-data user-data-reset; do
-  if [ ! -e "$WWW/autoinstall/$profile" ]; then
-    install -m 0644 "$src/autoinstall/$profile" "$WWW/autoinstall/$profile"
-  fi
+    if [[ ! -s "$HTTP_ROOT/autoinstall/$profile" ]]; then
+        install -m 0644 "$SRC/autoinstall/$profile" "$HTTP_ROOT/autoinstall/$profile"
+    fi
 done
 
-### SSH-KEY: bestehende Originalfunktion plus optionale URL aus pxe-stack ###
-log "SSH Public Key vorbereiten"
-if ! PXE_STACK_REPO_ROOT="$repo_root" \
-     SSH_KEY_FILE="$SSH_KEY_FILE" \
-     SSH_PUBLIC_KEY_URL="$SSH_PUBLIC_KEY_URL" \
-     "$BASE/bin/prepare-ssh-key"; then
-  if [ "$SSH_KEY_REQUIRED" = "1" ]; then
-    fail "SSH Public Key konnte nicht vorbereitet werden."
-  fi
-  warn "SSH Public Key wurde nicht eingerichtet."
-fi
+# Bestehende lernvirt-Profile cna/cna-full/platen aus dem Repository übernehmen.
+for profile in user-data-cna user-data-cna-full user-data-platen; do
+    target="$HTTP_ROOT/autoinstall/$profile"
+    [[ -s "$target" ]] && continue
+    found="$(find "$REPO_ROOT" -type f -name "$profile" -size +0c -print -quit 2>/dev/null || true)"
+    if [[ -n "$found" ]]; then
+        install -m 0644 "$found" "$target"
+        log "Autoinstall übernommen: $profile"
+    else
+        warn "Autoinstall-Datei im Repository nicht gefunden: $profile"
+    fi
+done
 
-### HOSTREGELN / ASSETS ###
-log "GRUB Host-/Runtime-Konfiguration rendern"
-"$BASE/bin/pxe-render"
+for f in "$HTTP_ROOT"/autoinstall/user-data*; do
+    [[ -f "$f" ]] && inject_public_key "$f"
+done
 
-if [ "$PREPARE_ASSETS" = "1" ]; then
-  log "Images/Assets fuer aktive Basis-Stacks vorbereiten"
-  PXE_STACK_REPO_ROOT="$repo_root" "$BASE/bin/pxe-prepare"
-fi
+# Ubuntu Images für beide vom ursprünglichen Installer unterstützten Architekturen.
+AMD64_ISO="ubuntu-${UBUNTU_VERSION}-live-server-amd64.iso"
+ARM64_ISO="ubuntu-${UBUNTU_VERSION}-live-server-arm64.iso"
+AMD64_URL="${UBUNTU_AMD64_ISO_URL:-https://mirror.init7.net/ubuntu-releases/${UBUNTU_CODENAME}/${AMD64_ISO}}"
+ARM64_URL="${UBUNTU_ARM64_ISO_URL:-https://cdimage.ubuntu.com/releases/${UBUNTU_CODENAME}/release/${ARM64_ISO}}"
+AMD64_ISO_PATH="$HTTP_ROOT/linux/ubuntu/$UBUNTU_CODENAME/amd64/$AMD64_ISO"
+ARM64_ISO_PATH="$HTTP_ROOT/linux/ubuntu/$UBUNTU_CODENAME/arm64/$ARM64_ISO"
 
-# pxe-prepare importiert ggf. user-data-cna, user-data-cna-full, platen usw.
-# Erst danach den SSH-Key wie im bisherigen Installer in die Autoinstall-Dateien einfügen.
-inject_ssh_key_into_userdata
+download_file "$AMD64_URL" "$AMD64_ISO_PATH"
+download_file "$ARM64_URL" "$ARM64_ISO_PATH"
+extract_iso_assets amd64 "$AMD64_ISO_PATH" "$TMP_ISO_AMD64" "$TFTP_ROOT/linux/ubuntu/$UBUNTU_CODENAME/amd64"
+extract_iso_assets arm64 "$ARM64_ISO_PATH" "$TMP_ISO_ARM64" "$TFTP_ROOT/linux/ubuntu/$UBUNTU_CODENAME/arm64"
 
-### GRUB-MODULE / UEFI-BOOTLOADER ###
-AMD64_ISO="$WWW/linux/ubuntu/$UBUNTU_CODENAME/amd64/ubuntu-${UBUNTU_VER}-live-server-amd64.iso"
-ARM64_ISO="$WWW/linux/ubuntu/$UBUNTU_CODENAME/arm64/ubuntu-${UBUNTU_VER}-live-server-arm64.iso"
+# GRUB UEFI wie im bestehenden lernvirt PXE-Installer bereitstellen.
+mkdir -p "$TFTP_ROOT/grub/x86_64-efi" "$TFTP_ROOT/grub/arm64-efi"
+[[ -d /usr/lib/grub/x86_64-efi ]] || fail "/usr/lib/grub/x86_64-efi fehlt."
+cp -a /usr/lib/grub/x86_64-efi/. "$TFTP_ROOT/grub/x86_64-efi/"
 
-if [ "$PREPARE_ASSETS" = "1" ]; then
-  [ -s "$AMD64_ISO" ] || fail "AMD64 ISO fehlt nach Asset-Vorbereitung: $AMD64_ISO"
-  [ -s "$ARM64_ISO" ] || fail "ARM64 ISO fehlt nach Asset-Vorbereitung: $ARM64_ISO"
-fi
+[[ -d "$TMP_ISO_ARM64/boot/grub/arm64-efi" ]] || \
+    fail "ARM64 GRUB-Module fehlen im Ubuntu ARM64 ISO."
+cp -a "$TMP_ISO_ARM64/boot/grub/arm64-efi/." "$TFTP_ROOT/grub/arm64-efi/"
 
-log "GRUB-Module fuer x86_64 kopieren"
-if [ -d /usr/lib/grub/x86_64-efi ]; then
-  cp -a /usr/lib/grub/x86_64-efi/. "$BASE/grub/x86_64-efi/" 2>/dev/null \
-    || warn "Konnte x86_64-GRUB-Module nicht vollstaendig kopieren."
-else
-  warn "Verzeichnis /usr/lib/grub/x86_64-efi nicht gefunden."
-fi
-
-log "x86_64 EFI-Bootloader bereitstellen"
-if copy_first_existing "$BASE/grubx64.efi" \
-  /usr/lib/grub/x86_64-efi-signed/grubnetx64.efi.signed \
-  /usr/lib/shim/shimx64.efi.signed \
-  /usr/lib/grub/x86_64-efi/monolithic/grubx64.efi; then
-  log "x86_64 EFI-Bootloader bereitgestellt."
-elif [ -s "$AMD64_ISO" ]; then
-  mountpoint -q "$TMP_ISO_AMD64" && umount "$TMP_ISO_AMD64" || true
-  mount -o loop,ro "$AMD64_ISO" "$TMP_ISO_AMD64" || fail "Konnte AMD64 ISO nicht mounten."
-  copy_first_existing "$BASE/grubx64.efi" \
+copy_first_existing "$TFTP_ROOT/grubx64.efi" \
+    /usr/lib/grub/x86_64-efi-signed/grubnetx64.efi.signed \
+    /usr/lib/shim/shimx64.efi.signed \
+    /usr/lib/grub/x86_64-efi/monolithic/grubx64.efi \
     "$TMP_ISO_AMD64/EFI/BOOT/BOOTX64.EFI" \
-    "$TMP_ISO_AMD64/efi/boot/bootx64.efi" \
-    || fail "Keinen x86_64 EFI-Bootloader gefunden."
-  umount "$TMP_ISO_AMD64" || true
-  log "x86_64 EFI-Bootloader aus Ubuntu ISO bereitgestellt."
-else
-  fail "Keinen x86_64 EFI-Bootloader gefunden."
-fi
+    "$TMP_ISO_AMD64/efi/boot/bootx64.efi" || \
+    fail "Keinen x86_64 EFI-Bootloader gefunden."
 
-# ARM64-Modul und Bootloader stammen wie beim bestehenden Installer aus dem
-# Ubuntu-ARM64-ISO. Bei PREPARE_ASSETS=0 bleibt ARM64 optional, falls das ISO
-# nicht bereits vorhanden ist.
-if [ -s "$ARM64_ISO" ]; then
-  log "ARM64 GRUB-Module/EFI-Bootloader aus Ubuntu ISO bereitstellen"
-  mountpoint -q "$TMP_ISO_ARM64" && umount "$TMP_ISO_ARM64" || true
-  mount -o loop,ro "$ARM64_ISO" "$TMP_ISO_ARM64" || fail "Konnte ARM64 ISO nicht mounten."
-
-  if [ -d "$TMP_ISO_ARM64/boot/grub/arm64-efi" ]; then
-    cp -a "$TMP_ISO_ARM64/boot/grub/arm64-efi/." "$BASE/grub/arm64-efi/" 2>/dev/null \
-      || warn "Konnte ARM64-GRUB-Module nicht vollstaendig kopieren."
-  else
-    fail "ARM64-GRUB-Module im ISO nicht gefunden: $TMP_ISO_ARM64/boot/grub/arm64-efi"
-  fi
-
-  if copy_first_existing "$BASE/grubaa64.efi" \
+copy_first_existing "$TFTP_ROOT/grubaa64.efi" \
     "$TMP_ISO_ARM64/efi/boot/bootaa64.efi" \
-    "$TMP_ISO_ARM64/efi/boot/grubaa64.efi"; then
-    log "ARM64 EFI-Bootloader bereitgestellt."
-  else
-    fail "Keinen ARM64 EFI-Bootloader im ISO gefunden."
-  fi
+    "$TMP_ISO_ARM64/efi/boot/grubaa64.efi" \
+    "$TMP_ISO_ARM64/EFI/BOOT/BOOTAA64.EFI" || \
+    fail "Keinen ARM64 EFI-Bootloader im Ubuntu ISO gefunden."
 
-  umount "$TMP_ISO_ARM64" || true
-elif [ "$PREPARE_ASSETS" = "1" ]; then
-  fail "ARM64 ISO fehlt: $ARM64_ISO"
-else
-  warn "ARM64 ISO fehlt; ARM64-PXE wird in diesem Lauf nicht aktualisiert."
+# Alpine/BusyBox sind optionale Boot-Tools, keine Installationsstacks.
+if [[ "$BOOT_TOOLS" == "1" ]]; then
+    ALPINE_BASE="${ALPINE_NETBOOT_URL:-https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/releases/x86_64/netboot}"
+    mkdir -p "$TFTP_ROOT/linux/alpine" "$HTTP_ROOT/linux/alpine"
+    download_file "$ALPINE_BASE/vmlinuz-lts" "$TFTP_ROOT/linux/alpine/vmlinuz-lts"
+    download_file "$ALPINE_BASE/initramfs-lts" "$TFTP_ROOT/linux/alpine/initramfs-lts"
+    download_file "$ALPINE_BASE/modloop-lts" "$HTTP_ROOT/linux/alpine/modloop-lts"
 fi
 
-### DNSMASQ - AUS BESTEHENDER pxe/install-pxe.sh ###
-log "dnsmasq stoppen (falls aktiv)"
-systemctl stop dnsmasq >/dev/null 2>&1 || true
-
-# Alte Konfiguration aus frueheren pxe-stack-Versionen darf nicht parallel geladen werden.
+# Proxy-DHCP/TFTP: absichtlich keine feste interface=... Vorgabe.
+# Das entspricht der funktionierenden lernvirt/pxe/install-pxe.sh.
 rm -f /etc/dnsmasq.d/pxe-stack.conf
-
-log "dnsmasq ProxyDHCP konfigurieren"
 cat >/etc/dnsmasq.d/pxe.conf <<EOF_DNSMASQ
 port=0
 
 dhcp-range=${SUBNET},proxy,${NETMASK}
 
-#interface=${IFACE}
-#bind-interfaces
+# interface=${IFACE}
+# bind-interfaces
 bind-dynamic
 
 dhcp-match=set:efi-x86_64,option:client-arch,7
@@ -393,38 +381,43 @@ pxe-service=tag:efi-arm64,ARM64_EFI,"UEFI PXE Boot ARM64",grubaa64.efi
 dhcp-option-force=66,${PXE_IP}
 
 enable-tftp
-tftp-root=${BASE}
+tftp-root=${TFTP_ROOT}
 
 log-dhcp
 log-facility=${LOGFILE}
 EOF_DNSMASQ
 
-dnsmasq --test || fail "dnsmasq Konfiguration ist ungueltig."
+dnsmasq --test || fail "dnsmasq-Konfiguration ist ungültig."
 
-### NGINX - WIE IM BESTEHENDEN INSTALLER AUF PORT 80 ###
-# Frühere pxe-stack-Versionen legten eine eigene Site an. Diese wird entfernt,
-# danach wird wieder die Ubuntu/nginx-Standard-Site mit /var/www/html verwendet.
-if [ -L /etc/nginx/sites-enabled/pxe-stack ] || [ -e /etc/nginx/sites-enabled/pxe-stack ]; then
-  rm -f /etc/nginx/sites-enabled/pxe-stack
-fi
-if [ -f /etc/nginx/sites-available/default ] && [ ! -e /etc/nginx/sites-enabled/default ]; then
-  ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
-fi
-nginx -t || fail "nginx Konfiguration ist ungueltig."
+# nginx bleibt auf Port 80. Andere Add-ons ändern diese Site nicht.
+cat >/etc/nginx/sites-available/pxe-stack <<EOF_NGINX
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    root ${HTTP_ROOT};
 
-log "nginx aktivieren"
-systemctl enable --now nginx >/dev/null 2>&1 || warn "Konnte nginx nicht aktivieren."
+    location / {
+        try_files \$uri \$uri/ =404;
+        autoindex on;
+    }
+}
+EOF_NGINX
+rm -f /etc/nginx/sites-enabled/default
+ln -sfn /etc/nginx/sites-available/pxe-stack /etc/nginx/sites-enabled/pxe-stack
+nginx -t || fail "nginx-Konfiguration ist ungültig."
 
-log "dnsmasq aktivieren und starten"
-systemctl enable dnsmasq >/dev/null 2>&1 || true
+"$TFTP_ROOT/bin/pxe-update"
+
+systemctl enable nginx dnsmasq >/dev/null
+systemctl restart nginx
 systemctl restart dnsmasq || fail "dnsmasq konnte nicht gestartet werden."
 
-log "Fertig."
-echo "Logs: ${LOGFILE}"
-echo "PXE Server IP: ${PXE_IP}"
-echo "Interface: ${IFACE}"
-echo "TFTP Root: ${BASE}"
-echo "HTTP Root: ${WWW}"
-echo "Stack: ${STACK}${VARIANT:+ (${VARIANT})}"
+log "PXE-Basis fertig."
+echo "PXE Server : $PXE_IP"
+echo "Interface  : $IFACE"
+echo "TFTP       : $TFTP_ROOT"
+echo "HTTP       : http://$PXE_IP/"
+echo "dnsmasq Log: $LOGFILE"
 echo
-"$BASE/bin/pxe-show"
+"$TFTP_ROOT/bin/pxe-show"

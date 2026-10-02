@@ -1,18 +1,12 @@
-# lernvirt PXE Basis
+# lernvirt PXE Stack
 #
-# install-pxe.sh ermittelt PXE_SERVER, PXE_INTERFACE, PXE_NETWORK und
-# PXE_NETMASK automatisch aus dem aktiven IPv4-Default-Interface. Diese
-# Beispielwerte sind deshalb nur Platzhalter.
+# Format der Hostregeln:
+#   "MAC|STACK|VARIANT"
 #
-# HOSTS-Regeln werden von oben nach unten ausgewertet; die letzte passende
-# Regel gewinnt. "*" gilt für alle Rechner.
-# Format: "MAC|STACK|VARIANT"
+# "*" gilt für alle Rechner. Die Regeln werden von oben nach unten
+# ausgewertet; die letzte passende Regel gewinnt.
 
 PXE_SERVER="192.168.1.101"
-PXE_INTERFACE=""
-PXE_NETWORK="192.168.1.0"
-PXE_NETMASK="255.255.255.0"
-
 TFTP_ROOT="/srv/tftp"
 HTTP_ROOT="/var/www/html"
 INSTALL_DISK="/dev/nvme0n1"
@@ -23,15 +17,12 @@ ALPINE_VERSION="3.22"
 BOOT_TOOLS="1"
 GRUB_TIMEOUT="5"
 
-SSH_KEY_FILE="/etc/lernvirt/lerncloud.pub"
-SSH_PUBLIC_KEY_URL=""
-
 HOSTS=(
     "*|cna|"
 
-    # MAC-spezifischer Override:
+    # Beispiel: einzelner Rechner mit anderem Stack
     # "80:EE:73:EF:0D:E9|cna-full|"
 
-    # Globaler Reset: als letzte Regel aktivieren.
+    # Globaler Reset: als letzte Regel aktivieren
     # "*|reset|"
 )

@@ -59,7 +59,7 @@ SUSE_ISO_URL="${SUSE_ISO_URL:-}"
 SUSE_SHA256="${SUSE_SHA256:-}"
 SUSE_SHA256_URL="${SUSE_SHA256_URL:-}"
 
-[[ -x "$TFTP_ROOT/bin/pxe-render" ]] || fail "pxe-render fehlt. Zuerst install-pxe.sh ausführen."
+[[ -x "$TFTP_ROOT/bin/pxe-update" ]] || fail "pxe-update fehlt. Zuerst install-pxe.sh ausführen."
 [[ -d "$TFTP_ROOT/grub/stacks" ]] || fail "GRUB-Stack-Verzeichnis fehlt: $TFTP_ROOT/grub/stacks"
 
 case "$SUSE_ARCH" in
@@ -259,8 +259,7 @@ MARKER_EOF
     fi
 fi
 
-# Der SUSE-Stack wird vom Add-on selbst installiert. Die Images sind bereits
-# aufbereitet; pxe-prepare muss SUSE deshalb nicht speziell kennen.
+# Der SUSE-Installer richtet den Stack und alle benötigten Images vollständig ein.
 cat > "$TFTP_ROOT/grub/stacks/suse.cfg" <<'GRUB_EOF'
 if [ -z "${variant}" ]; then
     menuentry "Install SUSE" {
@@ -287,7 +286,7 @@ if command -v nginx >/dev/null 2>&1; then
     nginx -t || fail "Bestehende nginx-Konfiguration ist ungültig."
 fi
 
-"$TFTP_ROOT/bin/pxe-render"
+"$TFTP_ROOT/bin/pxe-update"
 
 log "SUSE PXE Add-on bereit."
 printf '  TFTP Kernel : %s\n' "$TFTP_KERNEL"
