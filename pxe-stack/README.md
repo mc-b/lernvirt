@@ -196,7 +196,13 @@ Mit:
 BOOT_TOOLS=1
 ```
 
-werden Alpine und eine BusyBox-Shell zusätzlich im x86_64-GRUB-Menü angeboten. Beide laufen im RAM und installieren nichts auf die lokale Platte.
+werden Alpine und eine BusyBox-Shell zusätzlich im x86_64-GRUB-Menü angeboten. Beide laufen im RAM und installieren nichts auf die lokale Platte. Alpine wird mit `console=tty0` und `nomodeset` gestartet, damit die Textkonsole auf physischer Hardware sichtbar bleibt. Die BusyBox-Variante verwendet den von Alpine unterstützten Kernelparameter `single` und öffnet eine `ash`-Shell im Alpine-initramfs; mit `exit` wird der normale Alpine-Boot fortgesetzt.
+
+Die Netboot-Dateien werden atomar geladen und gegen die vom HTTP-Server gemeldete Dateigrösse geprüft. Ein früher abgebrochener Download wird dadurch nicht mehr als gültiges Asset wiederverwendet. Für ein erzwungenes Neuladen kann auf dem PXE-Server ausgeführt werden:
+
+```bash
+ALPINE_FORCE=1 /srv/tftp/bin/prepare-alpine
+```
 
 Deaktivieren:
 
