@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+PROFILE="${1:-}"
+[[ -n "$PROFILE" ]] || {
+    echo "Usage: $0 <user-data-file>" >&2
+    exit 2
+}
+
+CONFIG="${CONFIG:-/srv/tftp/config/rack.conf}"
+source "$CONFIG"
+
+TARGET="$HTTP_ROOT/autoinstall/$PROFILE"
+
+if [[ -s "$TARGET" ]]; then
+    exit 0
+fi
+
+find_profile() {
+    local root=$1
+    local found=""
+
+    if [[ -d "$root/pxe" ]]; then
+        found="$(find "$root/pxe" \( -type f -o -type l \) -name "$PROFILE" -print -quit 2>/dev/null || true)"
+    fi
+
+    if [[ -z "$found" ]]; then
+        found="$(find "$root" \( -type f -o -type l \) -name "$PROFILE" -print -quit 2>/dev/null || true)"
+    fi
+
+    printf '%s' "$found"
+}
+
+repo_root="${PXE_STACK_REPO_ROOT:-}"
+tmp=""
+
+if [[ -z "$repo_root" || ! -d "$repo_root" ]]; then
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    repo_root="$tmp/lernvirt"
+
+    echo "Suche bestehende Autoinstall-Datei '$PROFILE' im bisherigen lernvirt Repository ..."
+    git clone --depth 1 \
+        https://github.com/mc-b/lernvirt.git "$repo_root" >/dev/null 2>&1
+fi
+
+found="$(find_profile "$repo_root")"
+
+if [[ -n "$found" && -s "$found" ]]; then
+    mkdir -p "$(dirname "$TARGET")"
+    install -m 0644 "$found" "$TARGET"
+    echo "Übernommen: $found -> $TARGET"
+    exit 0
+fi
+
+echo "Autoinstall-Datei '$PROFILE' wurde im bisherigen Repository nicht gefunden." >&2
+exit 1

@@ -1,0 +1,41 @@
+# lernvirt PXE Basis
+#
+# Regeln werden von oben nach unten ausgewertet; die letzte passende Regel
+# gewinnt. "*" gilt für alle Rechner.
+#
+# Format:
+#   "MAC|STACK|VARIANT"
+#
+# Die PXE-Basis enthält: ubuntu, cna, cna-full, platen und reset.
+# Weitere Stacks können durch separate Add-on-Scripts installiert werden.
+
+PXE_SERVER="192.168.1.101"
+PXE_INTERFACE="br0"
+PXE_NETWORK="192.168.1.0"
+PXE_NETMASK="255.255.255.0"
+
+TFTP_ROOT="/srv/tftp"
+HTTP_ROOT="/var/www/html"
+
+INSTALL_DISK="/dev/nvme0n1"
+
+UBUNTU_VERSION="24.04.4"
+UBUNTU_CODENAME="noble"
+
+ALPINE_VERSION="3.22"
+BOOT_TOOLS="1"
+
+GRUB_TIMEOUT="5"
+
+SSH_KEY_FILE="/etc/lernvirt/lerncloud.pub"
+SSH_PUBLIC_KEY_URL=""
+
+HOSTS=(
+    "*|cna|"
+
+    # MAC-spezifischer Override:
+    # "80:EE:73:EF:0D:E9|cna-full|"
+
+    # Globaler Reset: als letzte Regel aktivieren.
+    # "*|reset|"
+)

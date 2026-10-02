@@ -16,7 +16,6 @@ source "$CONFIG"
 : "${PXE_SERVER:?PXE_SERVER fehlt}"
 : "${TFTP_ROOT:?TFTP_ROOT fehlt}"
 : "${HTTP_ROOT:?HTTP_ROOT fehlt}"
-: "${PROVISION_HTTP_PORT:?PROVISION_HTTP_PORT fehlt}"
 : "${INSTALL_DISK:?INSTALL_DISK fehlt}"
 : "${UBUNTU_VERSION:?UBUNTU_VERSION fehlt}"
 : "${UBUNTU_CODENAME:?UBUNTU_CODENAME fehlt}"
@@ -41,7 +40,6 @@ trap 'rm -f "$runtime_tmp" "$hosts_tmp"' EXIT
 
 cat >"$runtime_tmp" <<EOF
 set pxe_server="$(grub_escape "$PXE_SERVER")"
-set http_port="$(grub_escape "$PROVISION_HTTP_PORT")"
 set install_disk="$(grub_escape "$INSTALL_DISK")"
 set ubuntu_version="$(grub_escape "$UBUNTU_VERSION")"
 set ubuntu_codename="$(grub_escape "$UBUNTU_CODENAME")"
