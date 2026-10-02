@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+CONFIG="${CONFIG:-/srv/tftp/config/rack.conf}"
+source "$CONFIG"
+
+ISO="ubuntu-${UBUNTU_VERSION}-live-server-amd64.iso"
+ISO_URL="${UBUNTU_ISO_URL:-https://releases.ubuntu.com/${UBUNTU_VERSION}/${ISO}}"
+
+TFTP_DIR="$TFTP_ROOT/linux/ubuntu/$UBUNTU_CODENAME/amd64"
+HTTP_DIR="$HTTP_ROOT/linux/ubuntu/$UBUNTU_CODENAME/amd64"
+ISO_PATH="$HTTP_DIR/$ISO"
+
+mkdir -p "$TFTP_DIR" "$HTTP_DIR"
+
+if [[ ! -s "$ISO_PATH" ]]; then
+    echo "Download: $ISO_URL"
+    curl -fL --retry 5 --retry-delay 3 --continue-at - \
+        "$ISO_URL" -o "$ISO_PATH"
+fi
+
+if [[ ! -s "$TFTP_DIR/vmlinuz" || ! -s "$TFTP_DIR/initrd" ]]; then
+    mnt="$(mktemp -d)"
+    cleanup() {
+        mountpoint -q "$mnt" && umount "$mnt" || true
+        rmdir "$mnt" 2>/dev/null || true
+    }
+    trap cleanup EXIT
+
+    mount -o loop,ro "$ISO_PATH" "$mnt"
+
+    [[ -s "$mnt/casper/vmlinuz" ]] || {
+        echo "casper/vmlinuz fehlt in $ISO_PATH" >&2
+        exit 1
+    }
+    [[ -s "$mnt/casper/initrd" ]] || {
+        echo "casper/initrd fehlt in $ISO_PATH" >&2
+        exit 1
+    }
+
+    install -m 0644 "$mnt/casper/vmlinuz" "$TFTP_DIR/vmlinuz"
+    install -m 0644 "$mnt/casper/initrd" "$TFTP_DIR/initrd"
+
+    cleanup
+    trap - EXIT
+fi
+
+echo "Ubuntu PXE Assets bereit:"
+echo "  TFTP: $TFTP_DIR/{vmlinuz,initrd}"
+echo "  HTTP: $ISO_PATH"

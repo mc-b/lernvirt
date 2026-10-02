@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+CONFIG="${CONFIG:-/srv/tftp/config/rack.conf}"
+source "$CONFIG"
+
+BASE_URL="${ALPINE_NETBOOT_URL:-https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/releases/x86_64/netboot}"
+
+TFTP_DIR="$TFTP_ROOT/linux/alpine"
+HTTP_DIR="$HTTP_ROOT/linux/alpine"
+
+mkdir -p "$TFTP_DIR" "$HTTP_DIR"
+
+fetch() {
+    local url=$1
+    local dest=$2
+
+    if [[ -s "$dest" ]]; then
+        return 0
+    fi
+
+    echo "Download: $url"
+    curl -fL --retry 5 --retry-delay 2 --continue-at - "$url" -o "$dest"
+}
+
+fetch "$BASE_URL/vmlinuz-lts"   "$TFTP_DIR/vmlinuz-lts"
+fetch "$BASE_URL/initramfs-lts" "$TFTP_DIR/initramfs-lts"
+fetch "$BASE_URL/modloop-lts"   "$HTTP_DIR/modloop-lts"
+
+echo "Alpine/BusyBox PXE Assets bereit."

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+CONFIG="${CONFIG:-/srv/tftp/config/rack.conf}"
+source "$CONFIG"
+
+printf 'PXE Server : %s\n' "$PXE_SERVER"
+printf 'HTTP       : http://%s:%s/\n' "$PXE_SERVER" "$PROVISION_HTTP_PORT"
+printf 'TFTP       : %s\n' "$TFTP_ROOT"
+printf 'Disk       : %s\n' "$INSTALL_DISK"
+printf 'Boot tools : %s\n\n' "$BOOT_TOOLS"
+
+echo "Hostregeln (Reihenfolge ist relevant, letzte passende Regel gewinnt):"
+n=0
+for rule in "${HOSTS[@]}"; do
+    n=$((n + 1))
+    IFS='|' read -r selector stack variant <<<"$rule"
+    printf '  %2d  %-18s -> %-20s %s\n' "$n" "$selector" "$stack" "${variant:-}"
+done
+
+echo
+echo "Verfügbare Stacks:"
+find "$TFTP_ROOT/grub/stacks" -maxdepth 1 -type f -name '*.cfg' ! -name '_*' \
+    -printf '  %f\n' 2>/dev/null | sed 's/\.cfg$//' | sort
