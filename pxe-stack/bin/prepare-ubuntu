@@ -5,7 +5,7 @@ CONFIG="${CONFIG:-/srv/tftp/config/rack.conf}"
 source "$CONFIG"
 
 ISO="ubuntu-${UBUNTU_VERSION}-live-server-amd64.iso"
-ISO_URL="${UBUNTU_ISO_URL:-https://releases.ubuntu.com/${UBUNTU_VERSION}/${ISO}}"
+ISO_URL="${UBUNTU_ISO_URL:-https://mirror.init7.net/ubuntu-releases/${UBUNTU_VERSION}/${ISO}}"
 
 TFTP_DIR="$TFTP_ROOT/linux/ubuntu/$UBUNTU_CODENAME/amd64"
 HTTP_DIR="$HTTP_ROOT/linux/ubuntu/$UBUNTU_CODENAME/amd64"
