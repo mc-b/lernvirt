@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+set -u
+
+CONF="${OCP_CONFIG:-/srv/tftp/config/openshift.conf}"
+[[ -r "$CONF" ]] || { echo "Fehlt: $CONF" >&2; exit 1; }
+# shellcheck disable=SC1090
+source "$CONF"
+
+OCP_DIR="${OCP_DIR:-/opt/openshift}"
+INSTALL_DIR="${OCP_DIR}/install"
+KUBECONFIG_FILE="${INSTALL_DIR}/auth/kubeconfig"
+OC="${OCP_DIR}/bin/oc"
+[[ -x "$OC" ]] || OC="$(command -v oc 2>/dev/null || true)"
+INGRESS_IP="${INGRESS_IP:-$BOOTSTRAP_IP}"
+INGRESS_NETNS="${INGRESS_NETNS:-ocp-ingress}"
+
+echo "=== terra1 Netzwerk ==="
+ip -br -4 addr show "$BOOTSTRAP_BRIDGE" 2>/dev/null || true
+ip -4 route show default 2>/dev/null || true
+printf 'Bootstrap: %-15s bridge=%s\n' "$BOOTSTRAP_IP" "$BOOTSTRAP_BRIDGE"
+printf 'Ingress  : %-15s netns=%s\n' "$INGRESS_IP" "$INGRESS_NETNS"
+
+echo
+echo "=== Dienste terra1 ==="
+for svc in dnsmasq nginx haproxy libvirtd openshift-ingress-net openshift-ingress-haproxy; do
+  if systemctl list-unit-files "${svc}.service" --no-legend 2>/dev/null | grep -q .; then
+    state="$(systemctl is-active "${svc}.service" 2>/dev/null || true)"
+    printf '%-34s %s\n' "${svc}.service" "$state"
+  fi
+done
+
+echo
+echo "=== Listener ==="
+ss -lnt 2>/dev/null | awk '$4 ~ /:(53|80|443|6443|22623)$/ {print}' || true
+if ip netns list 2>/dev/null | awk '{print $1}' | grep -qx "$INGRESS_NETNS"; then
+  echo "-- $INGRESS_NETNS --"
+  ip -n "$INGRESS_NETNS" -br -4 addr 2>/dev/null || true
+  ip netns exec "$INGRESS_NETNS" ss -lnt 2>/dev/null | awk '$4 ~ /:(80|443)$/ {print}' || true
+fi
+
+echo
+echo "=== DNS ==="
+for name in \
+  "api.${CLUSTER_NAME}.${BASE_DOMAIN}" \
+  "api-int.${CLUSTER_NAME}.${BASE_DOMAIN}" \
+  "bootstrap.${CLUSTER_NAME}.${BASE_DOMAIN}" \
+  "terra2.${CLUSTER_NAME}.${BASE_DOMAIN}" \
+  "terra3.${CLUSTER_NAME}.${BASE_DOMAIN}" \
+  "terra4.${CLUSTER_NAME}.${BASE_DOMAIN}" \
+  "test.apps.${CLUSTER_NAME}.${BASE_DOMAIN}"; do
+  printf '%-55s ' "$name"
+  dig +short @"${TERRA1_IP}" "$name" 2>/dev/null | paste -sd, -
+done
+
+echo
+echo "=== Bootstrap VM ==="
+virsh dominfo "$BOOTSTRAP_NAME" 2>/dev/null | grep -E '^(Name|State|CPU\(s\)|Max memory|Used memory):' || echo "Bootstrap-VM nicht vorhanden"
+virsh domiflist "$BOOTSTRAP_NAME" 2>/dev/null || true
+for port in 22 6443 22623; do
+  if nc -z -w1 "$BOOTSTRAP_IP" "$port" >/dev/null 2>&1; then
+    printf '%s:%s=open ' "$BOOTSTRAP_IP" "$port"
+  else
+    printf '%s:%s=- ' "$BOOTSTRAP_IP" "$port"
+  fi
+done
+echo
+
+echo
+echo "=== Nodes ==="
+for pair in "terra2:${TERRA2_IP}" "terra3:${TERRA3_IP}" "terra4:${TERRA4_IP}"; do
+  node="${pair%%:*}"
+  ipaddr="${pair#*:}"
+  printf '%-8s %-15s ping=' "$node" "$ipaddr"
+  if ping -c1 -W1 "$ipaddr" >/dev/null 2>&1; then printf 'ok '; else printf 'down '; fi
+  for port in 22 6443 22623 80 443; do
+    if nc -z -w1 "$ipaddr" "$port" >/dev/null 2>&1; then printf '%s=open ' "$port"; else printf '%s=- ' "$port"; fi
+  done
+  echo
+done
+
+echo
+echo "=== Load Balancer ==="
+for target in "${TERRA1_IP}:6443" "${TERRA1_IP}:22623" "${INGRESS_IP}:80" "${INGRESS_IP}:443"; do
+  host="${target%:*}"; port="${target##*:}"
+  if nc -z -w1 "$host" "$port" >/dev/null 2>&1; then
+    printf '%-22s open\n' "$target"
+  else
+    printf '%-22s -\n' "$target"
+  fi
+done
+
+echo
+echo "=== OpenShift ==="
+if [[ -f "$KUBECONFIG_FILE" && -n "$OC" && -x "$OC" ]]; then
+  echo "Kubeconfig: $KUBECONFIG_FILE"
+  echo
+  echo "--- Nodes ---"
+  KUBECONFIG="$KUBECONFIG_FILE" "$OC" get nodes -o wide 2>/dev/null || true
+  echo
+  echo "--- Cluster Operators ---"
+  KUBECONFIG="$KUBECONFIG_FILE" "$OC" get co 2>/dev/null || true
+  echo
+  echo "--- Fehlerhafte Pods ---"
+  KUBECONFIG="$KUBECONFIG_FILE" "$OC" get pods -A --no-headers 2>/dev/null \
+    | awk '$4 != "Running" && $4 != "Completed" {print}' || true
+  echo
+  echo "--- Ingress Controller ---"
+  KUBECONFIG="$KUBECONFIG_FILE" "$OC" get ingresscontroller -n openshift-ingress-operator 2>/dev/null || true
+else
+  echo "Kubeconfig noch nicht vorhanden: $KUBECONFIG_FILE"
+fi
+
+echo
+echo "=== Installer ==="
+if pgrep -af 'openshift-install.*wait-for' >/dev/null 2>&1; then
+  pgrep -af 'openshift-install.*wait-for' || true
+else
+  echo "Kein laufender openshift-install wait-for Prozess."
+fi
+
+echo
+echo "=== Letzte Installer-Meldungen ==="
+tail -n 60 /var/log/openshift-install.log 2>/dev/null || true
