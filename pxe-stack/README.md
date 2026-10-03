@@ -10,6 +10,7 @@ Ein **Stack** ist eine GRUB-Bootdefinition. Beispiele:
 - `reset` – Ubuntu mit `user-data-reset`, um Rechner auf den Ausgangszustand zurückzusetzen
 - `suse` – wird durch `install-suse.sh` ergänzt
 - `openshift` – wird durch `install-openshift.sh` ergänzt
+- `harvester` – wird durch `install-harvester.sh` ergänzt
 
 Die PXE-Basis verwendet `dnsmasq` als Proxy-DHCP/TFTP, GRUB UEFI und `nginx` auf Port 80. Ubuntu wird für amd64 und arm64 vorbereitet. Alpine/BusyBox sind optionale Boot-Tools und keine Installationsstacks.
 
@@ -109,6 +110,8 @@ Der `reset`-Stack ignoriert diesen Marker bewusst und startet trotzdem die Reset
 
 Die normale lernvirt-Autoinstallation erzeugt den Marker am Ende der Installation. Die Reset-Autoinstallation entfernt ihn und aktiviert Wake-on-LAN, bevor der Rechner ausgeschaltet wird.
 
+Harvester wird zusätzlich über die lokale Partition mit dem Label `COS_STATE` erkannt und danach über den lokalen GRUB-Bootloader gestartet.
+
 ## Alpine / BusyBox
 
 Alpine und BusyBox sind zusätzliche RAM-Bootvarianten. Sie installieren nichts auf die lokale Platte.
@@ -177,6 +180,12 @@ Für ein eigenes SLES-ISO:
 ```bash
 SUSE_ISO=/pfad/SLE-15-SP6-Full-x86_64-GM-Media1.iso ./install-suse.sh
 ```
+
+## SUSE Harvester Add-on
+
+Harvester wird durch `install-harvester.sh` eingerichtet. 
+
+Die vollständige Anleitung steht in [`HARVESTER.md`](HARVESTER.md).
 
 ## OpenShift Add-on
 
