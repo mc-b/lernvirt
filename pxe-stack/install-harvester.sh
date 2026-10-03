@@ -21,6 +21,7 @@ set -Eeuo pipefail
 #   HARVESTER_INTERFACE=mgmt0     # Name wird beim PXE-Boot via ifname= gesetzt
 #   HARVESTER_TOKEN=...
 #   HARVESTER_PASSWORD=...
+#   HARVESTER_SKIPCHECKS=true    # Production-Hardwarechecks nur als Warnung
 #   HARVESTER_FORCE=1
 #
 # HOSTS-Syntax danach:
@@ -51,6 +52,7 @@ ENV_HARVESTER_TOKEN="${HARVESTER_TOKEN-}"
 ENV_HARVESTER_PASSWORD="${HARVESTER_PASSWORD-}"
 ENV_HARVESTER_SSH_KEY_FILE="${HARVESTER_SSH_KEY_FILE-}"
 ENV_HARVESTER_NTP_SERVERS="${HARVESTER_NTP_SERVERS-}"
+ENV_HARVESTER_SKIPCHECKS="${HARVESTER_SKIPCHECKS-}"
 ENV_HARVESTER_BASE_URL="${HARVESTER_BASE_URL-}"
 ENV_HARVESTER_FORCE="${HARVESTER_FORCE-}"
 
@@ -76,6 +78,7 @@ HARVESTER_TOKEN="${ENV_HARVESTER_TOKEN:-${HARVESTER_TOKEN:-}}"
 HARVESTER_PASSWORD="${ENV_HARVESTER_PASSWORD:-${HARVESTER_PASSWORD:-}}"
 HARVESTER_SSH_KEY_FILE="${ENV_HARVESTER_SSH_KEY_FILE:-${HARVESTER_SSH_KEY_FILE:-/etc/lernvirt/lerncloud.pub}}"
 HARVESTER_NTP_SERVERS="${ENV_HARVESTER_NTP_SERVERS:-${HARVESTER_NTP_SERVERS:-0.suse.pool.ntp.org 1.suse.pool.ntp.org}}"
+HARVESTER_SKIPCHECKS="${ENV_HARVESTER_SKIPCHECKS:-${HARVESTER_SKIPCHECKS:-true}}"
 HARVESTER_BASE_URL="${ENV_HARVESTER_BASE_URL:-${HARVESTER_BASE_URL:-https://releases.rancher.com/harvester}}"
 HARVESTER_FORCE="${ENV_HARVESTER_FORCE:-${HARVESTER_FORCE:-0}}"
 
@@ -89,6 +92,12 @@ HARVESTER_FORCE="${ENV_HARVESTER_FORCE:-${HARVESTER_FORCE:-0}}"
 case "$HARVESTER_ARCH" in
     amd64|arm64) ;;
     *) fail "Nicht unterstützte HARVESTER_ARCH: $HARVESTER_ARCH (unterstützt: amd64, arm64)" ;;
+esac
+
+case "${HARVESTER_SKIPCHECKS,,}" in
+    true|1|yes|on) HARVESTER_SKIPCHECKS=true ;;
+    false|0|no|off) HARVESTER_SKIPCHECKS=false ;;
+    *) fail "HARVESTER_SKIPCHECKS muss true oder false sein: $HARVESTER_SKIPCHECKS" ;;
 esac
 
 for cmd in curl sha512sum awk grep install tar cmp; do
@@ -112,15 +121,26 @@ esac
 set_config_var() {
     local name="$1"
     local value="$2"
-    local line tmp
-    printf -v line '%s=%q' "$name" "$value"
+    local tmp current_line
+    local replaced=0
+
     tmp="$(mktemp "${CONFIG}.XXXXXX")"
-    awk -v name="$name" -v line="$line" '
-        BEGIN { replaced=0 }
-        $0 ~ "^" name "=" && replaced == 0 { print line; replaced=1; next }
-        { print }
-        END { if (replaced == 0) print line }
-    ' "$CONFIG" >"$tmp"
+
+    # Nicht via awk -v schreiben: Shell-Escapes wie "\ " in mit %q
+    # erzeugten Werten würden von awk interpretiert und beschädigt.
+    while IFS= read -r current_line || [[ -n "$current_line" ]]; do
+        if [[ "$current_line" == "${name}="* && "$replaced" -eq 0 ]]; then
+            printf '%s=%q\n' "$name" "$value" >>"$tmp"
+            replaced=1
+        else
+            printf '%s\n' "$current_line" >>"$tmp"
+        fi
+    done <"$CONFIG"
+
+    if [[ "$replaced" -eq 0 ]]; then
+        printf '%s=%q\n' "$name" "$value" >>"$tmp"
+    fi
+
     chmod --reference="$CONFIG" "$tmp" 2>/dev/null || chmod 0644 "$tmp"
     chown --reference="$CONFIG" "$tmp" 2>/dev/null || true
     mv -f "$tmp" "$CONFIG"
@@ -139,6 +159,7 @@ set_config_var HARVESTER_TOKEN "$HARVESTER_TOKEN"
 set_config_var HARVESTER_PASSWORD "$HARVESTER_PASSWORD"
 set_config_var HARVESTER_SSH_KEY_FILE "$HARVESTER_SSH_KEY_FILE"
 set_config_var HARVESTER_NTP_SERVERS "$HARVESTER_NTP_SERVERS"
+set_config_var HARVESTER_SKIPCHECKS "$HARVESTER_SKIPCHECKS"
 
 # Die Harvester-Integration benötigt die dazu passende pxe-update- und grub.cfg-
 # Version. Bei lokaler Ausführung werden die Dateien aus demselben Paket genommen.
@@ -326,6 +347,7 @@ echo "Architektur : $HARVESTER_ARCH"
 echo "Cluster-VIP : $HARVESTER_VIP"
 echo "Install-Disk: $HARVESTER_DEVICE"
 echo "Interface   : $HARVESTER_INTERFACE (beim Boot an die PXE-MAC gebunden)"
+echo "HW-Checks   : skipchecks=$HARVESTER_SKIPCHECKS"
 echo "Konfiguration: $CONFIG"
 echo
 echo "HOSTS-Beispiel:"

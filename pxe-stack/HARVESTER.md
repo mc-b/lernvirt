@@ -28,6 +28,7 @@ HARVESTER_DEVICE=<INSTALL_DISK aus rack.conf>
 HARVESTER_INTERFACE=mgmt0
 HARVESTER_SSH_KEY_FILE=/etc/lernvirt/lerncloud.pub
 HARVESTER_NTP_SERVERS="0.suse.pool.ntp.org 1.suse.pool.ntp.org"
+HARVESTER_SKIPCHECKS=true
 ```
 
 Das Management-Interface `mgmt0` muss nicht dem ursprünglichen Linux-Interfacenamen entsprechen. Der GRUB-Stack bindet beim Boot die PXE-MAC mittels `ifname=mgmt0:<MAC>` an diesen Namen.
@@ -62,7 +63,7 @@ sudo /srv/tftp/bin/pxe-show
 /var/www/html/harvester/config/aa-bb-cc-dd-ee-03.yaml
 ```
 
-Die Dateien enthalten Token und Passwort. Sie werden bei jedem `pxe-update` vollständig aus `rack.conf` neu aufgebaut; veraltete Hostkonfigurationen werden entfernt.
+Die Dateien enthalten Token und Passwort. Sie werden bei jedem `pxe-update` vollständig aus `rack.conf` neu aufgebaut; veraltete Hostkonfigurationen werden entfernt. Standardmässig enthält jede Konfiguration zusätzlich `install.skipchecks: true`. Dadurch bleiben Meldungen zu nicht erfüllten Production-Hardwareanforderungen sichtbar, stoppen die automatische Installation aber nicht. Für Production-Systeme kann dies zentral mit `HARVESTER_SKIPCHECKS=false` deaktiviert werden.
 
 ## Automatischer Ablauf
 
@@ -73,6 +74,7 @@ UEFI PXE
   -> rootfs.squashfs per HTTP
   -> automatisch erzeugte Host-YAML per HTTP
   -> CREATE oder JOIN ohne Interaktion
+  -> Production-Hardwarechecks werden bei HARVESTER_SKIPCHECKS=true nur als Warnung behandelt
   -> Installation auf HARVESTER_DEVICE
   -> Reboot
   -> COS_STATE wird von PXE-GRUB erkannt
@@ -124,6 +126,12 @@ sudo \
   HARVESTER_TOKEN='mein-cluster-token' \
   HARVESTER_PASSWORD='mein-passwort' \
   ./install-harvester.sh
+```
+
+Production-Hardwarechecks wieder erzwingen:
+
+```bash
+sudo HARVESTER_SKIPCHECKS=false ./install-harvester.sh
 ```
 
 Erneuter Download der Assets:

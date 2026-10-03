@@ -175,7 +175,7 @@ Harvester wird vollständig separat auf der bestehenden PXE-Basis eingerichtet:
 sudo HARVESTER_VIP=192.168.1.110 ./install-harvester.sh
 ```
 
-`HARVESTER_VIP` ist die freie statische Management-VIP des Harvester-Clusters. Die übrigen Standardwerte werden aus der bestehenden PXE-Konfiguration übernommen bzw. automatisch erzeugt. Insbesondere erzeugt `install-harvester.sh` beim ersten Aufruf einen Cluster-Token und ein OS-Passwort und speichert beides zentral in `/srv/tftp/config/rack.conf`.
+`HARVESTER_VIP` ist die freie statische Management-VIP des Harvester-Clusters. Die übrigen Standardwerte werden aus der bestehenden PXE-Konfiguration übernommen bzw. automatisch erzeugt. Insbesondere erzeugt `install-harvester.sh` beim ersten Aufruf einen Cluster-Token und ein OS-Passwort und speichert beides zentral in `/srv/tftp/config/rack.conf`. Für Lern-/Testsysteme wird standardmässig `HARVESTER_SKIPCHECKS=true` gesetzt, damit nicht erfüllte Production-Hardwarechecks nur Warnungen erzeugen und die automatische Installation nicht stoppen.
 
 Standard ist Harvester `1.8.2` für `amd64`. Der Installer lädt ISO, Kernel, initrd und rootfs direkt aus dem offiziellen Harvester-Release, prüft das ISO per SHA512 und installiert den Stack `harvester`.
 
@@ -203,7 +203,7 @@ sudo /srv/tftp/bin/pxe-show
 /var/www/html/harvester/config/<mac>.yaml
 ```
 
-Es muss keine `node1.yaml`, `node2.yaml` usw. manuell erstellt werden. Für `create:<hostname>` werden VIP und `vip_mode: static` gesetzt; für `join:<hostname>` wird automatisch `server_url: https://<HARVESTER_VIP>:443` gesetzt. Alle Nodes erhalten denselben Cluster-Token, die konfigurierte Installationsdisk, den SSH-Key und die PXE-MAC als Management-Interface.
+Es muss keine `node1.yaml`, `node2.yaml` usw. manuell erstellt werden. Für `create:<hostname>` werden VIP und `vip_mode: static` gesetzt; für `join:<hostname>` wird automatisch `server_url: https://<HARVESTER_VIP>:443` gesetzt. Alle Nodes erhalten denselben Cluster-Token, die konfigurierte Installationsdisk, den SSH-Key und die PXE-MAC als Management-Interface. `pxe-update` schreibt zudem `install.skipchecks` gemäss `HARVESTER_SKIPCHECKS` in jede Node-Konfiguration.
 
 Das Management-Interface heisst standardmässig `mgmt0`. Beim PXE-Boot wird die tatsächliche PXE-MAC mittels Kernelparameter `ifname=mgmt0:<MAC>` an diesen Namen gebunden, sodass kein hardwarespezifischer Interface-Name in einer Node-YAML gepflegt werden muss.
 
