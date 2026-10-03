@@ -1,174 +1,146 @@
 # SUSE Harvester PXE Add-on
 
-Harvester wird als eigenständiger Add-on-Stack in die bestehende `pxe-stack`-Basis integriert. Es braucht kein separates `prepare-*`-Script.
-
-## Dateien
-
-Im Repository werden benötigt:
-
-```text
-pxe-stack/
-├── install-harvester.sh       # neu
-├── HARVESTER.md               # neu, Dokumentation
-└── grub/
-    └── grub.cfg               # geändert: COS_STATE als lokale Harvester-Installation erkennen
-```
-
-Keine Änderung ist nötig an:
-
-```text
-bin/pxe-update
-bin/pxe-show
-dnsmasq/nginx-Konfiguration
-rack.conf-Format
-```
-
-`install-harvester.sh` erzeugt zur Laufzeit zusätzlich:
-
-```text
-/srv/tftp/linux/harvester/v1.8.2/amd64/vmlinuz
-/srv/tftp/linux/harvester/v1.8.2/amd64/initrd
-/srv/tftp/grub/stacks/harvester.cfg
-
-/var/www/html/linux/harvester/v1.8.2/amd64/harvester.iso
-/var/www/html/linux/harvester/v1.8.2/amd64/rootfs.squashfs
-/var/www/html/harvester/config/config-create.yaml.example
-/var/www/html/harvester/config/config-join.yaml.example
-```
-
-Die Version und Architektur können mit `HARVESTER_VERSION` und `HARVESTER_ARCH` überschrieben werden.
+Harvester wird als Add-on in die bestehende `pxe-stack`-Basis integriert. Die Installation der einzelnen Nodes erfolgt vollständig unattended; pro Node muss keine YAML-Datei mehr manuell erstellt werden.
 
 ## Installation des Add-ons
 
-Auf einem bereits eingerichteten PXE-Server:
+Auf einem bereits eingerichteten PXE-Server aus dem ausgepackten Paket:
 
 ```bash
-sudo ./install-harvester.sh
+sudo HARVESTER_VIP=192.168.1.110 ./install-harvester.sh
 ```
 
-Oder nach dem Commit ins Repository:
+`HARVESTER_VIP` ist die einzige Angabe, die nicht zuverlässig automatisch bestimmt werden kann. Sie muss eine freie statische Adresse im Management-Netz sein.
 
-```bash
-curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-harvester.sh | sudo bash -
-```
+Beim ersten Aufruf werden automatisch erzeugt und in `/srv/tftp/config/rack.conf` gespeichert:
 
-Standard ist Harvester `1.8.2` für `amd64`.
+- `HARVESTER_TOKEN`
+- `HARVESTER_PASSWORD`
 
-Andere Architektur:
+Zusätzlich werden dort Version, Architektur, VIP, Installationsdisk, Management-Interface und SSH-Key-Datei hinterlegt.
 
-```bash
-HARVESTER_ARCH=arm64 sudo ./install-harvester.sh
-```
-
-Erzwungener erneuter Download:
-
-```bash
-HARVESTER_FORCE=1 sudo ./install-harvester.sh
-```
-
-Der Installer lädt die offiziellen Harvester-PXE-Artefakte von `releases.rancher.com`. Das vollständige ISO wird mit der offiziellen SHA512-Prüfsumme geprüft. Falls die Prüfsummendatei auch Einträge für Kernel, initrd oder rootfs enthält, werden diese ebenfalls geprüft.
-
-## CREATE-Konfiguration
-
-Das Script erzeugt:
+Standardwerte:
 
 ```text
-/var/www/html/harvester/config/config-create.yaml.example
+HARVESTER_VERSION=1.8.2
+HARVESTER_ARCH=amd64
+HARVESTER_DEVICE=<INSTALL_DISK aus rack.conf>
+HARVESTER_INTERFACE=mgmt0
+HARVESTER_SSH_KEY_FILE=/etc/lernvirt/lerncloud.pub
+HARVESTER_NTP_SERVERS="0.suse.pool.ntp.org 1.suse.pool.ntp.org"
 ```
 
-Für den ersten Node kopieren:
-
-```bash
-sudo cp \
-  /var/www/html/harvester/config/config-create.yaml.example \
-  /var/www/html/harvester/config/node1.yaml
-
-sudo vi /var/www/html/harvester/config/node1.yaml
-```
-
-Mindestens anpassen:
-
-- `token`
-- `os.hostname`
-- `os.password`
-- Name des Management-Interfaces
-- `install.device`
-- `install.vip`
-
-Bei mehreren lokalen Datenträgern sollte statt `/dev/sdX` oder `/dev/nvmeXnY` möglichst `/dev/disk/by-id/...` oder `/dev/disk/by-path/...` verwendet werden.
-
-## JOIN-Konfiguration
-
-Für weitere Nodes:
-
-```bash
-sudo cp \
-  /var/www/html/harvester/config/config-join.yaml.example \
-  /var/www/html/harvester/config/node2.yaml
-
-sudo vi /var/www/html/harvester/config/node2.yaml
-```
-
-Zusätzlich zu Hostname, Passwort, Interface und Disk müssen vor allem gesetzt werden:
-
-```yaml
-server_url: "https://<HARVESTER-VIP>:443"
-token: "<GLEICHER-CLUSTER-TOKEN>"
-```
-
-Die Konfigurationsdateien enthalten Zugangsdaten. Der HTTP-Dienst des PXE-Servers darf deshalb nur aus dem vorgesehenen Installationsnetz erreichbar sein.
+Das Management-Interface `mgmt0` muss nicht dem ursprünglichen Linux-Interfacenamen entsprechen. Der GRUB-Stack bindet beim Boot die PXE-MAC mittels `ifname=mgmt0:<MAC>` an diesen Namen.
 
 ## `rack.conf`
 
-Die `VARIANT` ist bei Harvester der Name der YAML-Konfigurationsdatei unter `/var/www/html/harvester/config/`.
-
-Beispiel für drei Nodes:
+Das bestehende Format `MAC|STACK|VARIANT` bleibt unverändert. Für Harvester enthält `VARIANT` Installationsmodus und Hostname:
 
 ```bash
 HOSTS=(
-    "AA:BB:CC:DD:EE:01|harvester|node1.yaml"
-    "AA:BB:CC:DD:EE:02|harvester|node2.yaml"
-    "AA:BB:CC:DD:EE:03|harvester|node3.yaml"
+    "*|ubuntu|"
+    "AA:BB:CC:DD:EE:01|harvester|create:harvester-01"
+    "AA:BB:CC:DD:EE:02|harvester|join:harvester-02"
+    "AA:BB:CC:DD:EE:03|harvester|join:harvester-03"
 )
 ```
 
-Danach:
+Für Harvester ist eine explizite MAC-Adresse erforderlich; `*|harvester|...` ist nicht zulässig.
+
+Nach Änderungen:
 
 ```bash
 sudo /srv/tftp/bin/pxe-update
 sudo /srv/tftp/bin/pxe-show
 ```
 
-Eine leere Variante wird absichtlich nicht automatisch installiert, weil Harvester bei einer PXE-Installation eine Konfigurationsdatei benötigt.
-
-## Zweiter PXE-Boot / lokaler Boot
-
-Harvester basiert auf Elemental und legt den lokalen GRUB-Bootloader auf der Partition mit dem Label `COS_STATE` ab.
-
-Die angepasste `grub/grub.cfg` erkennt deshalb neben `/boot/lernvirt-installed` und `/lernvirt-installed` zusätzlich `COS_STATE`. Nach erfolgreicher Installation wird beim nächsten PXE-Boot standardmässig das lokale Harvester gebootet. Der vorhandene Local-Boot-Eintrag kann dazu `/grub2/grub.cfg` auf `COS_STATE` laden.
-
-`install-harvester.sh` ergänzt diese Erkennung auch idempotent auf einem bereits installierten PXE-Server. Vor der ersten Änderung wird dort eine Sicherung angelegt:
+`pxe-update` erzeugt daraus automatisch:
 
 ```text
-/srv/tftp/grub/grub.cfg.pre-harvester
+/var/www/html/harvester/config/aa-bb-cc-dd-ee-01.yaml
+/var/www/html/harvester/config/aa-bb-cc-dd-ee-02.yaml
+/var/www/html/harvester/config/aa-bb-cc-dd-ee-03.yaml
 ```
 
-## Hinweise zu Harvester 1.8
+Die Dateien enthalten Token und Passwort. Sie werden bei jedem `pxe-update` vollständig aus `rack.conf` neu aufgebaut; veraltete Hostkonfigurationen werden entfernt.
 
-Neue PXE-Installationen von Harvester 1.8 müssen im UEFI-Modus booten. Während der PXE-Installation wird das vollständige ISO in den Arbeitsspeicher geladen; dafür werden mindestens 8 GiB RAM benötigt. Die regulären Harvester-Hardwareanforderungen für den späteren Betrieb gelten zusätzlich.
-
-Die hier verwendeten Bootparameter entsprechen dem offiziellen Harvester-PXE-Verfahren:
+## Automatischer Ablauf
 
 ```text
-ip=dhcp
-net.ifnames=1
-rd.cos.disable
-rd.noverifyssl
-console=tty1
-root=live:http://<PXE>/.../rootfs.squashfs
-harvester.install.automatic=true
-harvester.install.config_url=http://<PXE>/harvester/config/<datei.yaml>
+UEFI PXE
+  -> MAC wird durch hosts.cfg einem Harvester-Stack zugeordnet
+  -> Kernel + initrd per TFTP
+  -> rootfs.squashfs per HTTP
+  -> automatisch erzeugte Host-YAML per HTTP
+  -> CREATE oder JOIN ohne Interaktion
+  -> Installation auf HARVESTER_DEVICE
+  -> Reboot
+  -> COS_STATE wird von PXE-GRUB erkannt
+  -> lokaler Harvester-Boot
 ```
+
+Der erste Node verwendet `create:<hostname>`. Weitere Nodes verwenden `join:<hostname>` und erhalten automatisch `server_url: https://<HARVESTER_VIP>:443` sowie denselben Cluster-Token.
+
+Der CREATE-Node muss erreichbar sein, bevor JOIN-Nodes erfolgreich beitreten können. Bei mehreren physischen Nodes daher zuerst den CREATE-Node starten und danach die JOIN-Nodes booten.
+
+## Dateien und Verzeichnisse
+
+Der Installer lädt die offiziellen Harvester-PXE-Artefakte nach:
+
+```text
+/srv/tftp/linux/harvester/v1.8.2/amd64/vmlinuz
+/srv/tftp/linux/harvester/v1.8.2/amd64/initrd
+
+/var/www/html/linux/harvester/v1.8.2/amd64/harvester.iso
+/var/www/html/linux/harvester/v1.8.2/amd64/rootfs.squashfs
+```
+
+Der GRUB-Stack liegt unter:
+
+```text
+/srv/tftp/grub/stacks/harvester.cfg
+```
+
+Das ISO wird gegen die offizielle SHA512-Prüfsumme geprüft. Falls die Harvester-Prüfsummendatei auch Kernel, initrd oder rootfs enthält, werden diese ebenfalls validiert.
+
+## Andere Werte verwenden
+
+Beispiel mit eigener Installationsdisk:
+
+```bash
+sudo \
+  HARVESTER_VIP=192.168.1.110 \
+  HARVESTER_DEVICE=/dev/disk/by-id/nvme-SAMSUNG_... \
+  ./install-harvester.sh
+```
+
+Bei mehreren Datenträgern ist `/dev/disk/by-id/...` oder `/dev/disk/by-path/...` gegenüber `/dev/sdX` bzw. `/dev/nvmeXnY` vorzuziehen.
+
+Eigenen Token und eigenes Passwort setzen:
+
+```bash
+sudo \
+  HARVESTER_VIP=192.168.1.110 \
+  HARVESTER_TOKEN='mein-cluster-token' \
+  HARVESTER_PASSWORD='mein-passwort' \
+  ./install-harvester.sh
+```
+
+Erneuter Download der Assets:
+
+```bash
+sudo HARVESTER_FORCE=1 ./install-harvester.sh
+```
+
+## UEFI und lokaler Boot
+
+Harvester v1.8 verlangt für neue PXE-Installationen UEFI. Der erzeugte Installationsstack setzt zusätzlich `force_efi: true`.
+
+Nach erfolgreicher Installation erkennt `grub/grub.cfg` Harvester beim nächsten PXE-Boot über die Partition `COS_STATE`. Diese Erkennung wird nur angewendet, wenn für den Rechner weiterhin der Stack `harvester` gewählt ist. Ein späterer Wechsel auf einen anderen Installationsstack bleibt dadurch möglich.
+
+## Sicherheit
+
+Die automatisch erzeugten YAML-Dateien enthalten den Harvester-Cluster-Token und das OS-Passwort. Der HTTP-Dienst des PXE-Servers sollte deshalb nur im vorgesehenen Installationsnetz erreichbar sein.
 
 ## Quellen
 

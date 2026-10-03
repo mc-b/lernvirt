@@ -11,7 +11,6 @@ fail() {
 [[ -r "$CONFIG" ]] || fail "Konfiguration nicht lesbar: $CONFIG"
 # shellcheck disable=SC1090
 source "$CONFIG"
-
 : "${PXE_SERVER:?PXE_SERVER fehlt}"
 : "${TFTP_ROOT:?TFTP_ROOT fehlt}"
 : "${HTTP_ROOT:?HTTP_ROOT fehlt}"
@@ -33,9 +32,26 @@ grub_escape() {
     printf '%s' "$s"
 }
 
+yaml_quote() {
+    local s=${1-}
+    s=${s//\'/\'\'}
+    printf "'%s'" "$s"
+}
+
 runtime_tmp="$(mktemp "$TFTP_ROOT/grub/runtime.cfg.XXXXXX")"
 hosts_tmp="$(mktemp "$TFTP_ROOT/grub/hosts.cfg.XXXXXX")"
-trap 'rm -f "$runtime_tmp" "$hosts_tmp"' EXIT
+harvester_tmp=""
+HARVESTER_CONFIG_DIR="$HTTP_ROOT/harvester/config"
+
+cleanup() {
+    rm -f "$runtime_tmp" "$hosts_tmp"
+    [[ -n "$harvester_tmp" && -d "$harvester_tmp" ]] && rm -rf "$harvester_tmp"
+}
+trap cleanup EXIT
+
+HARVESTER_VERSION="${HARVESTER_VERSION:-}"
+HARVESTER_ARCH="${HARVESTER_ARCH:-}"
+HARVESTER_INTERFACE="${HARVESTER_INTERFACE:-}"
 
 cat >"$runtime_tmp" <<EOF_RUNTIME
 set pxe_server="$(grub_escape "$PXE_SERVER")"
@@ -45,6 +61,9 @@ set ubuntu_codename="$(grub_escape "$UBUNTU_CODENAME")"
 set alpine_version="$(grub_escape "$ALPINE_VERSION")"
 set boot_tools="$(grub_escape "$BOOT_TOOLS")"
 set grub_timeout="$(grub_escape "$GRUB_TIMEOUT")"
+set harvester_version="$(grub_escape "$HARVESTER_VERSION")"
+set harvester_arch="$(grub_escape "$HARVESTER_ARCH")"
+set harvester_interface="$(grub_escape "$HARVESTER_INTERFACE")"
 EOF_RUNTIME
 
 cat >"$hosts_tmp" <<'EOF_HOSTS'
@@ -53,8 +72,98 @@ set stack=""
 set variant=""
 EOF_HOSTS
 
+prepare_harvester_tmp() {
+    [[ -n "$harvester_tmp" ]] && return 0
+    mkdir -p "$HTTP_ROOT/harvester"
+    harvester_tmp="$(mktemp -d "$HTTP_ROOT/harvester/config.tmp.XXXXXX")"
+    chmod 0755 "$harvester_tmp"
+    : >"$harvester_tmp/index.html"
+    chmod 0644 "$harvester_tmp/index.html"
+}
+
+require_harvester_config() {
+    local name
+    for name in \
+        HARVESTER_VERSION \
+        HARVESTER_ARCH \
+        HARVESTER_TOKEN \
+        HARVESTER_PASSWORD \
+        HARVESTER_VIP \
+        HARVESTER_DEVICE \
+        HARVESTER_INTERFACE \
+        HARVESTER_SSH_KEY_FILE; do
+        [[ -n "${!name:-}" ]] || fail "$name fehlt für Harvester in $CONFIG"
+    done
+
+    case "$HARVESTER_ARCH" in
+        amd64|arm64) ;;
+        *) fail "HARVESTER_ARCH muss amd64 oder arm64 sein" ;;
+    esac
+
+    [[ -r "$HARVESTER_SSH_KEY_FILE" ]] || \
+        fail "HARVESTER_SSH_KEY_FILE nicht lesbar: $HARVESTER_SSH_KEY_FILE"
+}
+
+write_harvester_config() {
+    local mac="$1"
+    local mode="$2"
+    local hostname="$3"
+    local filename="$4"
+    local ssh_key
+    local ntp
+
+    require_harvester_config
+    prepare_harvester_tmp
+
+    ssh_key="$(awk 'NF {print; exit}' "$HARVESTER_SSH_KEY_FILE")"
+    [[ -n "$ssh_key" ]] || fail "SSH-Key ist leer: $HARVESTER_SSH_KEY_FILE"
+
+    {
+        echo "scheme_version: 1"
+        printf 'token: %s\n' "$(yaml_quote "$HARVESTER_TOKEN")"
+        if [[ "$mode" == "join" ]]; then
+            printf 'server_url: %s\n' "$(yaml_quote "https://${HARVESTER_VIP}:443")"
+        fi
+        echo "os:"
+        printf '  hostname: %s\n' "$(yaml_quote "$hostname")"
+        echo "  ssh_authorized_keys:"
+        printf '    - %s\n' "$(yaml_quote "$ssh_key")"
+        printf '  password: %s\n' "$(yaml_quote "$HARVESTER_PASSWORD")"
+
+        if [[ -n "${HARVESTER_NTP_SERVERS:-}" ]]; then
+            echo "  ntp_servers:"
+            for ntp in $HARVESTER_NTP_SERVERS; do
+                printf '    - %s\n' "$(yaml_quote "$ntp")"
+            done
+        fi
+
+        echo "install:"
+        printf '  mode: %s\n' "$mode"
+        echo "  force_efi: true"
+        echo "  management_interface:"
+        echo "    interfaces:"
+        printf '      - name: %s\n' "$(yaml_quote "$HARVESTER_INTERFACE")"
+        printf '        hwAddr: %s\n' "$(yaml_quote "${mac^^}")"
+        echo "    default_route: true"
+        echo "    method: dhcp"
+        echo "    bond_options:"
+        echo "      mode: active-backup"
+        echo "      miimon: 100"
+        printf '  device: %s\n' "$(yaml_quote "$HARVESTER_DEVICE")"
+        printf '  iso_url: %s\n' "$(yaml_quote "http://${PXE_SERVER}/linux/harvester/v${HARVESTER_VERSION}/${HARVESTER_ARCH}/harvester.iso")"
+        if [[ "$mode" == "create" ]]; then
+            printf '  vip: %s\n' "$(yaml_quote "$HARVESTER_VIP")"
+            echo "  vip_mode: static"
+        fi
+    } >"$harvester_tmp/$filename"
+
+    chmod 0644 "$harvester_tmp/$filename"
+}
+
 have_default=0
 rule_no=0
+harvester_stack_installed=0
+[[ -r "$TFTP_ROOT/grub/stacks/harvester.cfg" ]] && harvester_stack_installed=1
 
 for rule in "${HOSTS[@]}"; do
     rule_no=$((rule_no + 1))
@@ -67,7 +176,6 @@ for rule in "${HOSTS[@]}"; do
     stack="${stack//[[:space:]]/}"
     variant="${variant#"${variant%%[![:space:]]*}"}"
     variant="${variant%"${variant##*[![:space:]]}"}"
-
     [[ -n "$selector" ]] || fail "HOSTS-Regel $rule_no: Selector fehlt"
     [[ -n "$stack" ]] || fail "HOSTS-Regel $rule_no: Stack fehlt"
 
@@ -75,7 +183,17 @@ for rule in "${HOSTS[@]}"; do
     [[ -r "$stack_file" ]] || fail "HOSTS-Regel $rule_no: Stack existiert nicht: $stack_file"
 
     if [[ "$selector" == "*" ]]; then
+        [[ "$stack" != "harvester" ]] || \
+            fail "HOSTS-Regel $rule_no: Harvester benötigt eine explizite MAC-Adresse; '*' ist nicht zulässig"
+
         have_default=1
+
+        # Eine spätere Wildcard-Regel überschreibt alle früheren Hostregeln.
+        # Bereits erzeugte Harvester-Secrets werden deshalb ebenfalls entfernt.
+        if [[ -n "$harvester_tmp" ]]; then
+            find "$harvester_tmp" -maxdepth 1 -type f -name '*.yaml' -delete
+        fi
+
         {
             echo
             echo "# Regel $rule_no: alle Hosts"
@@ -89,12 +207,33 @@ for rule in "${HOSTS[@]}"; do
     [[ "$mac" =~ ^([0-9a-f]{2}:){5}[0-9a-f]{2}$ ]] || \
         fail "HOSTS-Regel $rule_no: ungültige MAC: $selector"
 
+    effective_variant="$variant"
+
+    if [[ "$stack" == "harvester" ]]; then
+        [[ "$variant" == *:* ]] || \
+            fail "HOSTS-Regel $rule_no: Harvester-VARIANT muss create:hostname oder join:hostname sein"
+
+        mode="${variant%%:*}"
+        hostname="${variant#*:}"
+        [[ "$mode" == "create" || "$mode" == "join" ]] || \
+            fail "HOSTS-Regel $rule_no: Harvester-Modus muss create oder join sein"
+        [[ "$hostname" =~ ^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$ ]] || \
+            fail "HOSTS-Regel $rule_no: ungültiger Harvester-Hostname: $hostname"
+
+        filename="${mac//:/-}.yaml"
+        write_harvester_config "$mac" "$mode" "$hostname" "$filename"
+        effective_variant="$filename"
+    elif [[ -n "$harvester_tmp" ]]; then
+        # Eine spätere explizite Nicht-Harvester-Regel für dieselbe MAC gewinnt.
+        rm -f "$harvester_tmp/${mac//:/-}.yaml"
+    fi
+
     {
         echo
         echo "# Regel $rule_no: $mac"
         printf 'if [ "${net_default_mac}" = "%s" ]; then\n' "$(grub_escape "$mac")"
         printf '    set stack="%s"\n' "$(grub_escape "$stack")"
-        printf '    set variant="%s"\n' "$(grub_escape "$variant")"
+        printf '    set variant="%s"\n' "$(grub_escape "$effective_variant")"
         echo 'fi'
     } >>"$hosts_tmp"
 done
@@ -102,7 +241,6 @@ done
 [[ "$have_default" -eq 1 ]] || fail 'Mindestens eine "*|stack|variant"-Regel ist erforderlich.'
 
 cat >>"$hosts_tmp" <<'EOF_END'
-
 if [ -z "${stack}" ]; then
     echo "ERROR: no PXE stack selected"
 fi
@@ -111,8 +249,24 @@ EOF_END
 chmod 0644 "$runtime_tmp" "$hosts_tmp"
 mv -f "$runtime_tmp" "$TFTP_ROOT/grub/runtime.cfg"
 mv -f "$hosts_tmp" "$TFTP_ROOT/grub/hosts.cfg"
+
+if [[ "$harvester_stack_installed" -eq 1 ]]; then
+    prepare_harvester_tmp
+    old_dir="${HARVESTER_CONFIG_DIR}.old"
+    rm -rf "$old_dir"
+    if [[ -d "$HARVESTER_CONFIG_DIR" ]]; then
+        mv "$HARVESTER_CONFIG_DIR" "$old_dir"
+    fi
+    mv "$harvester_tmp" "$HARVESTER_CONFIG_DIR"
+    harvester_tmp=""
+    rm -rf "$old_dir"
+fi
+
 trap - EXIT
 
 echo "PXE-Konfiguration aktualisiert:"
 echo "  $TFTP_ROOT/grub/runtime.cfg"
 echo "  $TFTP_ROOT/grub/hosts.cfg"
+if [[ "$harvester_stack_installed" -eq 1 ]]; then
+    echo "  $HARVESTER_CONFIG_DIR"
+fi
