@@ -5,9 +5,8 @@
 Ein **Stack** ist eine GRUB-Bootdefinition. Beispiele:
 
 - `ubuntu` – Ubuntu Server Autoinstall mit `user-data`
-- `cna` – Ubuntu mit `user-data-cna`
-- `cna-full` – Ubuntu mit `user-data-cna-full`
-- `platen` – Ubuntu mit `user-data-platen`
+- `cna` – Ubuntu mit `user-data-cna` - Cloud-native 
+- `cna-full` – Ubuntu mit `user-data-cna-full` - Cloud-native
 - `reset` – Ubuntu mit `user-data-reset`, um Rechner auf den Ausgangszustand zurückzusetzen
 - `suse` – wird durch `install-suse.sh` ergänzt
 - `openshift` – wird durch `install-openshift.sh` ergänzt
@@ -18,17 +17,13 @@ Die PXE-Basis verwendet `dnsmasq` als Proxy-DHCP/TFTP, GRUB UEFI und `nginx` auf
 
 Direkt:
 
-```bash
-curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | STACK=cna bash -
-```
+    curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | STACK=cna bash -
 
 In cloud-init:
 
-```yaml
-#cloud-config
-runcmd:
-  - [bash, -lc, 'curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | STACK=cna bash -']
-```
+    #cloud-config
+    runcmd:
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | STACK=ubuntu bash -
 
 `install-pxe.sh` erledigt die PXE-Basis vollständig:
 
@@ -51,25 +46,6 @@ Die zentrale Konfiguration liegt unter:
 
 ```text
 /srv/tftp/config/rack.conf
-```
-
-Beispiel:
-
-```bash
-PXE_SERVER="192.168.1.101"
-TFTP_ROOT="/srv/tftp"
-HTTP_ROOT="/var/www/html"
-INSTALL_DISK="/dev/nvme0n1"
-
-UBUNTU_VERSION="24.04.4"
-UBUNTU_CODENAME="noble"
-ALPINE_VERSION="3.22"
-BOOT_TOOLS="1"
-GRUB_TIMEOUT="5"
-
-HOSTS=(
-    "*|cna|"
-)
 ```
 
 Format einer Hostregel:
@@ -154,8 +130,8 @@ Anschliessend:
 ```bash
 sudo /srv/tftp/bin/pxe-update
 ```
-
-Die Alpine-Netboot-Assets werden durch `install-pxe.sh` selbst heruntergeladen.
+User    : root
+Password: keines
 
 ## SUSE Add-on
 
