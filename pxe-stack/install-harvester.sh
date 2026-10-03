@@ -18,7 +18,7 @@ set -Eeuo pipefail
 #   HARVESTER_ARCH=amd64          # amd64 oder arm64
 #   HARVESTER_VIP=192.168.1.110  # Cluster-VIP, beim ersten Aufruf erforderlich
 #   HARVESTER_DEVICE=/dev/nvme0n1
-#   HARVESTER_INTERFACE=mgmt0     # Name wird beim PXE-Boot via ifname= gesetzt
+#   HARVESTER_INTERFACE=enp2s0    # Name wird beim PXE-Boot via ifname= gesetzt
 #   HARVESTER_TOKEN=...
 #   HARVESTER_PASSWORD=...
 #   HARVESTER_SKIPCHECKS=true    # Production-Hardwarechecks nur als Warnung
@@ -73,7 +73,7 @@ HARVESTER_VERSION="${ENV_HARVESTER_VERSION:-${HARVESTER_VERSION:-1.8.2}}"
 HARVESTER_ARCH="${ENV_HARVESTER_ARCH:-${HARVESTER_ARCH:-amd64}}"
 HARVESTER_VIP="${ENV_HARVESTER_VIP:-${HARVESTER_VIP:-}}"
 HARVESTER_DEVICE="${ENV_HARVESTER_DEVICE:-${HARVESTER_DEVICE:-$INSTALL_DISK}}"
-HARVESTER_INTERFACE="${ENV_HARVESTER_INTERFACE:-${HARVESTER_INTERFACE:-mgmt0}}"
+HARVESTER_INTERFACE="${ENV_HARVESTER_INTERFACE:-${HARVESTER_INTERFACE:-enp2s0}}"
 HARVESTER_TOKEN="${ENV_HARVESTER_TOKEN:-${HARVESTER_TOKEN:-}}"
 HARVESTER_PASSWORD="${ENV_HARVESTER_PASSWORD:-${HARVESTER_PASSWORD:-}}"
 HARVESTER_SSH_KEY_FILE="${ENV_HARVESTER_SSH_KEY_FILE:-${HARVESTER_SSH_KEY_FILE:-/etc/lernvirt/lerncloud.pub}}"
@@ -99,6 +99,9 @@ case "${HARVESTER_SKIPCHECKS,,}" in
     false|0|no|off) HARVESTER_SKIPCHECKS=false ;;
     *) fail "HARVESTER_SKIPCHECKS muss true oder false sein: $HARVESTER_SKIPCHECKS" ;;
 esac
+
+[[ "$HARVESTER_INTERFACE" =~ ^[A-Za-z0-9_.:-]+$ ]] || \
+    fail "Ungültiger HARVESTER_INTERFACE: $HARVESTER_INTERFACE"
 
 for cmd in curl sha512sum awk grep install tar cmp; do
     command -v "$cmd" >/dev/null 2>&1 || fail "Befehl fehlt: $cmd"
@@ -332,7 +335,7 @@ if [ -z "${variant}" ]; then
     }
 else
     menuentry "Install Harvester ${harvester_version}" {
-        linux /linux/harvester/v${harvester_version}/${harvester_arch}/vmlinuz ip=dhcp net.ifnames=1 ifname=${harvester_interface}:${net_default_mac} rd.cos.disable rd.noverifyssl console=tty1 root=live:http://${pxe_server}/linux/harvester/v${harvester_version}/${harvester_arch}/rootfs.squashfs harvester.install.automatic=true harvester.install.config_url=http://${pxe_server}/harvester/config/${variant}
+        linux /linux/harvester/v${harvester_version}/${harvester_arch}/vmlinuz ip=dhcp net.ifnames=1 ifname=${harvester_interface}:${net_default_mac} rd.cos.disable rd.noverifyssl console=tty1 root=live:http://${pxe_server}/linux/harvester/v${harvester_version}/${harvester_arch}/rootfs.squashfs harvester.install.automatic=true harvester.install.skipchecks=${harvester_skipchecks} harvester.install.config_url=http://${pxe_server}/harvester/config/${variant}
         initrd /linux/harvester/v${harvester_version}/${harvester_arch}/initrd
     }
 fi

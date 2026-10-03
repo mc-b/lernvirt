@@ -25,13 +25,13 @@ Standardwerte:
 HARVESTER_VERSION=1.8.2
 HARVESTER_ARCH=amd64
 HARVESTER_DEVICE=<INSTALL_DISK aus rack.conf>
-HARVESTER_INTERFACE=mgmt0
+HARVESTER_INTERFACE=enp2s0
 HARVESTER_SSH_KEY_FILE=/etc/lernvirt/lerncloud.pub
 HARVESTER_NTP_SERVERS="0.suse.pool.ntp.org 1.suse.pool.ntp.org"
 HARVESTER_SKIPCHECKS=true
 ```
 
-Das Management-Interface `mgmt0` muss nicht dem ursprünglichen Linux-Interfacenamen entsprechen. Der GRUB-Stack bindet beim Boot die PXE-MAC mittels `ifname=mgmt0:<MAC>` an diesen Namen.
+Das Management-Interface ist standardmässig `enp2s0`. Der GRUB-Stack bindet beim Boot die PXE-MAC mittels `ifname=enp2s0:<MAC>` an diesen Namen. Für Hardware mit einem anderen gewünschten Interface-Namen kann `HARVESTER_INTERFACE` zentral überschrieben werden.
 
 ## `rack.conf`
 
@@ -63,7 +63,7 @@ sudo /srv/tftp/bin/pxe-show
 /var/www/html/harvester/config/aa-bb-cc-dd-ee-03.yaml
 ```
 
-Die Dateien enthalten Token und Passwort. Sie werden bei jedem `pxe-update` vollständig aus `rack.conf` neu aufgebaut; veraltete Hostkonfigurationen werden entfernt. Standardmässig enthält jede Konfiguration zusätzlich `install.skipchecks: true`. Dadurch bleiben Meldungen zu nicht erfüllten Production-Hardwareanforderungen sichtbar, stoppen die automatische Installation aber nicht. Für Production-Systeme kann dies zentral mit `HARVESTER_SKIPCHECKS=false` deaktiviert werden.
+Die Dateien enthalten Token und Passwort. Sie werden bei jedem `pxe-update` vollständig aus `rack.conf` neu aufgebaut; veraltete Hostkonfigurationen werden entfernt. Standardmässig enthält jede Konfiguration zusätzlich `install.skipchecks: true`. Derselbe Wert wird auch als Kernelparameter `harvester.install.skipchecks=true` gesetzt. Dadurch bleiben Meldungen zu nicht erfüllten Production-Hardwareanforderungen sichtbar, stoppen die automatische Installation aber nicht. Für Production-Systeme kann dies zentral mit `HARVESTER_SKIPCHECKS=false` deaktiviert werden.
 
 ## Automatischer Ablauf
 
