@@ -5,6 +5,24 @@ log()  { printf '\n=== %s ===\n' "$*"; }
 warn() { echo "WARNUNG: $*" >&2; }
 fail() { echo "FEHLER: $*" >&2; exit 1; }
 
+MODE="${1:-install}"
+case "$MODE" in
+    install) ;;
+    resume|--resume) MODE="resume" ;;
+    -h|--help|help)
+        cat <<'EOF_HELP'
+Verwendung:
+  sudo ./install-openshift.sh          Neue Installation
+  sudo ./install-openshift.sh resume   Unterbrochene Installation fortsetzen
+
+Ein Neuaufbau trotz vorhandener Cluster-Artefakte ist nur explizit mit
+OCP_FORCE=1 vorgesehen. "resume" erzeugt keine neue Ignition/PKI.
+EOF_HELP
+        exit 0
+        ;;
+    *) fail "Unbekannter Modus: $MODE (erlaubt: install, resume)" ;;
+esac
+
 [[ ${EUID:-$(id -u)} -eq 0 ]] || fail "install-openshift.sh muss als root laufen."
 
 RACK_CONFIG="${CONFIG:-/srv/tftp/config/rack.conf}"
@@ -111,8 +129,24 @@ LAN_IF=""
 BOOTSTRAP_GATEWAY=""
 HAPROXY_INSTALLER=""
 
-if [[ -e "${OCP_DIR}/installed" && "$OCP_FORCE" != "1" ]]; then
-    fail "OpenShift ist bereits als installiert markiert: ${OCP_DIR}/installed. Für einen Neuaufbau OCP_FORCE=1 setzen."
+cluster_artifacts_exist() {
+    [[ -s "${INSTALL_DIR}/master.ign" || -s "${INSTALL_DIR}/metadata.json" || -s "${INSTALL_DIR}/auth/kubeconfig" ]]
+}
+
+if [[ "$MODE" == "install" ]]; then
+    if [[ -e "${OCP_DIR}/installed" && "$OCP_FORCE" != "1" ]]; then
+        fail "OpenShift ist bereits als installiert markiert: ${OCP_DIR}/installed. Für einen Neuaufbau OCP_FORCE=1 setzen."
+    fi
+    if cluster_artifacts_exist && [[ "$OCP_FORCE" != "1" ]]; then
+        fail "Vorhandene OpenShift-Installationsartefakte erkannt. Nicht neu erzeugen: mit '$0 resume' fortsetzen. Für einen bewussten Neuaufbau OCP_FORCE=1 setzen."
+    fi
+    if [[ "$OCP_FORCE" == "1" ]]; then
+        rm -f "${OCP_DIR}/installed"
+    fi
+else
+    [[ -x "${BIN}/openshift-install" ]] || fail "Resume nicht möglich: ${BIN}/openshift-install fehlt."
+    [[ -s "${INSTALL_DIR}/master.ign" ]] || fail "Resume nicht möglich: ${INSTALL_DIR}/master.ign fehlt."
+    [[ -s "${INSTALL_DIR}/auth/kubeconfig" ]] || fail "Resume nicht möglich: ${INSTALL_DIR}/auth/kubeconfig fehlt."
 fi
 
 export DEBIAN_FRONTEND=noninteractive
@@ -842,10 +876,21 @@ wake_nodes() {
 
 remove_bootstrap_vm() {
     log "Bootstrap-VM entfernen"
-    virsh destroy "$BOOTSTRAP_NAME" >/dev/null 2>&1 || true
-    virsh undefine "$BOOTSTRAP_NAME" --nvram >/dev/null 2>&1 || true
+    local had_domain=0 i
+    if virsh dominfo "$BOOTSTRAP_NAME" >/dev/null 2>&1; then
+        had_domain=1
+        virsh destroy "$BOOTSTRAP_NAME" >/dev/null 2>&1 || true
+        virsh undefine "$BOOTSTRAP_NAME" --nvram >/dev/null 2>&1 || \
+            virsh undefine "$BOOTSTRAP_NAME" >/dev/null 2>&1 || true
+    else
+        echo "Bootstrap-VM ist bereits entfernt."
+    fi
     rm -f "$BOOTSTRAP_DISK" "/var/lib/libvirt/images/${BOOTSTRAP_NAME}.ign"
-    local i
+
+    # Bei einem wiederholten Resume kann die frühere Bootstrap-IP bereits
+    # korrekt vom Ingress-Namespace übernommen worden sein. Nur nach dem
+    # tatsächlichen Entfernen einer Bootstrap-VM auf das Freiwerden warten.
+    [[ "$had_domain" == "1" ]] || return 0
     for i in $(seq 1 30); do
         ping -c1 -W1 "$BOOTSTRAP_IP" >/dev/null 2>&1 || return 0
         sleep 1
@@ -874,8 +919,71 @@ SSH:
 EOF_INFO
 }
 
-main() {
-    require_cmds
+resume_hint() {
+    cat >&2 <<EOF_RESUME
+
+Die OpenShift-Installation kann weiterlaufen, auch wenn openshift-install ein
+Zeitlimit erreicht. Vorhandene Ignition-/PKI-Artefakte NICHT neu erzeugen.
+Fortsetzen mit:
+  sudo $0 resume
+EOF_RESUME
+}
+
+wait_bootstrap_complete() {
+    log "Auf bootstrap-complete warten"
+    if "$BIN/openshift-install" wait-for bootstrap-complete --dir="$INSTALL_DIR" --log-level=info; then
+        return 0
+    fi
+    warn "bootstrap-complete wurde noch nicht erreicht oder der Wait ist abgelaufen."
+    resume_hint
+    exit 2
+}
+
+wait_install_complete() {
+    log "Auf install-complete warten"
+    if "$BIN/openshift-install" wait-for install-complete --dir="$INSTALL_DIR" --log-level=info; then
+        return 0
+    fi
+    warn "install-complete wurde noch nicht erreicht oder der Wait ist abgelaufen."
+    resume_hint
+    exit 2
+}
+
+finish_after_bootstrap() {
+    remove_bootstrap_vm
+    "$HAPROXY_INSTALLER" final
+
+    wait_install_complete
+
+    touch "${OCP_DIR}/installed"
+    log "OpenShift Installation abgeschlossen"
+    echo "Console: https://console-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN}"
+    echo "Kubeconfig: ${INSTALL_DIR}/auth/kubeconfig"
+    echo "Kubeadmin: $(cat "${INSTALL_DIR}/auth/kubeadmin-password" 2>/dev/null || true)"
+}
+
+resume_installation() {
+    log "OpenShift Installation fortsetzen"
+    resolve_companion_scripts
+
+    if [[ -e "${OCP_DIR}/installed" ]]; then
+        echo "OpenShift ist bereits als vollständig installiert markiert: ${OCP_DIR}/installed"
+        echo "Console: https://console-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN}"
+        echo "Kubeconfig: ${INSTALL_DIR}/auth/kubeconfig"
+        return 0
+    fi
+
+    # Solange die Bootstrap-VM noch existiert, API/MCS weiterhin mit dem
+    # Bootstrap-Backend betreiben. Dies verändert keine Ignition-/PKI-Dateien.
+    if virsh dominfo "$BOOTSTRAP_NAME" >/dev/null 2>&1; then
+        "$HAPROXY_INSTALLER" bootstrap
+    fi
+
+    wait_bootstrap_complete
+    finish_after_bootstrap
+}
+
+install_new_cluster() {
     require_inputs
     prepare_dirs
     configure_host_bridge
@@ -901,20 +1009,16 @@ main() {
     print_access_info
     wake_nodes
 
-    log "Auf bootstrap-complete warten"
-    "$BIN/openshift-install" wait-for bootstrap-complete --dir="$INSTALL_DIR" --log-level=info
+    wait_bootstrap_complete
+    finish_after_bootstrap
+}
 
-    remove_bootstrap_vm
-    "$HAPROXY_INSTALLER" final
-
-    log "Auf install-complete warten"
-    "$BIN/openshift-install" wait-for install-complete --dir="$INSTALL_DIR" --log-level=info
-
-    touch "${OCP_DIR}/installed"
-    log "OpenShift Installation abgeschlossen"
-    echo "Console: https://console-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN}"
-    echo "Kubeconfig: ${INSTALL_DIR}/auth/kubeconfig"
-    echo "Kubeadmin: $(cat "${INSTALL_DIR}/auth/kubeadmin-password" 2>/dev/null || true)"
+main() {
+    require_cmds
+    case "$MODE" in
+        install) install_new_cluster ;;
+        resume)  resume_installation ;;
+    esac
 }
 
 main "$@"

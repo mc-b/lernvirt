@@ -238,6 +238,56 @@ sudo openshift-status
 sudo tail -f /var/log/openshift-install.log
 ```
 
+Wenn `openshift-install wait-for bootstrap-complete` oder `wait-for install-complete`
+in ein Timeout läuft, den Installer **nicht nochmals als neue Installation** starten.
+Die vorhandenen Ignition-/PKI-Artefakte werden mit dem Resume-Modus weiterverwendet:
+
+```bash
+cd /srv/tftp
+sudo ./install-openshift.sh resume
+```
+
+Ein normaler erneuter Aufruf von `install-openshift.sh` verweigert den Start, sobald
+bereits Cluster-Artefakte existieren. Ein echter Neuaufbau muss explizit mit
+`OCP_FORCE=1` angefordert werden.
+
+### `oc` und `KUBECONFIG`
+
+Die vom Installer erzeugte `system:admin`-Kubeconfig liegt unter:
+
+```text
+/opt/openshift/install/auth/kubeconfig
+```
+
+Sie ist standardmässig nur für root lesbar. Für administrative `oc`-Befehle:
+
+```bash
+sudo -i
+export KUBECONFIG=/opt/openshift/install/auth/kubeconfig
+oc get nodes
+oc get co
+```
+
+Die Variable gilt für die aktuelle Shell. Soll sie in einer neuen root-Shell wieder
+verwendet werden, muss `export KUBECONFIG=...` dort erneut gesetzt werden.
+
+### OpenShift Console
+
+Nach `Install complete!` ist die Web-Konsole unter folgender Adresse erreichbar:
+
+```text
+https://console-openshift-console.apps.ocp.lernvirt.test
+```
+
+Das initiale `kubeadmin`-Passwort steht in:
+
+```bash
+sudo cat /opt/openshift/install/auth/kubeadmin-password
+```
+
+Der Browser muss `*.apps.ocp.lernvirt.test` auf die Ingress-IP auflösen können
+(Standard: `192.168.1.105`). Der pxe-stack-dnsmasq liefert diesen Wildcard-DNS-Eintrag.
+
 ## HAProxy Add-on
 
 `install-haproxy.sh` wird vom OpenShift-Installer automatisch in zwei Phasen verwendet. Es kann auch manuell ausgeführt werden:

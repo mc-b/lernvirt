@@ -46,8 +46,15 @@ fi
 ip link show "$INGRESS_BRIDGE" >/dev/null 2>&1 || fail "Bridge fehlt: $INGRESS_BRIDGE"
 
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -y
-apt-get install -y haproxy iproute2 iputils-ping iputils-arping
+missing_packages=()
+command -v haproxy >/dev/null 2>&1 || missing_packages+=(haproxy)
+command -v ip >/dev/null 2>&1 || missing_packages+=(iproute2)
+command -v ping >/dev/null 2>&1 || missing_packages+=(iputils-ping)
+command -v arping >/dev/null 2>&1 || missing_packages+=(iputils-arping)
+if ((${#missing_packages[@]})); then
+    apt-get update -y
+    apt-get install -y "${missing_packages[@]}"
+fi
 
 write_api_config() {
     local include_bootstrap="$1"
@@ -107,6 +114,16 @@ EOF_CFG
     systemctl enable --now haproxy >/dev/null
     systemctl restart haproxy
     log "API/MCS HAProxy aktiv auf ${TERRA1_IP}:6443 und :22623 (bootstrap=${include_bootstrap})."
+}
+
+stop_ingress() {
+    systemctl stop "$INGRESS_HAPROXY_SERVICE" "$INGRESS_NET_SERVICE" >/dev/null 2>&1 || true
+    if [[ -x "$INGRESS_NET_SCRIPT" ]]; then
+        "$INGRESS_NET_SCRIPT" down >/dev/null 2>&1 || true
+    else
+        ip link del ocp-ing-host >/dev/null 2>&1 || true
+        ip netns del "$INGRESS_NETNS" >/dev/null 2>&1 || true
+    fi
 }
 
 write_ingress_network_script() {
@@ -229,16 +246,28 @@ EOF_CFG
     haproxy -c -f "$INGRESS_HAPROXY_CONFIG"
 }
 
+wait_for_ingress_listeners() {
+    local i
+    for i in $(seq 1 30); do
+        if systemctl is-active --quiet "$INGRESS_HAPROXY_SERVICE" \
+          && ip netns exec "$INGRESS_NETNS" ss -H -lnt 2>/dev/null | awk '{print $4}' | grep -Eq '(^|:)80$' \
+          && ip netns exec "$INGRESS_NETNS" ss -H -lnt 2>/dev/null | awk '{print $4}' | grep -Eq '(^|:)443$'; then
+            return 0
+        fi
+        sleep 1
+    done
+
+    warn "Ingress HAProxy wurde nicht rechtzeitig bereit."
+    systemctl --no-pager --full status "$INGRESS_HAPROXY_SERVICE" >&2 || true
+    journalctl -u "$INGRESS_HAPROXY_SERVICE" -n 30 --no-pager >&2 || true
+    ip netns exec "$INGRESS_NETNS" ss -lntp >&2 2>/dev/null || true
+    return 1
+}
+
 start_ingress() {
     # Eine bereits von diesem Script erzeugte Namespace-Instanz zuerst sauber
     # entfernen. Dadurch bleibt "final" wiederholbar.
-    systemctl stop "$INGRESS_HAPROXY_SERVICE" "$INGRESS_NET_SERVICE" >/dev/null 2>&1 || true
-    if [[ -x "$INGRESS_NET_SCRIPT" ]]; then
-        "$INGRESS_NET_SCRIPT" down >/dev/null 2>&1 || true
-    else
-        ip link del ocp-ing-host >/dev/null 2>&1 || true
-        ip netns del "$INGRESS_NETNS" >/dev/null 2>&1 || true
-    fi
+    stop_ingress
 
     # Die Ingress-IP ist standardmässig die nach bootstrap-complete frei gewordene
     # Bootstrap-IP. Sie darf hier nicht mehr von der Bootstrap-VM benutzt werden.
@@ -254,13 +283,17 @@ start_ingress() {
     systemctl restart "$INGRESS_NET_SERVICE"
     systemctl restart "$INGRESS_HAPROXY_SERVICE"
 
-    ip netns exec "$INGRESS_NETNS" ss -lnt | grep -Eq ':(80|443)[[:space:]]' \
-        || fail "Ingress HAProxy lauscht nicht auf 80/443 im Namespace."
+    wait_for_ingress_listeners \
+        || fail "Ingress HAProxy lauscht nicht zuverlässig auf ${INGRESS_IP}:80 und :443 im Namespace."
     log "Ingress HAProxy aktiv auf ${INGRESS_IP}:80 und :443; nginx auf terra1 bleibt unverändert."
 }
 
 case "$MODE" in
     bootstrap)
+        # Eine frühere Final-Konfiguration verwendet standardmässig dieselbe
+        # IP wie die Bootstrap-VM. Beim Neuaufbau/Resume deshalb zuerst den
+        # Ingress-Namespace sauber entfernen. nginx bleibt unangetastet.
+        stop_ingress
         write_api_config 1
         log "Ingress 80/443 wird erst nach bootstrap-complete mit '$0 final' aktiviert."
         ;;

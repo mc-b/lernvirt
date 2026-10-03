@@ -91,7 +91,10 @@ done
 
 echo
 echo "=== OpenShift ==="
-if [[ -f "$KUBECONFIG_FILE" && -n "$OC" && -x "$OC" ]]; then
+if [[ -f "$KUBECONFIG_FILE" && ! -r "$KUBECONFIG_FILE" ]]; then
+  echo "Kubeconfig vorhanden, für Benutzer $(id -un) aber nicht lesbar: $KUBECONFIG_FILE"
+  echo "Status mit 'sudo openshift-status' ausführen oder als root KUBECONFIG setzen."
+elif [[ -r "$KUBECONFIG_FILE" && -n "$OC" && -x "$OC" ]]; then
   echo "Kubeconfig: $KUBECONFIG_FILE"
   echo
   echo "--- Nodes ---"
@@ -100,9 +103,16 @@ if [[ -f "$KUBECONFIG_FILE" && -n "$OC" && -x "$OC" ]]; then
   echo "--- Cluster Operators ---"
   KUBECONFIG="$KUBECONFIG_FILE" "$OC" get co 2>/dev/null || true
   echo
-  echo "--- Fehlerhafte Pods ---"
+  echo "--- Aktuell problematische Pods ---"
+  # Installer-Pods behalten ihren Status "Error" dauerhaft, auch wenn eine
+  # spätere Revision erfolgreich ist. Deshalb getrennt von aktuellen Pods.
   KUBECONFIG="$KUBECONFIG_FILE" "$OC" get pods -A --no-headers 2>/dev/null \
-    | awk '$4 != "Running" && $4 != "Completed" {print}' || true
+    | awk '$4 != "Running" && $4 != "Completed" && $2 !~ /^installer-[0-9]+(-retry-[0-9]+)?-/ {print}' || true
+  echo
+  echo "--- Alte/fehlgeschlagene Installer-Pods (Diagnosehistorie) ---"
+  KUBECONFIG="$KUBECONFIG_FILE" "$OC" get pods -A --no-headers 2>/dev/null \
+    | awk '$4 == "Error" && $2 ~ /^installer-[0-9]+(-retry-[0-9]+)?-/ {print}' || true
+  echo "Hinweis: Diese Installer-Pods bleiben auf Error; massgebend ist der aktuelle Cluster-Operator-Status."
   echo
   echo "--- Ingress Controller ---"
   KUBECONFIG="$KUBECONFIG_FILE" "$OC" get ingresscontroller -n openshift-ingress-operator 2>/dev/null || true
