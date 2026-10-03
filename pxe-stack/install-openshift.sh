@@ -217,12 +217,20 @@ configure_dnsmasq() {
     log "OpenShift DNS als Add-on zu pxe-stack konfigurieren"
     [[ -f /etc/dnsmasq.d/pxe.conf ]] || fail "Fehlt: /etc/dnsmasq.d/pxe.conf"
 
+    # pxe-stack betreibt denselben dnsmasq für Proxy-DHCP/TFTP mit port=0.
+    # OpenShift benötigt zusätzlich DNS. "port" darf in dnsmasq nur einmal
+    # definiert sein, deshalb wird die bestehende Einstellung umgeschaltet.
+    if grep -Eq '^[[:space:]]*port[[:space:]]*=[[:space:]]*0[[:space:]]*$' /etc/dnsmasq.d/pxe.conf; then
+        sed -i -E 's/^[[:space:]]*port[[:space:]]*=[[:space:]]*0[[:space:]]*$/port=53/' /etc/dnsmasq.d/pxe.conf
+    elif ! grep -Eq '^[[:space:]]*port[[:space:]]*=[[:space:]]*53[[:space:]]*$' /etc/dnsmasq.d/pxe.conf; then
+        fail "Unerwartete dnsmasq-port-Einstellung in /etc/dnsmasq.d/pxe.conf"
+    fi
+
     local resolver_file=/run/systemd/resolve/resolv.conf
     [[ -r "$resolver_file" ]] || resolver_file=/etc/resolv.conf
 
     cat >/etc/dnsmasq.d/zz-openshift.conf <<EOF_DNS
-# OpenShift Add-on. pxe.conf bleibt unverändert; diese Datei aktiviert DNS zuletzt.
-port=53
+# OpenShift DNS Add-on. nginx bleibt unverändert.
 listen-address=${TERRA1_IP}
 resolv-file=${resolver_file}
 
@@ -241,7 +249,15 @@ EOF_DNS
 
     # Kann von libvirt angelegt werden und mit bind-dynamic kollidieren.
     rm -f /etc/dnsmasq.d/libvirt-daemon
-    dnsmasq --test
+
+    # Auf Ubuntu prüft systemd den kompletten Debian/Ubuntu-Konfigurationssatz
+    # über systemd-helper. Ein blosses "dnsmasq --test" kann dabei Dateien
+    # aus /etc/dnsmasq.d übersehen.
+    if [[ -x /usr/share/dnsmasq/systemd-helper ]]; then
+        /usr/share/dnsmasq/systemd-helper checkconfig
+    else
+        dnsmasq --test
+    fi
     systemctl restart dnsmasq
 
     dig +short @"${TERRA1_IP}" "api.${CLUSTER_NAME}.${BASE_DOMAIN}" | grep -qx "$TERRA1_IP" || fail "DNS api fehlgeschlagen"
@@ -558,30 +574,105 @@ EOF_GRUB
 ensure_rhcos_marker_compat() {
     local grub="${TFTP_ROOT}/grub/grub.cfg"
     [[ -r "$grub" ]] || fail "GRUB Basis fehlt: $grub"
-    if grep -Fq 'search --no-floppy --file --set=localroot /lernvirt-installed' "$grub"; then
-        return 0
+
+    # Ältere pxe-stack-Versionen kennen nur den Ubuntu-Marker unter
+    # /boot/lernvirt-installed. Auf RHCOS ist /boot eine eigene Partition;
+    # aus Sicht von PXE-GRUB liegt der Marker dort als /lernvirt-installed.
+    if ! grep -Fq 'search --no-floppy --file --set=localroot /lernvirt-installed' "$grub"; then
+        local tmp_marker
+        tmp_marker="$(mktemp)"
+        awk '
+          /if search --no-floppy --file --set=localroot \/boot\/lernvirt-installed; then/ {
+            print "if search --no-floppy --file --set=localroot /boot/lernvirt-installed; then"
+            print "    set lernvirt_installed=\"1\""
+            print "    set default=\"0\""
+            print "elif search --no-floppy --file --set=localroot /lernvirt-installed; then"
+            print "    # RHCOS verwendet eine eigene boot-Partition; dort liegt der Marker im Partitions-Root."
+            print "    set lernvirt_installed=\"1\""
+            print "    set default=\"0\""
+            skip=1
+            next
+          }
+          skip && /fi/ { print "fi"; skip=0; next }
+          skip { next }
+          { print }
+        ' "$grub" >"$tmp_marker"
+        grep -Fq '/lernvirt-installed' "$tmp_marker" || fail "RHCOS Marker-Fallback konnte nicht ergänzt werden"
+        install -m 0644 "$tmp_marker" "$grub"
+        rm -f "$tmp_marker"
     fi
-    local tmp
-    tmp="$(mktemp)"
-    awk '
-      /if search --no-floppy --file --set=localroot \/boot\/lernvirt-installed; then/ {
-        print "if search --no-floppy --file --set=localroot /boot/lernvirt-installed; then"
-        print "    set lernvirt_installed=\"1\""
-        print "    set default=\"0\""
-        print "elif search --no-floppy --file --set=localroot /lernvirt-installed; then"
-        print "    # RHCOS verwendet eine eigene boot-Partition; dort liegt der Marker im Partitions-Root."
-        print "    set lernvirt_installed=\"1\""
-        print "    set default=\"0\""
-        skip=1
-        next
-      }
-      skip && /fi/ { print "fi"; skip=0; next }
-      skip { next }
-      { print }
-    ' "$grub" >"$tmp"
-    grep -Fq '/lernvirt-installed' "$tmp" || fail "RHCOS Marker-Fallback konnte nicht ergänzt werden"
-    install -m 0644 "$tmp" "$grub"
-    rm -f "$tmp"
+
+    # Beim zweiten Boot darf PXE-GRUB nicht nur mit 'exit' an die Firmware
+    # zurückgeben. Einige Rechner landen dabei im Firmware-Bootmenü. Stattdessen
+    # wird der lokal installierte EFI-Bootloader direkt gechainloadet.
+    if ! grep -Fq '/EFI/redhat/shimx64.efi' "$grub"; then
+        local tmp_boot
+        tmp_boot="$(mktemp)"
+        awk '
+          BEGIN { skip=0 }
+          !skip && /^menuentry "Local boot \(lernvirt\)" \{/ {
+            print "menuentry \"Local boot (lernvirt)\" {"
+            print "    if [ -z \"${localroot}\" ]; then"
+            print "        echo \"Keine lokale lernvirt-Installation gefunden\""
+            print "        sleep 2"
+            print "        exit"
+            print "    fi"
+            print ""
+            print "    insmod chain"
+            print "    if search --no-floppy --file --set=efiroot /EFI/redhat/shimx64.efi; then"
+            print "        set root=\"${efiroot}\""
+            print "        chainloader /EFI/redhat/shimx64.efi"
+            print "        boot"
+            print "    fi"
+            print "    if search --no-floppy --file --set=efiroot /EFI/redhat/grubx64.efi; then"
+            print "        set root=\"${efiroot}\""
+            print "        chainloader /EFI/redhat/grubx64.efi"
+            print "        boot"
+            print "    fi"
+            print "    if search --no-floppy --file --set=efiroot /EFI/ubuntu/shimx64.efi; then"
+            print "        set root=\"${efiroot}\""
+            print "        chainloader /EFI/ubuntu/shimx64.efi"
+            print "        boot"
+            print "    fi"
+            print "    if search --no-floppy --file --set=efiroot /EFI/BOOT/BOOTX64.EFI; then"
+            print "        set root=\"${efiroot}\""
+            print "        chainloader /EFI/BOOT/BOOTX64.EFI"
+            print "        boot"
+            print "    fi"
+            print ""
+            print "    set root=\"${localroot}\""
+            print "    if [ -f /grub2/grub.cfg ]; then"
+            print "        set prefix=\"(${localroot})/grub2\""
+            print "        configfile /grub2/grub.cfg"
+            print "    fi"
+            print "    if [ -f /grub/grub.cfg ]; then"
+            print "        set prefix=\"(${localroot})/grub\""
+            print "        configfile /grub/grub.cfg"
+            print "    fi"
+            print "    if [ -f /boot/grub/grub.cfg ]; then"
+            print "        set prefix=\"(${localroot})/boot/grub\""
+            print "        configfile /boot/grub/grub.cfg"
+            print "    fi"
+            print "    if [ -f /boot/grub2/grub.cfg ]; then"
+            print "        set prefix=\"(${localroot})/boot/grub2\""
+            print "        configfile /boot/grub2/grub.cfg"
+            print "    fi"
+            print "    echo \"Lokaler Bootloader wurde nicht gefunden\""
+            print "    sleep 3"
+            print "    exit"
+            print "}"
+            print ""
+            skip=1
+            next
+          }
+          skip && /^source \(tftp/ { skip=0; print; next }
+          skip { next }
+          { print }
+        ' "$grub" >"$tmp_boot"
+        grep -Fq '/EFI/redhat/shimx64.efi' "$tmp_boot" || fail "RHCOS Local-Boot-Fallback konnte nicht ergänzt werden"
+        install -m 0644 "$tmp_boot" "$grub"
+        rm -f "$tmp_boot"
+    fi
 }
 
 update_rack_host_rules() {

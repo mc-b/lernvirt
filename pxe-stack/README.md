@@ -316,3 +316,11 @@ und:
 ```bash
 sudo /srv/tftp/bin/pxe-update
 ```
+
+## OpenShift und dnsmasq
+
+Der PXE-Basisbetrieb verwendet `port=0` in `/etc/dnsmasq.d/pxe.conf`, weil dnsmasq dort nur Proxy-DHCP/TFTP bereitstellt. `install-openshift.sh` schaltet diese bestehende Einstellung auf `port=53` um und ergänzt die OpenShift-DNS-Records in `/etc/dnsmasq.d/zz-openshift.conf`. Die Option `port` wird bewusst nur einmal definiert. nginx wird durch die OpenShift-Installation nicht verändert.
+
+### RHCOS: zweiter PXE-Boot
+
+Nach erfolgreicher RHCOS-Installation erkennt PXE-GRUB den Marker auf der separaten `boot`-Partition und chainloadet den lokal installierten Red-Hat-EFI-Bootloader direkt. Dadurch ist kein Firmware-Fallback via `exit` nötig. Für bereits installierte pxe-stack-Versionen kann der lokale Bootpfad einmalig mit `sudo /srv/tftp/bin/pxe-fix-rhcos-localboot` aktualisiert werden.
