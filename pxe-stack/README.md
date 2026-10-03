@@ -180,27 +180,37 @@ SUSE_ISO=/pfad/SLE-15-SP6-Full-x86_64-GM-Media1.iso ./install-suse.sh
 
 ## OpenShift Add-on
 
-OpenShift/RHCOS wird separat eingerichtet:
+OpenShift/RHCOS wird separat auf der bestehenden PXE-Basis eingerichtet:
 
 ```bash
 curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-openshift.sh | bash -
 ```
 
-Vor der vollständigen Ignition-Erzeugung muss ein Pull Secret vorhanden sein:
+Vorher muss das Red-Hat-Pull-Secret vorhanden sein:
 
 ```text
 /etc/lernvirt/pull-secret.json
 ```
 
-`install-openshift.sh` erledigt:
+`install-openshift.sh` übernimmt den vollständigen Ablauf der bisherigen OpenShift-Lösung und integriert ihn in `pxe-stack`:
 
 - `openshift-install`, `oc` und `kubectl` bereitstellen
-- RHCOS Kernel, initramfs und rootfs herunterladen
-- `openshift.conf` erzeugen bzw. eine bestehende Datei übernehmen
-- Manifeste und Ignition-Dateien erzeugen
-- RHCOS/Ignition über TFTP bzw. nginx bereitstellen
-- `openshift.cfg` installieren
-- `pxe-update` ausführen
+- `br0` für die Bootstrap-VM erzeugen bzw. wiederverwenden
+- OpenShift-DNS als separate dnsmasq-Add-on-Datei aktivieren
+- **nginx nicht verändern**; RHCOS und Ignition werden über die bestehende `pxe-stack`-Site auf Port 80 ausgeliefert
+- `machineNetwork` setzen und bei drei Control-Plane-Nodes `mastersSchedulable: true` aktivieren
+- Bootstrap-Ignition mit statischem LAN, SSH-Key und Konsolenpasswort erweitern
+- RHCOS PXE- und QEMU-Images laden
+- für `terra2` bis `terra4` node-spezifische RHCOS-initramfs mit NetworkManager-Konfiguration und Post-Install-Marker erzeugen
+- die drei MAC-Adressen automatisch in `rack.conf` als `openshift|terra2`, `openshift|terra3` und `openshift|terra4` eintragen
+- temporäre Bootstrap-VM starten
+- HAProxy für API `6443` und MCS `22623` aktivieren
+- Nodes per Wake-on-LAN starten
+- auf `bootstrap-complete` warten
+- Bootstrap-VM entfernen
+- Ingress-HAProxy auf `80/443` aktivieren
+- auf `install-complete` warten
+- `openshift-status` installieren
 
 Die Konfiguration liegt unter:
 
@@ -208,26 +218,36 @@ Die Konfiguration liegt unter:
 /srv/tftp/config/openshift.conf
 ```
 
-Beispiel für drei Control-Plane-Rechner:
+Die Standardadressen sind:
+
+```text
+terra1 / API-LB       192.168.1.101
+terra2                192.168.1.102
+terra3                192.168.1.103
+terra4                192.168.1.104
+bootstrap             192.168.1.105
+Ingress-LB final      192.168.1.105
+```
+
+Die Bootstrap-IP wird nach `bootstrap-complete` wiederverwendet. Der Ingress-HAProxy läuft dazu in einem eigenen Linux Network Namespace. Dadurch können OpenShift-Routes auf `80/443` bereitgestellt werden, obwohl nginx auf `terra1:80` unverändert weiterläuft.
+
+Diagnose:
 
 ```bash
-HOSTS=(
-    "*|ubuntu|"
-    "80:EE:73:EF:0D:E9|openshift|master"
-    "80:EE:73:EF:03:B3|openshift|master"
-    "80:EE:73:EF:01:81|openshift|master"
-)
+sudo openshift-status
+sudo tail -f /var/log/openshift-install.log
 ```
 
 ## HAProxy Add-on
 
-HAProxy bleibt vollständig getrennt vom PXE- und nginx-Setup:
+`install-haproxy.sh` wird vom OpenShift-Installer automatisch in zwei Phasen verwendet. Es kann auch manuell ausgeführt werden:
 
 ```bash
-curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-haproxy.sh | bash -
+sudo ./install-haproxy.sh bootstrap
+sudo ./install-haproxy.sh final
 ```
 
-Das Script liest `/srv/tftp/config/openshift.conf` und richtet die OpenShift API (`6443`) sowie den Machine Config Server (`22623`) ein. nginx bleibt auf Port 80.
+`bootstrap` stellt API `6443` und MCS `22623` auf `terra1` für Bootstrap und Control Plane bereit. `final` entfernt Bootstrap aus diesen Backends und startet zusätzlich den Ingress-HAProxy auf `80/443` im Network Namespace. Die nginx-Konfiguration wird in beiden Phasen nicht verändert.
 
 ## Bestehende Lösung erweitern
 
