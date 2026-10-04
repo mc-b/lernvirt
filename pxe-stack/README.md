@@ -203,9 +203,9 @@ sudo /srv/tftp/bin/pxe-show
 /var/www/html/harvester/config/<mac>.yaml
 ```
 
-Es muss keine `node1.yaml`, `node2.yaml` usw. manuell erstellt werden. Für `create:<hostname>` werden VIP und `vip_mode: static` gesetzt; für `join:<hostname>` wird automatisch `server_url: https://<HARVESTER_VIP>:443` gesetzt. Alle Nodes erhalten denselben Cluster-Token, die konfigurierte Installationsdisk, den SSH-Key und die PXE-MAC als Management-Interface. `pxe-update` schreibt zudem `install.skipchecks` gemäss `HARVESTER_SKIPCHECKS` in jede Node-Konfiguration.
+Es muss keine `node1.yaml`, `node2.yaml` usw. manuell erstellt werden. Für `create:<hostname>` werden VIP und `vip_mode: static` gesetzt; für `join:<hostname>` wird automatisch `server_url: https://<HARVESTER_VIP>:443` gesetzt. Alle Nodes erhalten denselben Cluster-Token, die konfigurierte Installationsdisk, den SSH-Key und die PXE-MAC als Management-Interface. `pxe-update` schreibt zudem `install.skipchecks` gemäss `HARVESTER_SKIPCHECKS` in jede Node-Konfiguration. Derselbe Wert wird zusätzlich als `harvester.install.skipchecks=` auf der Kernel-Commandline gesetzt.
 
-Das Management-Interface heisst standardmässig `mgmt0`. Beim PXE-Boot wird die tatsächliche PXE-MAC mittels Kernelparameter `ifname=mgmt0:<MAC>` an diesen Namen gebunden, sodass kein hardwarespezifischer Interface-Name in einer Node-YAML gepflegt werden muss.
+Das Management-Interface ist standardmässig `enp2s0`. Beim PXE-Boot wird die tatsächliche PXE-MAC mittels Kernelparameter `ifname=enp2s0:<MAC>` an diesen Namen gebunden. Falls die Zielhardware einen anderen persistenten Namen verwenden soll, kann er zentral mit `HARVESTER_INTERFACE=<name>` gesetzt werden.
 
 Harvester v1.8 verlangt für neue PXE-Installationen UEFI. Nach erfolgreicher Installation erkennt PXE-GRUB den Harvester-Datenträger über `COS_STATE` und bootet lokal. Die `COS_STATE`-Erkennung gilt nur, solange der Rechner in `rack.conf` weiterhin dem Stack `harvester` zugeordnet ist.
 

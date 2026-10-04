@@ -52,6 +52,18 @@ trap cleanup EXIT
 HARVESTER_VERSION="${HARVESTER_VERSION:-}"
 HARVESTER_ARCH="${HARVESTER_ARCH:-}"
 HARVESTER_INTERFACE="${HARVESTER_INTERFACE:-}"
+HARVESTER_SKIPCHECKS="${HARVESTER_SKIPCHECKS:-true}"
+
+case "${HARVESTER_SKIPCHECKS,,}" in
+    true|1|yes|on) HARVESTER_SKIPCHECKS=true ;;
+    false|0|no|off) HARVESTER_SKIPCHECKS=false ;;
+    *) fail "HARVESTER_SKIPCHECKS muss true oder false sein: $HARVESTER_SKIPCHECKS" ;;
+esac
+
+if [[ -n "$HARVESTER_INTERFACE" ]]; then
+    [[ "$HARVESTER_INTERFACE" =~ ^[A-Za-z0-9_.:-]+$ ]] || \
+        fail "Ungültiger HARVESTER_INTERFACE: $HARVESTER_INTERFACE"
+fi
 
 cat >"$runtime_tmp" <<EOF_RUNTIME
 set pxe_server="$(grub_escape "$PXE_SERVER")"
@@ -64,6 +76,7 @@ set grub_timeout="$(grub_escape "$GRUB_TIMEOUT")"
 set harvester_version="$(grub_escape "$HARVESTER_VERSION")"
 set harvester_arch="$(grub_escape "$HARVESTER_ARCH")"
 set harvester_interface="$(grub_escape "$HARVESTER_INTERFACE")"
+set harvester_skipchecks="$(grub_escape "$HARVESTER_SKIPCHECKS")"
 EOF_RUNTIME
 
 cat >"$hosts_tmp" <<'EOF_HOSTS'
@@ -139,6 +152,7 @@ write_harvester_config() {
 
         echo "install:"
         printf '  mode: %s\n' "$mode"
+        printf '  skipchecks: %s\n' "$HARVESTER_SKIPCHECKS"
         echo "  force_efi: true"
         echo "  management_interface:"
         echo "    interfaces:"
