@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# lernvirt PXE Add-on: openSUSE Leap + SUSE Rancher RKE2
+# lernvirt PXE Add-on: openSUSE Leap + SUSE RKE2 + Helm + Rancher Manager
 #
 # Voraussetzung:
 #   pxe-stack/install-pxe.sh wurde bereits ausgeführt.
@@ -11,6 +11,7 @@ set -Eeuo pipefail
 #   - Installation auf INSTALL_DISK aus rack.conf
 #   - erster Boot installiert automatisch einen Single-Node-RKE2-Cluster
 #   - RKE2 Server ist schedulable, daher reicht ein Rechner als Cluster
+#   - Helm 3, cert-manager und Rancher Manager werden danach automatisch installiert
 #   - /boot/lernvirt-installed verhindert eine erneute PXE-Installation
 #
 # Wichtige Overrides:
@@ -28,6 +29,11 @@ set -Eeuo pipefail
 #   RKE2_CHANNEL=stable
 #   RKE2_VERSION=v1.xx.y+rke2r1   # optional; leer = Channel verwenden
 #   RKE2_METHOD=tar
+#   HELM_VERSION=v3.22.0
+#   CERT_MANAGER_VERSION=v1.21.2
+#   RANCHER_VERSION=2.15.2
+#   RANCHER_HOST=               # leer = <Node-IP>.sslip.io
+#   RANCHER_BOOTSTRAP_PASSWORD= # leer = SUSE_ROOT_PASSWORD
 #
 # Beispiel:
 #   sudo ./install-suse.sh
@@ -59,6 +65,11 @@ ENV_SUSE_AUTOYAST="${SUSE_AUTOYAST-}"
 ENV_RKE2_CHANNEL="${RKE2_CHANNEL-}"
 ENV_RKE2_VERSION="${RKE2_VERSION-}"
 ENV_RKE2_METHOD="${RKE2_METHOD-}"
+ENV_HELM_VERSION="${HELM_VERSION-}"
+ENV_CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION-}"
+ENV_RANCHER_VERSION="${RANCHER_VERSION-}"
+ENV_RANCHER_HOST="${RANCHER_HOST-}"
+ENV_RANCHER_BOOTSTRAP_PASSWORD="${RANCHER_BOOTSTRAP_PASSWORD-}"
 
 # shellcheck disable=SC1090
 source "$CONFIG"
@@ -80,6 +91,11 @@ source "$CONFIG"
 [[ -n "$ENV_RKE2_CHANNEL" ]] && RKE2_CHANNEL="$ENV_RKE2_CHANNEL"
 [[ -n "$ENV_RKE2_VERSION" ]] && RKE2_VERSION="$ENV_RKE2_VERSION"
 [[ -n "$ENV_RKE2_METHOD" ]] && RKE2_METHOD="$ENV_RKE2_METHOD"
+[[ -n "$ENV_HELM_VERSION" ]] && HELM_VERSION="$ENV_HELM_VERSION"
+[[ -n "$ENV_CERT_MANAGER_VERSION" ]] && CERT_MANAGER_VERSION="$ENV_CERT_MANAGER_VERSION"
+[[ -n "$ENV_RANCHER_VERSION" ]] && RANCHER_VERSION="$ENV_RANCHER_VERSION"
+[[ -n "$ENV_RANCHER_HOST" ]] && RANCHER_HOST="$ENV_RANCHER_HOST"
+[[ -n "$ENV_RANCHER_BOOTSTRAP_PASSWORD" ]] && RANCHER_BOOTSTRAP_PASSWORD="$ENV_RANCHER_BOOTSTRAP_PASSWORD"
 
 TFTP_ROOT="${TFTP_ROOT:-/srv/tftp}"
 HTTP_ROOT="${HTTP_ROOT:-/var/www/html}"
@@ -101,6 +117,11 @@ SUSE_AUTOYAST="${SUSE_AUTOYAST:-suse-rke2.xml}"
 RKE2_CHANNEL="${RKE2_CHANNEL:-stable}"
 RKE2_VERSION="${RKE2_VERSION:-}"
 RKE2_METHOD="${RKE2_METHOD:-tar}"
+HELM_VERSION="${HELM_VERSION:-v3.22.0}"
+CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-v1.21.2}"
+RANCHER_VERSION="${RANCHER_VERSION:-2.15.2}"
+RANCHER_HOST="${RANCHER_HOST:-}"
+RANCHER_BOOTSTRAP_PASSWORD="${RANCHER_BOOTSTRAP_PASSWORD:-$SUSE_ROOT_PASSWORD}"
 SSH_KEY_FILE="${SSH_KEY_FILE:-/etc/lernvirt/lerncloud.pub}"
 
 : "${PXE_SERVER:?PXE_SERVER fehlt in rack.conf}"
@@ -137,6 +158,13 @@ case "$RKE2_METHOD" in
     tar|rpm) ;;
     *) fail "RKE2_METHOD muss tar oder rpm sein." ;;
 esac
+[[ "$HELM_VERSION" =~ ^v3\.[0-9]+\.[0-9]+$ ]] || fail "HELM_VERSION muss eine Helm-3-Version wie v3.22.0 sein."
+[[ "$CERT_MANAGER_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Ungültige CERT_MANAGER_VERSION: $CERT_MANAGER_VERSION"
+[[ "$RANCHER_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Ungültige RANCHER_VERSION: $RANCHER_VERSION"
+if [[ -n "$RANCHER_HOST" ]]; then
+    [[ "$RANCHER_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$ ]] || fail "Ungültiger RANCHER_HOST: $RANCHER_HOST"
+fi
+[[ "$RANCHER_BOOTSTRAP_PASSWORD" != *$'\n'* ]] || fail "RANCHER_BOOTSTRAP_PASSWORD darf keinen Zeilenumbruch enthalten."
 
 export DEBIAN_FRONTEND=noninteractive
 missing=()
@@ -330,17 +358,17 @@ BOOTSTRAP_HEAD
     printf 'RKE2_CHANNEL=%q\n' "$RKE2_CHANNEL"
     printf 'RKE2_VERSION=%q\n' "$RKE2_VERSION"
     printf 'RKE2_METHOD=%q\n' "$RKE2_METHOD"
+    printf 'HELM_VERSION=%q\n' "$HELM_VERSION"
+    printf 'CERT_MANAGER_VERSION=%q\n' "$CERT_MANAGER_VERSION"
+    printf 'RANCHER_VERSION=%q\n' "$RANCHER_VERSION"
+    printf 'RANCHER_HOST=%q\n' "$RANCHER_HOST"
+    printf 'RANCHER_BOOTSTRAP_PASSWORD=%q\n' "$RANCHER_BOOTSTRAP_PASSWORD"
     cat <<'BOOTSTRAP_BODY'
 
 log() { printf '[lernvirt-rke2] %s %s\n' "$(date -Iseconds)" "$*"; }
 
-if [[ -f /var/lib/lernvirt/rke2-ready ]]; then
-    log "Cluster wurde bereits provisioniert."
-    exit 0
-fi
-
 hostnamectl set-hostname "$NODE_HOSTNAME"
-mkdir -p /etc/rancher/rke2 /var/lib/lernvirt /etc/sysctl.d
+mkdir -p /etc/rancher/rke2 /var/lib/lernvirt /etc/sysctl.d /opt/rke2/bin
 
 # Wicked kann die von RKE2 gesetzten Forwarding-Werte sonst zurücksetzen.
 cat >/etc/sysctl.d/90-rke2.conf <<'SYSCTL_EOF'
@@ -366,56 +394,62 @@ zypper --non-interactive --gpg-auto-import-keys refresh || true
 zypper --non-interactive install --no-recommends curl ca-certificates apparmor-parser iptables tar gzip || \
     zypper --non-interactive install curl ca-certificates apparmor-parser iptables tar gzip
 
-# RKE2-Tar-Installer benötigt diese Werkzeuge zwingend. Lieber hier mit einer
-# eindeutigen Meldung abbrechen als später mit Exit-Code 127 im Installer.
 for cmd in curl tar gzip sha256sum awk sed grep mountpoint; do
     command -v "$cmd" >/dev/null 2>&1 || { log "Fehlendes Werkzeug: $cmd"; exit 1; }
 done
 
-# Erst fortfahren, wenn die offizielle RKE2-Installationsquelle erreichbar ist.
-for _ in $(seq 1 60); do
-    if curl -fsS --connect-timeout 5 https://get.rke2.io/ -o /tmp/install-rke2.sh; then
-        break
-    fi
-    log "Warte auf Netzwerk/DNS für get.rke2.io ..."
-    sleep 10
-done
-[[ -s /tmp/install-rke2.sh ]] || { log "RKE2 Installer konnte nicht geladen werden."; exit 1; }
-chmod 0700 /tmp/install-rke2.sh
-
 # TLS-SAN enthält Hostname und aktuelle primäre IPv4, damit eine kopierte
 # kubeconfig auch ausserhalb des Nodes verwendet werden kann.
 NODE_IP="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i=1;i<=NF;i++) if ($i=="src") {print $(i+1); exit}}')"
-cat >/etc/rancher/rke2/config.yaml <<RKE2_CONFIG
+[[ -n "$NODE_IP" ]] || NODE_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+[[ -n "$NODE_IP" ]] || { log "Keine primäre IPv4-Adresse gefunden."; exit 1; }
+
+if [[ ! -f /var/lib/lernvirt/rke2-ready ]]; then
+    # Erst fortfahren, wenn die offizielle RKE2-Installationsquelle erreichbar ist.
+    for _ in $(seq 1 60); do
+        if curl -fsS --connect-timeout 5 https://get.rke2.io/ -o /tmp/install-rke2.sh; then
+            break
+        fi
+        log "Warte auf Netzwerk/DNS für get.rke2.io ..."
+        sleep 10
+    done
+    [[ -s /tmp/install-rke2.sh ]] || { log "RKE2 Installer konnte nicht geladen werden."; exit 1; }
+    chmod 0700 /tmp/install-rke2.sh
+
+    cat >/etc/rancher/rke2/config.yaml <<RKE2_CONFIG
 write-kubeconfig-mode: "0644"
 cni: canal
 tls-san:
   - "$NODE_HOSTNAME"
+  - "$NODE_IP"
 RKE2_CONFIG
-if [[ -n "$NODE_IP" ]]; then
-    printf '  - "%s"\n' "$NODE_IP" >>/etc/rancher/rke2/config.yaml
-fi
 
-log "Installiere RKE2 (channel=$RKE2_CHANNEL, method=$RKE2_METHOD${RKE2_VERSION:+, version=$RKE2_VERSION})"
-export INSTALL_RKE2_TYPE=server
-export INSTALL_RKE2_METHOD="$RKE2_METHOD"
-export INSTALL_RKE2_CHANNEL="$RKE2_CHANNEL"
-if [[ -n "$RKE2_VERSION" ]]; then
-    export INSTALL_RKE2_VERSION="$RKE2_VERSION"
-fi
-/tmp/install-rke2.sh
+    log "Installiere RKE2 (channel=$RKE2_CHANNEL, method=$RKE2_METHOD${RKE2_VERSION:+, version=$RKE2_VERSION})"
+    export INSTALL_RKE2_TYPE=server
+    export INSTALL_RKE2_METHOD="$RKE2_METHOD"
+    export INSTALL_RKE2_CHANNEL="$RKE2_CHANNEL"
+    if [[ -n "$RKE2_VERSION" ]]; then
+        export INSTALL_RKE2_VERSION="$RKE2_VERSION"
+    fi
+    /tmp/install-rke2.sh
 
-systemctl enable rke2-server.service
-systemctl restart rke2-server.service
+    systemctl enable rke2-server.service
+    systemctl restart rke2-server.service
+else
+    log "RKE2 wurde bereits provisioniert."
+    systemctl enable rke2-server.service >/dev/null 2>&1 || true
+    systemctl start rke2-server.service
+fi
 
 export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
-export PATH="/var/lib/rancher/rke2/bin:$PATH"
+export PATH="/opt/rke2/bin:/var/lib/rancher/rke2/bin:$PATH"
+KUBECTL=/var/lib/rancher/rke2/bin/kubectl
 
 # RKE2 kann beim ersten Start mehrere Minuten Images laden.
 ready=0
 for _ in $(seq 1 180); do
-    if [[ -x /var/lib/rancher/rke2/bin/kubectl && -s "$KUBECONFIG" ]] && \
-       /var/lib/rancher/rke2/bin/kubectl --kubeconfig "$KUBECONFIG" get nodes --no-headers 2>/dev/null | awk '$2 == "Ready" {found=1} END {exit !found}'; then
+    if [[ -x "$KUBECTL" && -s "$KUBECONFIG" ]] && \
+       "$KUBECTL" --kubeconfig "$KUBECONFIG" get nodes --no-headers 2>/dev/null | awk '$2 == "Ready" {found=1} END {exit !found}'; then
         ready=1
         break
     fi
@@ -423,17 +457,94 @@ for _ in $(seq 1 180); do
 done
 [[ "$ready" == "1" ]] || { log "RKE2-Node wurde nicht rechtzeitig Ready."; exit 1; }
 
-ln -sfn /var/lib/rancher/rke2/bin/kubectl /usr/local/bin/kubectl
+touch /var/lib/lernvirt/rke2-ready
+ln -sfn "$KUBECTL" /usr/local/bin/kubectl
+
+# Helm 3 installieren. Rancher dokumentiert die Installation weiterhin mit Helm 3.
+HELM=/opt/rke2/bin/helm
+if [[ ! -x "$HELM" ]]; then
+    case "$(uname -m)" in
+        x86_64) HELM_ARCH=amd64 ;;
+        aarch64|arm64) HELM_ARCH=arm64 ;;
+        *) log "Nicht unterstützte Architektur für Helm: $(uname -m)"; exit 1 ;;
+    esac
+    HELM_TGZ="/tmp/helm-${HELM_VERSION}-linux-${HELM_ARCH}.tar.gz"
+    HELM_URL="https://get.helm.sh/helm-${HELM_VERSION}-linux-${HELM_ARCH}.tar.gz"
+    log "Installiere Helm $HELM_VERSION"
+    curl -fL --retry 5 --retry-delay 3 "$HELM_URL" -o "$HELM_TGZ"
+    expected="$(curl -fsSL "${HELM_URL}.sha256sum" | awk '{print $1}')"
+    actual="$(sha256sum "$HELM_TGZ" | awk '{print $1}')"
+    [[ -n "$expected" && "$actual" == "$expected" ]] || { log "Helm SHA256-Prüfung fehlgeschlagen."; exit 1; }
+    rm -rf "/tmp/linux-${HELM_ARCH}"
+    tar -xzf "$HELM_TGZ" -C /tmp
+    install -m 0755 "/tmp/linux-${HELM_ARCH}/helm" "$HELM"
+fi
+ln -sfn "$HELM" /usr/local/bin/helm
+
 cat >/etc/profile.d/rke2.sh <<'PROFILE_EOF'
 export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
-export PATH=/var/lib/rancher/rke2/bin:$PATH
+export PATH=/opt/rke2/bin:/var/lib/rancher/rke2/bin:$PATH
 PROFILE_EOF
 chmod 0644 /etc/profile.d/rke2.sh
 
-touch /var/lib/lernvirt/rke2-ready
-log "RKE2 Single-Node-Cluster ist Ready."
-/var/lib/rancher/rke2/bin/kubectl --kubeconfig "$KUBECONFIG" get nodes -o wide
-/var/lib/rancher/rke2/bin/kubectl --kubeconfig "$KUBECONFIG" get pods -A
+touch /var/lib/lernvirt/helm-ready
+log "Helm ist bereit: $($HELM version --short)"
+
+# Rancher Manager benötigt bei selbstsigniertem TLS cert-manager.
+if [[ ! -f /var/lib/lernvirt/rancher-ready ]]; then
+    [[ -n "$RANCHER_HOST" ]] || RANCHER_HOST="${NODE_IP}.sslip.io"
+    log "Installiere cert-manager $CERT_MANAGER_VERSION"
+    "$HELM" repo add jetstack https://charts.jetstack.io --force-update
+    "$HELM" repo add rancher-latest https://releases.rancher.com/server-charts/latest --force-update
+    "$HELM" repo update
+
+    "$HELM" upgrade --install cert-manager jetstack/cert-manager \
+        --namespace cert-manager \
+        --create-namespace \
+        --version "$CERT_MANAGER_VERSION" \
+        --set crds.enabled=true \
+        --wait \
+        --timeout 15m
+
+    "$KUBECTL" --kubeconfig "$KUBECONFIG" create namespace cattle-system \
+        --dry-run=client -o yaml | "$KUBECTL" --kubeconfig "$KUBECONFIG" apply -f -
+
+    RANCHER_HOST_YAML="$(printf '%s' "$RANCHER_HOST" | sed "s/'/''/g")"
+    RANCHER_PASSWORD_YAML="$(printf '%s' "$RANCHER_BOOTSTRAP_PASSWORD" | sed "s/'/''/g")"
+    cat >/tmp/rancher-values.yaml <<RANCHER_VALUES
+hostname: '$RANCHER_HOST_YAML'
+replicas: 1
+bootstrapPassword: '$RANCHER_PASSWORD_YAML'
+RANCHER_VALUES
+
+    log "Installiere Rancher Manager $RANCHER_VERSION unter https://$RANCHER_HOST"
+    "$HELM" upgrade --install rancher rancher-latest/rancher \
+        --namespace cattle-system \
+        --version "$RANCHER_VERSION" \
+        -f /tmp/rancher-values.yaml \
+        --wait \
+        --timeout 20m
+
+    "$KUBECTL" --kubeconfig "$KUBECONFIG" -n cattle-system rollout status deployment/rancher --timeout=1200s
+    touch /var/lib/lernvirt/rancher-ready
+else
+    [[ -n "$RANCHER_HOST" ]] || RANCHER_HOST="$($HELM get values rancher -n cattle-system -o json 2>/dev/null | sed -n 's/.*"hostname":"\([^"]*\)".*/\1/p')"
+    [[ -n "$RANCHER_HOST" ]] || RANCHER_HOST="${NODE_IP}.sslip.io"
+    log "Rancher wurde bereits provisioniert."
+fi
+
+cat >/root/rancher-access.txt <<RANCHER_ACCESS
+Rancher URL: https://$RANCHER_HOST
+Benutzer: admin
+Bootstrap-Passwort: $RANCHER_BOOTSTRAP_PASSWORD
+RANCHER_ACCESS
+chmod 0600 /root/rancher-access.txt
+
+log "SUSE RKE2 + Helm + Rancher ist Ready."
+"$KUBECTL" --kubeconfig "$KUBECONFIG" get nodes -o wide
+"$KUBECTL" --kubeconfig "$KUBECONFIG" get pods -A
+printf '\nRancher: https://%s\n' "$RANCHER_HOST"
+printf 'Zugangsdaten: /root/rancher-access.txt\n'
 BOOTSTRAP_BODY
 } > "$BOOTSTRAP"
 chmod 0755 "$BOOTSTRAP"
@@ -607,11 +718,16 @@ printf '  AutoYaST    : http://%s/autoyast/%s\n' "$PXE_SERVER" "$SUSE_AUTOYAST"
 printf '  Zielplatte  : %s\n' "$INSTALL_DISK"
 printf '  Hostname    : %s\n' "$SUSE_HOSTNAME"
 printf '  RKE2        : channel=%s method=%s%s\n' "$RKE2_CHANNEL" "$RKE2_METHOD" "${RKE2_VERSION:+ version=$RKE2_VERSION}"
+printf '  Helm        : %s\n' "$HELM_VERSION"
+printf '  cert-manager: %s\n' "$CERT_MANAGER_VERSION"
+printf '  Rancher     : %s%s\n' "$RANCHER_VERSION" "${RANCHER_HOST:+ host=$RANCHER_HOST}"
 printf '\nStack in rack.conf:\n'
 printf '  HOSTS=( "*|suse|" )\n'
-printf '\nNach PXE-Installation und erstem lokalen Boot wird RKE2 automatisch installiert.\n'
+printf '\nNach PXE-Installation und erstem lokalen Boot werden RKE2, Helm, cert-manager und Rancher automatisch installiert.\n'
 printf 'Status auf dem Node:\n'
 printf '  systemctl status lernvirt-rke2-bootstrap --no-pager\n'
 printf '  journalctl -u lernvirt-rke2-bootstrap -f\n'
 printf '  export KUBECONFIG=/etc/rancher/rke2/rke2.yaml\n'
 printf '  kubectl get nodes -o wide\n'
+printf '  helm list -A\n'
+printf '  cat /root/rancher-access.txt\n'

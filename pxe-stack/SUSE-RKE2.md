@@ -161,3 +161,71 @@ Nach erfolgreicher Paketinstallation legt der Chroot-Schritt `/boot/lernvirt-ins
 ### RKE2-Tar-Installer
 
 Der Bootstrap installiert vor RKE2 explizit `tar` und `gzip` und prüft die vom offiziellen Tar-Installer benötigten Basiswerkzeuge. Ein bestehender Node kann nach einem früheren `tar: command not found` ohne Neuinstallation mit `zypper install tar gzip` und einem Neustart von `lernvirt-rke2-bootstrap.service` fortgesetzt werden.
+
+## Helm und Rancher Manager
+
+Nach erfolgreichem RKE2-Bootstrap installiert derselbe Service zusätzlich:
+
+```text
+Helm 3         : v3.22.0
+cert-manager   : v1.21.2
+Rancher Manager: 2.15.2
+```
+
+Rancher 2.15.x unterstützt RKE2 1.34 bis 1.36. cert-manager 1.21 unterstützt Kubernetes bis 1.36.
+
+Wenn kein `RANCHER_HOST` gesetzt ist, wird automatisch die primäre Node-IP mit `sslip.io` verwendet, beispielsweise:
+
+```text
+https://192.168.1.130.sslip.io
+```
+
+Für einen eigenen DNS-Namen:
+
+```bash
+sudo \
+  RANCHER_HOST=rancher.lernvirt.test \
+  RANCHER_BOOTSTRAP_PASSWORD=insecure \
+  ./install-suse.sh
+```
+
+Die Standardversionen können ebenfalls überschrieben werden:
+
+```bash
+sudo \
+  HELM_VERSION=v3.22.0 \
+  CERT_MANAGER_VERSION=v1.21.2 \
+  RANCHER_VERSION=2.15.2 \
+  ./install-suse.sh
+```
+
+Nach dem Bootstrap:
+
+```bash
+helm version
+helm list -A
+kubectl get pods -n cert-manager
+kubectl get pods -n cattle-system
+cat /root/rancher-access.txt
+```
+
+`/root/rancher-access.txt` enthält die Rancher-URL, den Benutzer `admin` und das Bootstrap-Passwort. Die Datei hat Modus `0600`.
+
+### Bestehenden RKE2-Node erweitern
+
+Für einen bereits laufenden Node muss openSUSE nicht neu installiert werden. Das Paket enthält `install-rancher.sh`:
+
+```bash
+sudo ./install-rancher.sh
+```
+
+Optional:
+
+```bash
+sudo \
+  RANCHER_HOST=rancher.lernvirt.test \
+  RANCHER_BOOTSTRAP_PASSWORD=insecure \
+  ./install-rancher.sh
+```
+
+Das Script installiert Helm, cert-manager und Rancher idempotent mit `helm upgrade --install`.
