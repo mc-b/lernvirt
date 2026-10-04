@@ -157,3 +157,7 @@ Für openSUSE Leap 15.6 muss im AutoYaST-Profil das Basisprodukt `Leap` verwende
 Das Profil verwendet `Leap` als Basisprodukt und das Standardmuster `enhanced_base`. RKE2-spezifische Zusatzpakete werden bewusst erst im installierten System installiert. Dadurch bleibt die AutoYaST-Paketauflösung auf dem Installationsmedium minimal und reproduzierbar.
 
 Nach erfolgreicher Paketinstallation legt der Chroot-Schritt `/boot/lernvirt-installed` an. Bei UEFI wird zusätzlich `/boot/efi/lernvirt-installed` auf der EFI-Systempartition angelegt. PXE-GRUB findet damit den Marker auch unabhängig vom Btrfs-Subvolume-Layout. Bei einer abgebrochenen AutoYaST-Installation wird der Marker absichtlich nicht erzeugt.
+
+### RKE2-Tar-Installer
+
+Der Bootstrap installiert vor RKE2 explizit `tar` und `gzip` und prüft die vom offiziellen Tar-Installer benötigten Basiswerkzeuge. Ein bestehender Node kann nach einem früheren `tar: command not found` ohne Neuinstallation mit `zypper install tar gzip` und einem Neustart von `lernvirt-rke2-bootstrap.service` fortgesetzt werden.

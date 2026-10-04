@@ -363,8 +363,14 @@ systemctl disable --now firewalld.service 2>/dev/null || true
 
 # Benötigte Werkzeuge sicherstellen.
 zypper --non-interactive --gpg-auto-import-keys refresh || true
-zypper --non-interactive install --no-recommends curl ca-certificates apparmor-parser iptables || \
-    zypper --non-interactive install curl ca-certificates apparmor-parser iptables
+zypper --non-interactive install --no-recommends curl ca-certificates apparmor-parser iptables tar gzip || \
+    zypper --non-interactive install curl ca-certificates apparmor-parser iptables tar gzip
+
+# RKE2-Tar-Installer benötigt diese Werkzeuge zwingend. Lieber hier mit einer
+# eindeutigen Meldung abbrechen als später mit Exit-Code 127 im Installer.
+for cmd in curl tar gzip sha256sum awk sed grep mountpoint; do
+    command -v "$cmd" >/dev/null 2>&1 || { log "Fehlendes Werkzeug: $cmd"; exit 1; }
+done
 
 # Erst fortfahren, wenn die offizielle RKE2-Installationsquelle erreichbar ist.
 for _ in $(seq 1 60); do
