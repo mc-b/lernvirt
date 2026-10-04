@@ -106,6 +106,26 @@ SSH_KEY_FILE="${SSH_KEY_FILE:-/etc/lernvirt/lerncloud.pub}"
 : "${PXE_SERVER:?PXE_SERVER fehlt in rack.conf}"
 [[ -x "$TFTP_ROOT/bin/pxe-update" ]] || fail "pxe-update fehlt. Zuerst install-pxe.sh ausführen."
 [[ -d "$TFTP_ROOT/grub/stacks" ]] || fail "GRUB-Stack-Verzeichnis fehlt: $TFTP_ROOT/grub/stacks"
+[[ -r "$TFTP_ROOT/grub/grub.cfg" ]] || fail "GRUB-Basiskonfiguration fehlt: $TFTP_ROOT/grub/grub.cfg"
+
+# Wenn das Script aus dem bereitgestellten Paket ausgeführt wird, die integrierte
+# grub.cfg übernehmen. Sie enthält sowohl Harvester (COS_STATE) als auch den
+# openSUSE/SUSE-UEFI-Local-Boot und überschreibt damit keine Harvester-Funktion.
+SCRIPT_SOURCE="${BASH_SOURCE[0]:-}"
+SCRIPT_DIR=""
+if [[ -n "$SCRIPT_SOURCE" && "$SCRIPT_SOURCE" != "-" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SOURCE")" 2>/dev/null && pwd || true)"
+fi
+if [[ -n "$SCRIPT_DIR" && -r "$SCRIPT_DIR/grub/grub.cfg" ]]; then
+    BUNDLED_GRUB="$SCRIPT_DIR/grub/grub.cfg"
+    grep -q 'COS_STATE' "$BUNDLED_GRUB" || fail "Gebündelte grub.cfg enthält die Harvester-Erkennung nicht."
+    grep -q '/EFI/opensuse/' "$BUNDLED_GRUB" || fail "Gebündelte grub.cfg enthält den openSUSE-Local-Boot nicht."
+    if ! cmp -s "$BUNDLED_GRUB" "$TFTP_ROOT/grub/grub.cfg"; then
+        [[ -e "$TFTP_ROOT/grub/grub.cfg.pre-suse-rke2" ]] || cp -a "$TFTP_ROOT/grub/grub.cfg" "$TFTP_ROOT/grub/grub.cfg.pre-suse-rke2"
+        install -m 0644 "$BUNDLED_GRUB" "$TFTP_ROOT/grub/grub.cfg"
+        log "grub.cfg aktualisiert (Harvester + openSUSE Local Boot)"
+    fi
+fi
 [[ "$SUSE_AUTOYAST" != */* ]] || fail "SUSE_AUTOYAST darf nur ein Dateiname sein."
 [[ "$SUSE_AUTOYAST" == *.xml ]] || fail "SUSE_AUTOYAST muss auf .xml enden."
 [[ "$SUSE_HOSTNAME" =~ ^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$ ]] || fail "Ungültiger SUSE_HOSTNAME: $SUSE_HOSTNAME"
@@ -447,6 +467,8 @@ cat > "$AY_FILE" <<EOF_AUTOYAST
   <general>
     <mode>
       <confirm config:type="boolean">false</confirm>
+      <second_stage config:type="boolean">false</second_stage>
+      <forceboot config:type="boolean">true</forceboot>
       <final_reboot config:type="boolean">true</final_reboot>
     </mode>
   </general>
@@ -487,15 +509,11 @@ cat > "$AY_FILE" <<EOF_AUTOYAST
 
   <software>
     <products config:type="list">
-      <product>openSUSE</product>
+      <product>Leap</product>
     </products>
-    <packages config:type="list">
-      <package>curl</package>
-      <package>ca-certificates</package>
-      <package>openssh</package>
-      <package>apparmor-parser</package>
-      <package>iptables</package>
-    </packages>
+    <patterns config:type="list">
+      <pattern>enhanced_base</pattern>
+    </patterns>
   </software>
 
   <services-manager>
@@ -526,6 +544,11 @@ chmod 0644 /etc/systemd/system/lernvirt-rke2-bootstrap.service
 systemctl enable sshd.service
 systemctl enable lernvirt-rke2-bootstrap.service
 touch /boot/lernvirt-installed
+# Der Marker auf der EFI-Systempartition ist fuer den PXE-GRUB besonders robust,
+# weil er unabhaengig von Btrfs-Subvolumes gefunden werden kann.
+if grep -qs ' /boot/efi ' /proc/mounts; then
+    touch /boot/efi/lernvirt-installed
+fi
 printf '%s\n' '${HOST_XML}' >/etc/hostname
 ]]></source>
       </script>
