@@ -231,7 +231,7 @@ main() {
   if [[ "$RUN_PXE" == true ]]; then
     run_cmd \
       "Installiere PXE Management" \
-      bash -lc 'curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-pxe.sh | bash -'
+      bash -lc 'curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | bash -'
     run_cmd \
       "Installiere Alpine Templates" \
       bash -lc 'curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe/install-alpine.sh | bash -'

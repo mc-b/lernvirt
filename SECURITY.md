@@ -30,7 +30,7 @@ Der öffentliche SSH-Key mit dem Kommentar:
 
 ist ein unsicherer Standard-Key und muss aus allen folgenden Dateien entfernt beziehungsweise ersetzt werden:
 
-- `user-data`-Dateien
+- `user-data`-Dateien im Verzeichnis `/var/www/html/autoinstall`
 - Cloud-Init-Dateien
 - Templates und Beispiele
 - PXE-Installationsdateien
@@ -45,35 +45,3 @@ Der gefundene Key muss durch einen eigenen öffentlichen SSH-Key ersetzt werden,
     ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... mein-name@meine-firma
 
 Es soll nur der öffentliche Key verteilt werden. Der private SSH-Key darf nie im Repository, in Images, in Cloud-Init-Dateien oder in Installationsskripten gespeichert werden.
-
-## Eigenen SSH-Key erzeugen
-
-Falls noch kein eigener SSH-Key vorhanden ist, kann ein Ed25519-Key erzeugt werden:
-
-    ssh-keygen -t ed25519 -a 100 -C "admin@example"
-
-Der öffentliche Key befindet sich standardmässig in:
-
-    ~/.ssh/id_ed25519.pub
-
-## Anpassung in `pxe/install-pxe.sh`
-
-In der Datei:
-
-    pxe/install-pxe.sh
-
-muss die bestehende Logik geändert werden.
-
-Aktuell ist die Ersetzungszeile deaktiviert und die Zeile zum zusätzlichen Einfügen des Keys aktiv:
-
-    # sed -i "s|ssh-rsa .* insecure@lerncloud|${pub_key}|" "$temp_userdata"
-    sed -i "\|ssh-rsa .* insecure@lerncloud|a\\      - ${pub_key}" "$temp_userdata"
-
-Die erste Zeile muss aktiviert und die zweite Zeile deaktiviert werden:
-
-    sed -i "s|ssh-rsa .* insecure@lerncloud|${pub_key}|" "$temp_userdata"
-    # sed -i "\|ssh-rsa .* insecure@lerncloud|a\\      - ${pub_key}" "$temp_userdata"
-
-Damit wird der unsichere Standard-Key ersetzt, statt den neuen Key lediglich zusätzlich einzufügen.
-
-
