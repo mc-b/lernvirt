@@ -1,6 +1,6 @@
 # lernvirt OpenShift compact cluster
 OCP_CHANNEL="stable-4.20"
-CLUSTER_NAME="ocp"
+CLUSTER_NAME="hf02"
 BASE_DOMAIN="lernvirt.test"
 MACHINE_NETWORK_CIDR="10.0.51.0/24"
 
