@@ -1,5 +1,12 @@
 ## Installation (PXE Autoinstall Ubuntu 24.04)
 
+
+> **Deprecated:** Dieses Verzeichnis `pxe` wird nicht mehr weiterentwickelt und bleibt nur aus Kompatibilitätsgründen bestehen.
+
+Für neue Installationen und Konfigurationen bitte [pxe-stack](../pxe-stack/README.md) verwenden.
+
+---
+
 Das Skript richtet einen **UEFI-fähigen PXE-Server mit ProxyDHCP** ein, um Ubuntu Server 24.04 **vollautomatisch per Netzwerk** zu installieren – ohne bestehenden DHCP-Server zu ersetzen.
 
 **Kernkomponenten:**
