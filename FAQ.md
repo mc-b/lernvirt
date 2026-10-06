@@ -39,6 +39,30 @@ Die auskommentierten Zeilen in `/srv/tftp/grub/grub.cfg` wieder aktivieren.
 
 Worker wieder einschalten.    
 
+### ubuntu-server Installation bleibt hängen
+
+> Wie kann ich bei einem abgebrochenen PXE-Autoinstall per SSH auf den Ubuntu-Installer zugreifen?
+
+Damit der SSH-Key bereits in der **ephemeren Ubuntu-Installer-Umgebung** verfügbar ist, muss `ssh_authorized_keys` auf Top-Level der `user-data` stehen — also **ausserhalb** von `autoinstall:`.
+
+    #cloud-config
+    
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDUHol1mBvP5Nwe3Bzbpq4GsHTSw96phXLZ27aPiRdrzhnQ2jMu4kSgv9xFsnpZgBsQa84EhdJQMZz8EOeuhvYuJtmhAVzAvNjjRak+bpxLPdWlox1pLJTuhcIqfTTSfBYJYB68VRAXJ29ocQB7qn7aDj6Cuw3s9IyXoaKhyb4n7I8yI3r0U30NAcMjyvV3LYOXx/JQbX+PjVsJMzp2NlrC7snz8gcSKxUtL/eF0g+WnC75iuhBbKbNPr7QP/ItHaAh9Tv5a3myBLNZQ56SgnSCgmS0EUVeMNsO8XaaKr2H2x5592IIoz7YRyL4wlOmj35bQocwdahdOCFI7nT9fr6f insecure@lerncloud
+    
+    autoinstall:
+      version: 1
+    
+    ....
+
+Der Top-Level-Eintrag `yaml ssh_authorized_keys:` gilt für die laufende Installer-Umgebung. Dadurch bleibt der Installer auch dann per SSH erreichbar, wenn `autoinstall` später wegen eines Schema- oder Konfigurationsfehlers abbricht.
+
+Der SSH-Zugriff erfolgt mit dem Benutzer `installer`:
+
+    ssh -i ~/.ssh/lerncloud -o IdentitiesOnly=yes installer@192.168.1.102
+
+Der Benutzer `ubuntu` aus `autoinstall.identity` gehört zum installierten Zielsystem und steht während eines frühen Installer-Abbruchs noch nicht zur Verfügung.
+
 ### Kubeconfig (merge - besser Context Switch)
 
 > **Wie kann ich mehrere Kubernetes-Cluster in einer einzigen `kubeconfig` bündeln und effizient zwischen Clustern, Contexts und Namespaces wechseln, ohne Konfigurationen manuell anzupassen?**
