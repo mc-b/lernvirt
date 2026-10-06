@@ -1,157 +1,118 @@
 # SUSE Harvester PXE Add-on
 
-Harvester wird als Add-on in die bestehende `pxe-stack`-Basis integriert. Die Installation der einzelnen Nodes erfolgt vollständig unattended; pro Node muss keine YAML-Datei mehr manuell erstellt werden.
+Harvester wird als Zusatz zur gemeinsamen PXE-Basis aus [README.md](README.md) installiert. Die allgemeine Host-Zuordnung erfolgt weiterhin über `/srv/tftp/config/rack.conf`; Harvester verwendet `VARIANT` für die Rolle und den Hostnamen.
 
-## Installation des Add-ons
+## Installation
 
-Auf einem bereits eingerichteten PXE-Server aus dem ausgepackten Paket:
+Eine freie Harvester-VIP ist zwingend erforderlich:
 
 ```bash
 sudo HARVESTER_VIP=192.168.1.110 ./install-harvester.sh
 ```
 
-`HARVESTER_VIP` ist die einzige Angabe, die nicht zuverlässig automatisch bestimmt werden kann. Sie muss eine freie statische Adresse im Management-Netz sein.
+Der Installer lädt die benötigten Harvester-Artefakte, ergänzt den GRUB-Stack und persistiert die Harvester-Konfiguration in `rack.conf`.
 
-Beim ersten Aufruf werden automatisch erzeugt und in `/srv/tftp/config/rack.conf` gespeichert:
+## Standardwerte
 
-- `HARVESTER_TOKEN`
-- `HARVESTER_PASSWORD`
-
-Zusätzlich werden dort Version, Architektur, VIP, Installationsdisk, Management-Interface und SSH-Key-Datei hinterlegt.
-
-Standardwerte:
-
-```text
+```bash
 HARVESTER_VERSION=1.8.2
 HARVESTER_ARCH=amd64
-HARVESTER_DEVICE=<INSTALL_DISK aus rack.conf>
+HARVESTER_DEVICE=/dev/nvme0n1
 HARVESTER_INTERFACE=enp2s0
 HARVESTER_SSH_KEY_FILE=/etc/lernvirt/lerncloud.pub
 HARVESTER_NTP_SERVERS="0.suse.pool.ntp.org 1.suse.pool.ntp.org"
 HARVESTER_SKIPCHECKS=true
 ```
 
-Das Management-Interface ist standardmässig `enp2s0`. Der GRUB-Stack bindet beim Boot die PXE-MAC mittels `ifname=enp2s0:<MAC>` an diesen Namen. Für Hardware mit einem anderen gewünschten Interface-Namen kann `HARVESTER_INTERFACE` zentral überschrieben werden.
+Der Installer unterstützt `amd64` und `arm64`.
 
-## `rack.conf`
+## Host-Regeln
 
-Das bestehende Format `MAC|STACK|VARIANT` bleibt unverändert. Für Harvester enthält `VARIANT` Installationsmodus und Hostname:
+Für Harvester muss jeder Node eine explizite MAC-Adresse besitzen. Die Variante hat das Format:
+
+```text
+create:HOSTNAME
+join:HOSTNAME
+```
+
+Beispiel:
 
 ```bash
 HOSTS=(
-    "*|ubuntu|"
-    "AA:BB:CC:DD:EE:01|harvester|create:harvester-01"
-    "AA:BB:CC:DD:EE:02|harvester|join:harvester-02"
-    "AA:BB:CC:DD:EE:03|harvester|join:harvester-03"
+  "AA:BB:CC:DD:EE:01|harvester|create:harvester-1"
+  "AA:BB:CC:DD:EE:02|harvester|join:harvester-2"
+  "AA:BB:CC:DD:EE:03|harvester|join:harvester-3"
 )
 ```
 
-Für Harvester ist eine explizite MAC-Adresse erforderlich; `*|harvester|...` ist nicht zulässig.
+Der `create`-Node muss den Cluster zuerst initialisieren. Danach können die `join`-Nodes beitreten.
 
-Nach Änderungen:
+Nach Änderungen genügt wie bei allen Stacks:
 
 ```bash
-sudo /srv/tftp/bin/pxe-update
-sudo /srv/tftp/bin/pxe-show
+sudo pxe-update
 ```
 
-`pxe-update` erzeugt daraus automatisch:
+## Generierte Node-Konfiguration
+
+`pxe-update` erzeugt aus den Harvester-Regeln pro MAC eine Konfiguration unter:
 
 ```text
-/var/www/html/harvester/config/aa-bb-cc-dd-ee-01.yaml
-/var/www/html/harvester/config/aa-bb-cc-dd-ee-02.yaml
-/var/www/html/harvester/config/aa-bb-cc-dd-ee-03.yaml
+/var/www/html/harvester/config/aa-bb-cc-dd-ee-ff.yaml
 ```
 
-Die Dateien enthalten Token und Passwort. Sie werden bei jedem `pxe-update` vollständig aus `rack.conf` neu aufgebaut; veraltete Hostkonfigurationen werden entfernt. Standardmässig enthält jede Konfiguration zusätzlich `install.skipchecks: true`. Derselbe Wert wird auch als Kernelparameter `harvester.install.skipchecks=true` gesetzt. Dadurch bleiben Meldungen zu nicht erfüllten Production-Hardwareanforderungen sichtbar, stoppen die automatische Installation aber nicht. Für Production-Systeme kann dies zentral mit `HARVESTER_SKIPCHECKS=false` deaktiviert werden.
+Diese Dateien enthalten unter anderem Cluster-Token und Passwort und werden aus `rack.conf` neu erzeugt. Der PXE-HTTP-Server sollte deshalb nur im Installationsnetz erreichbar sein.
 
-## Automatischer Ablauf
+## Ablauf
+
+1. UEFI PXE lädt Kernel und Initramfs per TFTP.
+2. Harvester RootFS und Node-Konfiguration werden per HTTP geladen.
+3. Der erste Node startet mit `create`, weitere Nodes mit `join`.
+4. Harvester installiert sich auf `HARVESTER_DEVICE`.
+5. Nach dem Reboot erkennt GRUB den Harvester-COS-State und startet lokal.
+
+## Artefakte
+
+TFTP:
 
 ```text
-UEFI PXE
-  -> MAC wird durch hosts.cfg einem Harvester-Stack zugeordnet
-  -> Kernel + initrd per TFTP
-  -> rootfs.squashfs per HTTP
-  -> automatisch erzeugte Host-YAML per HTTP
-  -> CREATE oder JOIN ohne Interaktion
-  -> Production-Hardwarechecks werden bei HARVESTER_SKIPCHECKS=true nur als Warnung behandelt
-  -> Installation auf HARVESTER_DEVICE
-  -> Reboot
-  -> COS_STATE wird von PXE-GRUB erkannt
-  -> lokaler Harvester-Boot
+/srv/tftp/linux/harvester/<version>/<arch>/
 ```
 
-Der erste Node verwendet `create:<hostname>`. Weitere Nodes verwenden `join:<hostname>` und erhalten automatisch `server_url: https://<HARVESTER_VIP>:443` sowie denselben Cluster-Token.
-
-Der CREATE-Node muss erreichbar sein, bevor JOIN-Nodes erfolgreich beitreten können. Bei mehreren physischen Nodes daher zuerst den CREATE-Node starten und danach die JOIN-Nodes booten.
-
-## Dateien und Verzeichnisse
-
-Der Installer lädt die offiziellen Harvester-PXE-Artefakte nach:
+HTTP:
 
 ```text
-/srv/tftp/linux/harvester/v1.8.2/amd64/vmlinuz
-/srv/tftp/linux/harvester/v1.8.2/amd64/initrd
-
-/var/www/html/linux/harvester/v1.8.2/amd64/harvester.iso
-/var/www/html/linux/harvester/v1.8.2/amd64/rootfs.squashfs
+/var/www/html/linux/harvester/<version>/<arch>/
 ```
 
-Der GRUB-Stack liegt unter:
+Das ISO wird mit SHA512 geprüft. Weitere Artefakte werden geprüft, sofern passende Checksummen verfügbar sind.
 
-```text
-/srv/tftp/grub/stacks/harvester.cfg
-```
+## Konfiguration anpassen
 
-Das ISO wird gegen die offizielle SHA512-Prüfsumme geprüft. Falls die Harvester-Prüfsummendatei auch Kernel, initrd oder rootfs enthält, werden diese ebenfalls validiert.
-
-## Andere Werte verwenden
-
-Beispiel mit eigener Installationsdisk:
+Beispiel für eine andere Installationsdisk:
 
 ```bash
-sudo \
-  HARVESTER_VIP=192.168.1.110 \
-  HARVESTER_DEVICE=/dev/disk/by-id/nvme-SAMSUNG_... \
-  ./install-harvester.sh
+sudo HARVESTER_VIP=192.168.1.110 \
+     HARVESTER_DEVICE=/dev/sda \
+     ./install-harvester.sh
 ```
 
-Bei mehreren Datenträgern ist `/dev/disk/by-id/...` oder `/dev/disk/by-path/...` gegenüber `/dev/sdX` bzw. `/dev/nvmeXnY` vorzuziehen.
-
-Eigenen Token und eigenes Passwort setzen:
+Für produktionsnähere Installationen können die Harvester-Checks wieder aktiviert werden:
 
 ```bash
-sudo \
-  HARVESTER_VIP=192.168.1.110 \
-  HARVESTER_TOKEN='mein-cluster-token' \
-  HARVESTER_PASSWORD='mein-passwort' \
-  ./install-harvester.sh
+sudo HARVESTER_VIP=192.168.1.110 \
+     HARVESTER_SKIPCHECKS=false \
+     ./install-harvester.sh
 ```
 
-Production-Hardwarechecks wieder erzwingen:
+Harvester 1.8 verwendet UEFI; die generierten Konfigurationen setzen entsprechend `force_efi: true`.
 
-```bash
-sudo HARVESTER_SKIPCHECKS=false ./install-harvester.sh
-```
+## Zugangsdaten
 
-Erneuter Download der Assets:
-
-```bash
-sudo HARVESTER_FORCE=1 ./install-harvester.sh
-```
-
-## UEFI und lokaler Boot
-
-Harvester v1.8 verlangt für neue PXE-Installationen UEFI. Der erzeugte Installationsstack setzt zusätzlich `force_efi: true`.
-
-Nach erfolgreicher Installation erkennt `grub/grub.cfg` Harvester beim nächsten PXE-Boot über die Partition `COS_STATE`. Diese Erkennung wird nur angewendet, wenn für den Rechner weiterhin der Stack `harvester` gewählt ist. Ein späterer Wechsel auf einen anderen Installationsstack bleibt dadurch möglich.
-
-## Sicherheit
-
-Die automatisch erzeugten YAML-Dateien enthalten den Harvester-Cluster-Token und das OS-Passwort. Der HTTP-Dienst des PXE-Servers sollte deshalb nur im vorgesehenen Installationsnetz erreichbar sein.
+Falls `HARVESTER_TOKEN` und `HARVESTER_PASSWORD` nicht vorgegeben werden, erzeugt der Installer Werte und persistiert sie in der PXE-Konfiguration. Diese Werte sowie die generierten Node-YAMLs sind vertraulich zu behandeln.
 
 ## Quellen
 
-- Harvester PXE Boot Installation: https://docs.harvesterhci.io/v1.8/install/pxe-boot-install/
-- Harvester Configuration: https://docs.harvesterhci.io/v1.8/install/harvester-configuration/
-- SUSE Virtualization 1.8.2 Release Notes: https://documentation.suse.com/cloudnative/virtualization/v1.8/en/release-notes/v1.8.2.html
+- Harvester-Dokumentation: https://docs.harvesterhci.io/
+- Harvester Releases: https://github.com/harvester/harvester/releases
+- PXE Boot: https://docs.harvesterhci.io/latest/install/pxe-boot-install/
