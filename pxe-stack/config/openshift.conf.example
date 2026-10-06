@@ -1,6 +1,6 @@
 # lernvirt OpenShift compact cluster
 OCP_CHANNEL="stable-4.20"
-CLUSTER_NAME="ocp"
+CLUSTER_NAME="openshift"
 BASE_DOMAIN="lernvirt.test"
 MACHINE_NETWORK_CIDR="192.168.1.0/24"
 
@@ -18,7 +18,7 @@ CORE_PASSWORD="insecure"
 
 BOOTSTRAP_NAME="ocp-bootstrap"
 BOOTSTRAP_MAC="52:54:00:00:01:05"
-BOOTSTRAP_IP="192.168.1.105"
+BOOTSTRAP_IP="192.168.1.109"
 BOOTSTRAP_PREFIX="24"
 BOOTSTRAP_BRIDGE="br0"
 BOOTSTRAP_VCPUS="4"
@@ -28,7 +28,7 @@ BOOTSTRAP_DISK_GIB="100"
 # Standardmässig wird die Bootstrap-IP nach bootstrap-complete als Ingress-IP
 # wiederverwendet. Der Ingress-HAProxy läuft in einem eigenen Network Namespace,
 # damit nginx auf terra1 unverändert Port 80 behalten kann.
-INGRESS_IP="192.168.1.105"
+INGRESS_IP="192.168.1.109"
 INGRESS_PREFIX="24"
 INGRESS_BRIDGE="br0"
 INGRESS_MAC="52:54:00:00:01:05"
