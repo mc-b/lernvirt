@@ -58,12 +58,11 @@ autoinstall:
       - microk8s kubectl create clusterrolebinding headlamp-admin --serviceaccount=kube-system:headlamp-admin --clusterrole=cluster-admin 
       - microk8s kubectl patch svc headlamp -n kube-system --type=merge -p '{"spec":{"type":"NodePort","ports":[{"port":80,"targetPort":4466,"nodePort":30444}]}}' 
       - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/cert-manager.sh | bash -"         
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/xfce4.sh | bash -  
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/vscode.sh | bash -        
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/cloud-cli.sh | bash - 
+      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/xfce4.sh | sudo bash -  
       - runuser -l ubuntu -c "curl https://raw.githubusercontent.com/mc-b/lerncloud/main/ssh/lerncloud >~/.ssh/lerncloud"
       - runuser -l ubuntu -c "chmod 600 ~/.ssh/lerncloud"                   
       - curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | STACK=ubuntu bash -  
+      - curl -fsSL https://gitlab.com/ch-tbz-wb/Stud/CnA/-/raw/main/0_Organisatorisches/Infrastruktur/pxe-stack/install-cna.sh | bash -  
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/wake-on-lan.sh | bash -
       - snap install k9s && ln -sf /snap/k9s/current/bin/k9s /usr/local/bin/k9s
                 
