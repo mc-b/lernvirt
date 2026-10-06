@@ -57,7 +57,7 @@ Die vorhandenen Installationspfade sind auf eigene Dokumente verteilt:
 | Stack | Beschreibung | Dokumentation |
 |---|---|---|
 | `ubuntu` | Ubuntu Server Autoinstall | [UBUNTU.md](UBUNTU.md) |
-| `cna`, `cna-full`, `platen` | Ubuntu-basierte lernvirt-Profile | [UBUNTU.md](UBUNTU.md) |
+| `cna-control`, `cna-control-full` | Ubuntu-basierte lernvirt-Profile | [UBUNTU.md](UBUNTU.md) und [CNA](https://gitlab.com/ch-tbz-wb/Stud/CnA/-/tree/main/0_Organisatorisches/Infrastruktur/pxe-stack) |
 | `reset` | Erneuter Ubuntu-Autoinstall unabhängig vom Installationsmarker | [UBUNTU.md](UBUNTU.md) |
 | `suse` | openSUSE Leap mit optionalem RKE2/Rancher-Bootstrap | [SUSE.md](SUSE.md) |
 | `harvester` | SUSE Harvester | [HARVESTER.md](HARVESTER.md) |
