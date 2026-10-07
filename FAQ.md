@@ -63,6 +63,30 @@ Der SSH-Zugriff erfolgt mit dem Benutzer `installer`:
 
 Der Benutzer `ubuntu` aus `autoinstall.identity` gehört zum installierten Zielsystem und steht während eines frühen Installer-Abbruchs noch nicht zur Verfügung.
 
+### UEFI Boot Order nach PXE-Installation
+
+> **Warum startet der Rechner nach einer PXE-Installation direkt von der Disk, obwohl PXE im BIOS als erstes Bootgerät eingestellt ist?**
+
+Bei einer UEFI-Installation kann Ubuntu die `BootOrder` im UEFI-NVRAM ändern und den Eintrag `Ubuntu` an die erste Stelle setzen.
+
+Aktuelle Boot-Reihenfolge anzeigen:
+
+    sudo efibootmgr
+
+Beispiel:
+
+    BootOrder: 0001,000C
+    Boot0001* Ubuntu
+    Boot000C* UEFI : LAN : IP4
+
+PXE wieder an die erste Stelle setzen:
+
+    sudo efibootmgr -o 000C,0001
+
+Die Nummern (`000C`, `0001`, usw.) sind geräteabhängig und müssen vorher mit `efibootmgr` ermittelt werden.
+
+`BootCurrent` zeigt nur, über welchen Eintrag das aktuell laufende System gestartet wurde und entspricht nicht zwingend der aktuellen `BootOrder`.
+
 ### Kubeconfig (merge - besser Context Switch)
 
 > **Wie kann ich mehrere Kubernetes-Cluster in einer einzigen `kubeconfig` bündeln und effizient zwischen Clustern, Contexts und Namespaces wechseln, ohne Konfigurationen manuell anzupassen?**
