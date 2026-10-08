@@ -41,13 +41,13 @@ Aufbau Helm Instanz Namen: [Modul]-[Klasse]-[Lehrerkürzel]
 **Weitere**
 
 * [Alpine Linux](examples/alpine/README.md)
-* [Modul CNA (K3s, Docker, PodMan, KubeVirt, Longhorn, Cert-Manager, Harbor, Istio, K-native, IIoT)](examples/cna/README.md)
-* [Docker, Podman und Kubernetes](examples/duk/README.md)
-* [GNS3 Labor](examples/gns3/README.md)
+* [Modul CNA (K3s, Docker, PodMan, KubeVirt, Longhorn, Cert-Manager, Harbor, Istio, K-native, IIoT)](https://gitlab.com/ch-tbz-wb/Stud/CnA/-/tree/main/0_Organisatorisches/Infrastruktur)
+* [Docker, Podman und Kubernetes – Übersicht und Einsatz](https://github.com/mc-b/duk/tree/v2#deployment-auf-lernvirt-umgebungen)
+* [GNS3 Labor](https://gitlab.com/ch-tbz-wb/Stud/NWA/-/tree/main/0_Organisatorisches/Infrastruktur)
 * [Windows 10](examples/win10/README.md)
 * [Windows Server 2022](examples/wins2022/README.md)
 * [lernvirt nur als Wireguard Gateway Server verwenden](examples/gateway/README.md)
-* [AI Umgebung](examples/aiaas/README.md)
+* [LLM Engineering & AIOps – Übersicht und Einsatz](https://github.com/mc-b/duk/tree/v2)
 * [Dev Container](examples/devcontainer/README.md)
 * [WSL Umgebungen](examples/wsl/README.md)
 
