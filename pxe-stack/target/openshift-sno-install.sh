@@ -231,12 +231,26 @@ data_url_text() {
 
 KCFG_URL="$(data_url_file "$KUBECONFIG_FILE")"
 KPASS_URL="$(data_url_file "$KUBEADMIN_FILE")"
-CLUSTER_ENV="CLUSTER_NAME=${CLUSTER_NAME}\nBASE_DOMAIN=${BASE_DOMAIN}\nSNO_IP=${SNO_IP}\nPXE_SERVER=${PXE_SERVER}\n"
+CLUSTER_ENV=$(cat <<EOF_CLUSTER_ENV
+CLUSTER_NAME=${CLUSTER_NAME}
+BASE_DOMAIN=${BASE_DOMAIN}
+SNO_IP=${SNO_IP}
+PXE_SERVER=${PXE_SERVER}
+EOF_CLUSTER_ENV
+)
 CLUSTER_ENV_URL="$(data_url_text "$CLUSTER_ENV")"
-PROFILE_TEXT='if [ "$(id -u)" -eq 0 ] && [ -r /root/.kube/config ]; then export KUBECONFIG=/root/.kube/config; fi\n'
+PROFILE_TEXT=$(cat <<'EOF_PROFILE'
+if [ "$(id -u)" -eq 0 ]; then
+    if [ -r /root/.kube/config ]; then
+        export KUBECONFIG=/root/.kube/config
+    fi
+    if [ -d /var/lib/lernvirt/bin ]; then
+        export PATH=/var/lib/lernvirt/bin:$PATH
+    fi
+fi
+EOF_PROFILE
+)
 PROFILE_URL="$(data_url_text "$PROFILE_TEXT")"
-OC_WRAPPER='#!/usr/bin/env bash\nexec /var/lib/lernvirt/bin/oc "$@"\n'
-OC_WRAPPER_URL="$(data_url_text "$OC_WRAPPER")"
 FETCH_OC=$(cat <<EOF_FETCH
 #!/usr/bin/env bash
 set -Eeuo pipefail
@@ -285,7 +299,6 @@ jq \
   --arg kpass "$KPASS_URL" \
   --arg cenv "$CLUSTER_ENV_URL" \
   --arg profile "$PROFILE_URL" \
-  --arg ocwrap "$OC_WRAPPER_URL" \
   --arg fetchoc "$FETCH_OC_URL" \
   --arg unit "$CLIENT_UNIT" \
   --arg hosts "$HOSTS_URL" \
@@ -296,7 +309,6 @@ jq \
      {"path":"/root/kubeadmin-password","mode":384,"overwrite":true,"contents":{"source":$kpass}},
      {"path":"/var/lib/lernvirt/cluster.env","mode":384,"overwrite":true,"contents":{"source":$cenv}},
      {"path":"/etc/profile.d/lernvirt-openshift.sh","mode":420,"overwrite":true,"contents":{"source":$profile}},
-     {"path":"/usr/local/bin/oc","mode":493,"overwrite":true,"contents":{"source":$ocwrap}},
      {"path":"/usr/local/sbin/lernvirt-fetch-oc","mode":493,"overwrite":true,"contents":{"source":$fetchoc}}
    ]) |
    .systemd = (.systemd // {}) |

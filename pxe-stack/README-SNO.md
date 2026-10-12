@@ -111,7 +111,7 @@ Die lokale Admin-kubeconfig liegt auf dem SNO unter:
 /root/.kube/config
 ```
 
-Beim Root-Login wird `KUBECONFIG` automatisch darauf gesetzt. Der `oc` Client wird vom fertigen SNO einmalig vom PXE-Server nach `/var/lib/lernvirt/bin/oc` geladen; `/usr/local/bin/oc` ist ein Wrapper darauf.
+Beim Root-Login werden `KUBECONFIG` und der Pfad `/var/lib/lernvirt/bin` automatisch gesetzt. Der `oc` Client wird vom fertigen SNO einmalig vom PXE-Server nach `/var/lib/lernvirt/bin/oc` geladen. `/usr/local/bin/oc` wird bewusst nicht veraendert, da OpenShift dieses Binary waehrend des Bootstrap selbst verwendet.
 
 Pruefung:
 
