@@ -11,22 +11,17 @@ SNO_IP="10.31.20.15"
 MACHINE_NETWORK_CIDR="10.31.20.0/24"
 SNO_HOSTNAME="sno"
 
-# Standard: DHCP. Die Adresse SNO_IP muss per DHCP/Reservation am Ziel ankommen.
-# Der PXE-Boot setzt SNO_DNS zusaetzlich als Resolver.
-SNO_NETWORK_MODE="dhcp"
+# Statisch, weil der SNO-Knoten fest 10.31.20.15 verwenden soll.
+SNO_NETWORK_MODE="static"
+SNO_INTERFACE="enp2s0"
+# SNO_MAC kann weggelassen werden, wenn rack.conf genau einen openshift-sno Host enthaelt.
+# SNO_MAC="80:EE:73:EF:0D:E9"
+SNO_PREFIX="24"
+# auto = Default-Gateway des PXE-Servers; alternativ feste Adresse eintragen.
+SNO_GATEWAY="auto"
 SNO_DNS="10.31.20.11"
 
-# Optional fuer statische Agent-Netzwerkkonfiguration:
-# SNO_NETWORK_MODE="static"
-# SNO_INTERFACE="eno1"
-# SNO_MAC="80:EE:73:EF:0D:E9"
-# SNO_PREFIX="24"
-# SNO_GATEWAY="10.31.20.1"
-# SNO_DNS="10.31.20.11"
-
-# Bei DHCP optional: wenn SNO_MAC gesetzt ist (oder bereits genau eine
-# rack.conf-Regel fuer openshift-sno existiert), wird INSTALL_DISK als
-# rootDeviceHint in agent-config.yaml gesetzt.
+# SNO_MAC wird bei genau einer rack.conf-Regel fuer openshift-sno automatisch erkannt.
 INSTALL_DISK="/dev/nvme0n1"
 
 OCP_DIR="/opt/openshift-sno"

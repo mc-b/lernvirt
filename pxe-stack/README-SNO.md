@@ -32,6 +32,8 @@ Dann einmalig:
 sudo ./install-openshift-sno.sh
 ```
 
+Das Script erzeugt `/srv/tftp/grub/stacks/openshift-sno.cfg` selbst. Es darf deshalb auch ausgefuehrt werden, bevor ein `openshift-sno`-Eintrag in `rack.conf` existiert. Ist der Eintrag bereits vorhanden, wird die MAC-Adresse automatisch uebernommen.
+
 Die Konfiguration wird beim ersten Lauf angelegt unter:
 
 ```text
@@ -57,6 +59,8 @@ Danach:
 sudo /srv/tftp/bin/pxe-update
 sudo /srv/tftp/bin/pxe-show
 ```
+
+`pxe-update` immer mit `sudo` ausfuehren, da es Dateien unter `/srv/tftp/grub` erzeugt.
 
 Nun den Zielserver per PXE booten. Nach erfolgreicher Installation erkennt `openshift-sno.cfg` den lokalen RHCOS-EFI-Bootloader und bootet beim naechsten PXE-Start lokal statt erneut zu installieren.
 
@@ -112,3 +116,33 @@ Bei geaenderter Cluster-/Netzwerkkonfiguration werden vorhandene PKI-/Agent-Arte
 ```bash
 sudo OCP_FORCE=1 ./install-openshift-sno.sh
 ```
+
+## Hinweis zu `oc`
+
+`openshift-install agent create pxe-files` ruft intern den `oc`-Client auf. Das Installationsscript installiert deshalb `oc` zusammen mit `openshift-install` nach `/opt/openshift-sno/bin` und nimmt dieses Verzeichnis fuer den gesamten Lauf in `PATH` auf.
+
+
+
+## Netzwerk fuer dieses Lab
+
+Der SNO-Knoten soll fest `10.31.20.15` verwenden. Deshalb ist die Beispielkonfiguration nun statisch:
+
+```bash
+SNO_NETWORK_MODE="static"
+SNO_INTERFACE="enp2s0"
+SNO_PREFIX="24"
+SNO_GATEWAY="auto"
+SNO_DNS="10.31.20.11"
+```
+
+`SNO_MAC` wird aus `rack.conf` erkannt, wenn genau ein Host dem Stack `openshift-sno` zugeordnet ist. `SNO_GATEWAY="auto"` uebernimmt das IPv4-Default-Gateway des PXE-Servers.
+
+Wenn bereits PXE-Artefakte mit DHCP erzeugt wurden, muss die Konfiguration neu erzeugt werden:
+
+```bash
+sudo OCP_FORCE=1 ./install-openshift-sno.sh
+```
+
+Beim Boot muss der Agent danach `10.31.20.15` anzeigen. Wenn dort eine andere Adresse steht und gleichzeitig `The rendezvous host is at 10.31.20.15` erscheint, ist die Netzwerkkonfiguration noch falsch.
+
+RHCOS hat kein Root-Passwort fuer die Konsolenanmeldung. Fuer Diagnose per SSH wird der in `SSH_KEY_FILE` hinterlegte Public Key verwendet; die Anmeldung erfolgt als Benutzer `core` mit dem passenden privaten Key.

@@ -16,6 +16,7 @@ set -Eeuo pipefail
 log()  { printf '[install-openshift-sno] %s\n' "$*"; }
 warn() { printf '[install-openshift-sno] WARNUNG: %s\n' "$*" >&2; }
 fail() { printf '[install-openshift-sno] FEHLER: %s\n' "$*" >&2; exit 1; }
+trap 'rc=$?; printf "[install-openshift-sno] FEHLER: Abbruch in Zeile %s: %s (rc=%s)\n" "$LINENO" "$BASH_COMMAND" "$rc" >&2' ERR
 
 [[ ${EUID:-$(id -u)} -eq 0 ]] || fail "Muss als root laufen."
 
@@ -46,15 +47,15 @@ SNO_IP="10.31.20.15"
 MACHINE_NETWORK_CIDR="10.31.20.0/24"
 SNO_HOSTNAME="sno"
 
-SNO_NETWORK_MODE="dhcp"
+# Fuer dieses Lab ist die SNO-Adresse fest: 10.31.20.15.
+# Deshalb standardmaessig statisch statt DHCP.
+SNO_NETWORK_MODE="static"
+SNO_INTERFACE="enp2s0"
+# SNO_MAC wird aus rack.conf erkannt, wenn dort genau ein openshift-sno Host steht.
+SNO_PREFIX="24"
+# "auto" uebernimmt das Default-Gateway des PXE-Servers (gleiches L2-Netz).
+SNO_GATEWAY="auto"
 SNO_DNS="10.31.20.11"
-
-# Fuer statische Agent-Netzwerkkonfiguration setzen:
-# SNO_NETWORK_MODE="static"
-# SNO_INTERFACE="eno1"
-# SNO_MAC="80:EE:73:EF:0D:E9"
-# SNO_PREFIX="24"
-# SNO_GATEWAY="10.31.20.1"
 
 INSTALL_DISK="${INSTALL_DISK:-/dev/nvme0n1}"
 OCP_DIR="/opt/openshift-sno"
@@ -97,9 +98,14 @@ case "$SNO_NETWORK_MODE" in
     *) fail "SNO_NETWORK_MODE muss dhcp oder static sein." ;;
 esac
 
+if [[ "$SNO_NETWORK_MODE" == "dhcp" ]]; then
+    warn "DHCP-Modus: rendezvousIP=${SNO_IP} funktioniert nur, wenn der Zielhost per DHCP genau diese Adresse erhaelt (Reservation)."
+fi
+
 # Falls rack.conf bereits genau einen Host auf openshift-sno zeigt, kann dessen
 # MAC fuer Host-Matching/rootDeviceHints verwendet werden. rack.conf bleibt
 # trotzdem die zentrale PXE-Zuordnung und wird hier nie automatisch veraendert.
+log "Konfiguration geladen: PXE=${PXE_SERVER}, SNO=${SNO_IP}, Cluster=${CLUSTER_NAME}.${BASE_DOMAIN}"
 discover_sno_mac() {
     [[ -n "${SNO_MAC:-}" ]] && return 0
     declare -p HOSTS >/dev/null 2>&1 || return 0
@@ -116,7 +122,11 @@ discover_sno_mac() {
         fi
         found="$selector"
     done
-    [[ -n "$found" ]] && SNO_MAC="$found"
+    if [[ -n "$found" ]]; then
+        SNO_MAC="$found"
+        log "SNO-MAC aus rack.conf erkannt: $SNO_MAC"
+    fi
+    return 0
 }
 discover_sno_mac
 
@@ -128,7 +138,12 @@ if [[ "$SNO_NETWORK_MODE" == "static" ]]; then
     : "${SNO_MAC:?SNO_MAC ist fuer static erforderlich}"
     : "${SNO_INTERFACE:?SNO_INTERFACE ist fuer static erforderlich}"
     : "${SNO_PREFIX:?SNO_PREFIX ist fuer static erforderlich}"
-    : "${SNO_GATEWAY:?SNO_GATEWAY ist fuer static erforderlich}"
+    SNO_GATEWAY="${SNO_GATEWAY:-auto}"
+    if [[ "$SNO_GATEWAY" == "auto" ]]; then
+        SNO_GATEWAY="$(ip -4 route show default 2>/dev/null | awk '$1 == "default" {print $3; exit}')"
+        [[ -n "$SNO_GATEWAY" ]] || fail "SNO_GATEWAY=auto, aber auf dem PXE-Server wurde kein IPv4-Default-Gateway gefunden."
+        log "SNO-Gateway automatisch erkannt: $SNO_GATEWAY"
+    fi
 fi
 
 prefix_to_netmask() {
@@ -146,7 +161,7 @@ prefix_to_netmask() {
 
 if [[ "$SNO_NETWORK_MODE" == "static" ]]; then
     SNO_NETMASK="$(prefix_to_netmask "$SNO_PREFIX")"
-    BOOT_NET_ARGS="ip=${SNO_IP}::${SNO_GATEWAY}:${SNO_NETMASK}:${SNO_HOSTNAME}:${SNO_INTERFACE}:none nameserver=${SNO_DNS} rd.neednet=1 ai.ip_cfg_override=1"
+    BOOT_NET_ARGS="ip=${SNO_IP}::${SNO_GATEWAY}:${SNO_NETMASK}:${SNO_HOSTNAME}:${SNO_INTERFACE}:none rd.neednet=1 nameserver=${SNO_DNS}"
 else
     BOOT_NET_ARGS="ip=dhcp rd.neednet=1 nameserver=${SNO_DNS}"
 fi
@@ -170,6 +185,10 @@ if ((${#missing[@]})); then
 fi
 
 BIN="$OCP_DIR/bin"
+# openshift-install startet fuer die Erzeugung der Agent/PXE-Artefakte intern
+# den oc-Client per Namen. Deshalb muss unser lokales Client-Verzeichnis im
+# PATH stehen; nur $BIN/oc direkt aufzurufen reicht nicht.
+export PATH="$BIN:$PATH"
 INSTALL_DIR="$OCP_DIR/install"
 CONFIG_BACKUP="$OCP_DIR/config"
 CACHE_DIR="${PXE_CACHE_DIR:-/var/cache/pxe-stack}/openshift-sno"
@@ -224,7 +243,10 @@ install_clients() {
 }
 install_clients
 
+command -v oc >/dev/null 2>&1 || fail "oc wurde installiert, ist aber nicht ueber PATH auffindbar: $BIN/oc"
+[[ "$(command -v oc)" == "$BIN/oc" ]] || warn "oc wird nicht aus $BIN verwendet: $(command -v oc)"
 log "Verwende $("$BIN/openshift-install" version | head -n1)"
+log "Verwende $("$BIN/oc" version --client 2>/dev/null | head -n1)"
 
 reverse_ipv4() {
     local ip="$1" a b c d
@@ -348,6 +370,7 @@ if [[ -n "${SNO_MAC:-}" ]]; then
     cat >>"$TMP_CFG/agent-config.yaml" <<EOF_HOST
 hosts:
 - hostname: ${SNO_HOSTNAME}
+  role: master
   interfaces:
   - name: ${SNO_INTERFACE}
     macAddress: ${SNO_MAC}
@@ -522,8 +545,10 @@ echo "Danach: sudo ${TFTP_ROOT}/bin/pxe-update"
 echo
 echo "Installation beobachten:"
 echo "  sudo ${WAIT_TOOL} install"
-if [[ "$SNO_NETWORK_MODE" == "dhcp" ]]; then
+if [[ "$SNO_NETWORK_MODE" == "static" ]]; then
+    echo "  Netzwerk   : ${SNO_INTERFACE} ${SNO_IP}/${SNO_PREFIX}, Gateway ${SNO_GATEWAY}, DNS ${SNO_DNS}"
+else
     echo
-    echo "DHCP-Hinweis: ${SNO_IP} muss dem Zielrechner zugeteilt werden."
-    echo "Fuer den installierten Cluster muss ${SNO_DNS} (oder ein gleichwertiger DNS) die OpenShift-Zonen aufloesen."
+    echo "DHCP-Hinweis: ${SNO_IP} muss dem Zielrechner per DHCP-Reservation zugeteilt werden."
 fi
+echo "Fuer den installierten Cluster muss ${SNO_DNS} (oder ein gleichwertiger DNS) die OpenShift-Zonen aufloesen."
