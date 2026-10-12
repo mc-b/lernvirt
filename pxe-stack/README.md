@@ -2,19 +2,26 @@
 
 `pxe-stack` stellt eine gemeinsame UEFI-PXE-Basis für automatisierte Installationen im lernvirt-Labor bereit. Die Basis übernimmt DHCP/PXE-Integration, TFTP, GRUB und HTTP. Die eigentliche Installation wird über austauschbare Stacks ausgewählt.
 
-## Architektur
+## PXE-Workflow
 
-| Komponente | Aufgabe | Pfad / Port |
-|---|---|---|
-| `dnsmasq` | Proxy-DHCP, PXE und TFTP | `/etc/dnsmasq.d/pxe.conf` |
-| TFTP | GRUB, Kernel und Initramfs | `/srv/tftp` |
-| GRUB | Stack-Auswahl und lokaler Boot | `/srv/tftp/grub` |
-| nginx | ISO-, RootFS- und Konfigurationsdateien | `/var/www/html`, Port 80 |
-| `rack.conf` | Zentrale Laufzeitkonfiguration und Host-Zuordnung | `/srv/tftp/config/rack.conf` |
-| `pxe-update` | Erzeugt GRUB-Laufzeitkonfigurationen | `/usr/local/sbin/pxe-update` |
-| `pxe-show` | Zeigt den aktuellen PXE-Status | `/usr/local/sbin/pxe-show` |
+Der PXE-Betrieb besteht aus zwei getrennten Abläufen: **Konfiguration** und **Bootvorgang**.
 
-Die Basis wird durch `install-pxe.sh` eingerichtet. Zusätzliche Plattformen wie SUSE, Harvester und OpenShift besitzen eigene Installer und ergänzen die gemeinsame PXE-Infrastruktur.
+### 1. Konfigurations-Workflow
+
+| Komponente     | Aufgabe                                                  | Pfad                         |
+| -------------- | -------------------------------------------------------- | ---------------------------- |
+| **rack.conf**  | Zentrale Laufzeitkonfiguration und Host-Zuordnung        | `/srv/tftp/config/rack.conf` |
+| **pxe-update** | Erzeugt die GRUB-Laufzeitkonfigurationen aus `rack.conf` | `/srv/tftp/bin/pxe-update` |
+| **pxe-show**   | Zeigt den aktuellen PXE-Status und die Host-Zuordnungen  | `/srv/tftp/bin/pxe-show`   |
+
+### 2. PXE-Boot-Workflow
+
+| Schritt | Komponente  | Aufgabe                                                              | Pfad / Port                |
+| ------- | ----------- | -------------------------------------------------------------------- | -------------------------- |
+| 1       | **dnsmasq** | Proxy-DHCP und PXE-Bootinformationen                                 | `/etc/dnsmasq.d/pxe.conf`  |
+| 2       | **TFTP**    | Liefert GRUB, Kernel und Initramfs                                   | `/srv/tftp`                |
+| 3       | **GRUB**    | Stack-Auswahl anhand der generierten Konfiguration oder lokaler Boot | `/srv/tftp/grub`           |
+| 4       | **nginx**   | Liefert ISO-, RootFS- und Konfigurationsdateien per HTTP             | `/var/www/html`, Port `80` |
 
 ## Installation
 
@@ -24,42 +31,16 @@ Als `root`:
 curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | bash -
 ```
 
-Oder z. B. mit einem anderen Standard-Stack:
-
-```bash
-curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | STACK=cna bash -
-```
-
-Typische Vorgaben können über Umgebungsvariablen geändert werden, unter anderem:
-
-```bash
-INSTALL_DISK=/dev/nvme0n1
-UBUNTU_VERSION=24.04.4
-UBUNTU_CODENAME=noble
-ALPINE_VERSION=3.22
-BOOT_TOOLS=1
-GRUB_TIMEOUT=5
-SSH_KEY_FILE=/etc/lernvirt/lerncloud.pub
-```
-
-Für cloud-init genügt beispielsweise:
-
-```yaml
-#cloud-config
-runcmd:
-  - curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | bash -
-```
-
 ## Stacks
 
 Die vorhandenen Installationspfade sind auf eigene Dokumente verteilt:
 
 | Stack | Beschreibung | Dokumentation |
 |---|---|---|
-| `ubuntu` | Ubuntu Server Autoinstall | [UBUNTU.md](UBUNTU.md) |
-| `cna-control`, `cna-control-full` | Ubuntu-basierte lernvirt-Profile | [UBUNTU.md](UBUNTU.md) und [CNA](https://gitlab.com/ch-tbz-wb/Stud/CnA/-/tree/main/0_Organisatorisches/Infrastruktur/pxe-stack) |
-| `reset` | Erneuter Ubuntu-Autoinstall unabhängig vom Installationsmarker | [UBUNTU.md](UBUNTU.md) |
-| `suse` | openSUSE Leap mit optionalem RKE2/Rancher-Bootstrap | [SUSE.md](SUSE.md) |
+| `ubuntu` | Ubuntu Server Autoinstall (user-data) | [UBUNTU.md](UBUNTU.md) |
+| `cna-control`, `cna-control-full` | Modul Cloud-native & Advanced | [UBUNTU.md](UBUNTU.md) und [CNA](https://gitlab.com/ch-tbz-wb/Stud/CnA/-/tree/main/0_Organisatorisches/Infrastruktur/pxe-stack) |
+| `reset` | Reset HW (user-data-reset), z.B. nach OpenShift Installation | [UBUNTU.md](UBUNTU.md) |
+| `suse` | openSUSE Leap mit RKE2/Rancher-Bootstrap | [SUSE.md](SUSE.md) |
 | `harvester` | SUSE Harvester | [HARVESTER.md](HARVESTER.md) |
 | `openshift` | Red Hat OpenShift / RHCOS | [OPENSHIFT.md](OPENSHIFT.md) |
 
@@ -85,21 +66,22 @@ Die letzte passende Regel gewinnt. `VARIANT` ist optional und wird vom jeweilige
 Nach Änderungen:
 
 ```bash
-sudo pxe-update
-sudo pxe-show
+sudo /srv/tftp/bin/pxe-update
+sudo /srv/tftp/bin/pxe-show
 ```
 
 `pxe-update` erzeugt daraus unter anderem `runtime.cfg` und `hosts.cfg` für GRUB.
 
-## Boot-Ablauf
+## Eigenen Stack ergänzen
 
-1. Der Client startet per UEFI PXE.
-2. `dnsmasq` liefert den passenden GRUB-EFI-Bootloader.
-3. GRUB liest die Laufzeit- und Host-Konfiguration.
-4. Der zugewiesene Stack wird geladen.
-5. Ist bereits eine lernvirt-Installation erkannt, wird normalerweise lokal gebootet.
+Ein einfacher zusätzlicher Stack besteht aus einer GRUB-Konfiguration unter:
 
-Für normale Installationen dient `/boot/lernvirt-installed` als Marker. RHCOS kann den Marker zusätzlich als `/lernvirt-installed` auf einer separaten Boot-Partition bereitstellen. Harvester verwendet seine eigene COS-State-Erkennung.
+```text
+/srv/tftp/grub/stacks/<stack>.cfg
+```
+
+Der Stack kann `VARIANT` aus der Host-Regel verwenden und Kernel, Initramfs oder weitere Daten über TFTP bzw. HTTP laden. Für Plattformen mit zusätzlichen generierten Konfigurationen kann ein eigener Installer oder eine Erweiterung von `pxe-update` erforderlich sein.
+
 
 ## Alpine / BusyBox Boot Tools
 
@@ -118,34 +100,3 @@ Deaktivieren:
 sudo sed -i 's/^BOOT_TOOLS=.*/BOOT_TOOLS=0/' /srv/tftp/config/rack.conf
 sudo pxe-update
 ```
-
-## Wichtige Pfade
-
-```text
-/srv/tftp/
-├── config/rack.conf
-├── grub/
-├── linux/
-└── ...
-
-/var/www/html/
-├── autoinstall/
-├── linux/
-└── ...
-```
-
-Status prüfen:
-
-```bash
-sudo pxe-show
-```
-
-## Eigenen Stack ergänzen
-
-Ein einfacher zusätzlicher Stack besteht aus einer GRUB-Konfiguration unter:
-
-```text
-/srv/tftp/grub/stacks/<stack>.cfg
-```
-
-Der Stack kann `VARIANT` aus der Host-Regel verwenden und Kernel, Initramfs oder weitere Daten über TFTP bzw. HTTP laden. Für Plattformen mit zusätzlichen generierten Konfigurationen kann ein eigener Installer oder eine Erweiterung von `pxe-update` erforderlich sein.
