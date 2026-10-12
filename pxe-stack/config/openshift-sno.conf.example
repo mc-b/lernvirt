@@ -1,29 +1,35 @@
-# lernvirt OpenShift Single Node (SNO)
-# PXE-Basis: /srv/tftp/config/rack.conf
+# lernvirt OpenShift SNO PXE Add-on
+#
+# Diese Konfiguration ist global fuer alle SNO-Zielsysteme.
+# Der Clustername kommt aus dem VARIANT-Feld von rack.conf:
+#   "80:ee:73:ef:0d:e9|openshift-sno|hf01"
 
 OCP_CHANNEL="stable-4.20"
-CLUSTER_NAME="ocp"
 BASE_DOMAIN="lernvirt.test"
 
-# PXE-/DNS-Server und SNO-Ziel
-PXE_SERVER="10.31.20.11"
-SNO_IP="10.31.20.15"
+# Alle SNOs liegen in diesem Machine Network.
 MACHINE_NETWORK_CIDR="10.31.20.0/24"
-SNO_HOSTNAME="sno"
+CLUSTER_NETWORK_CIDR="10.128.0.0/14"
+CLUSTER_HOST_PREFIX="23"
+SERVICE_NETWORK_CIDR="172.30.0.0/16"
 
-# Statisch, weil der SNO-Knoten fest 10.31.20.15 verwenden soll.
-SNO_NETWORK_MODE="static"
-SNO_INTERFACE="enp2s0"
-# SNO_MAC kann weggelassen werden, wenn rack.conf genau einen openshift-sno Host enthaelt.
-# SNO_MAC="80:EE:73:EF:0D:E9"
-SNO_PREFIX="24"
-# auto = Default-Gateway des PXE-Servers; alternativ feste Adresse eintragen.
-SNO_GATEWAY="auto"
-SNO_DNS="10.31.20.11"
-
-# SNO_MAC wird bei genau einer rack.conf-Regel fuer openshift-sno automatisch erkannt.
+# Muss auf allen Zielsystemen stimmen.
 INSTALL_DISK="/dev/nvme0n1"
 
-OCP_DIR="/opt/openshift-sno"
+# DNS, den der installierte SNO verwenden soll.
+DNS_SERVER="10.31.20.11"
+
+# Vor der Installation werden diese Records geprueft:
+#   api.<cluster>.<baseDomain>
+#   api-int.<cluster>.<baseDomain>
+#   test.apps.<cluster>.<baseDomain>
+# Alle muessen auf die aktuelle IPv4-Adresse des Zielsystems zeigen.
+REQUIRE_DNS="1"
+DNS_WAIT_SECONDS="300"
+
+# Vorhandene lernvirt Credentials.
 PULL_SECRET_FILE="/etc/lernvirt/pull-secret.json"
 SSH_KEY_FILE="/etc/lernvirt/lerncloud.pub"
+
+# Optional: erzwingt erneuten Download/Aufbereitung der gemeinsamen Assets.
+OCP_FORCE="0"

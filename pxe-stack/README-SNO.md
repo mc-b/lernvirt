@@ -1,148 +1,145 @@
-# OpenShift Single Node (SNO) fuer pxe-stack
+# OpenShift SNO fuer lernvirt pxe-stack
 
-Der Add-on-Stack installiert OpenShift 4.20 als **Single Node OpenShift** mit dem Agent-based Installer.
+Der PXE-Server stellt nur gemeinsame **RHCOS Images, OpenShift Binaries und Scripts** bereit. Es gibt keine clusterbezogenen Installer-Verzeichnisse, keine kubeconfig auf dem PXE-Server, kein HAProxy, keine Bootstrap-VM und kein `openshift-sno-wait`.
 
-Voreinstellung:
+## 1. PXE-Server einmalig vorbereiten
 
-```text
-PXE/DNS : 10.31.20.11
-SNO     : 10.31.20.15
-Cluster : ocp.lernvirt.test
-```
-
-Es gibt **keine separate Bootstrap-VM und keinen HAProxy**. nginx wird nicht veraendert. Der Agent-based Installer erzeugt die PXE-Artefakte; `rack.conf` entscheidet wie bei SUSE, welcher Rechner den Stack bootet.
-
-## Vorbereitung
-
-Pull Secret:
+Voraussetzungen wie beim bestehenden `pxe-stack`:
 
 ```text
+/srv/tftp/config/rack.conf
 /etc/lernvirt/pull-secret.json
-```
-
-SSH Public Key:
-
-```text
 /etc/lernvirt/lerncloud.pub
 ```
 
-Dann einmalig:
+Installation:
 
 ```bash
 sudo ./install-openshift-sno.sh
 ```
 
-Das Script erzeugt `/srv/tftp/grub/stacks/openshift-sno.cfg` selbst. Es darf deshalb auch ausgefuehrt werden, bevor ein `openshift-sno`-Eintrag in `rack.conf` existiert. Ist der Eintrag bereits vorhanden, wird die MAC-Adresse automatisch uebernommen.
-
-Die Konfiguration wird beim ersten Lauf angelegt unter:
+Beim ersten Lauf wird erzeugt:
 
 ```text
 /srv/tftp/config/openshift-sno.conf
 ```
 
-Standard ist DHCP. Der Zielrechner muss dabei `10.31.20.15` erhalten. Der PXE-Boot verwendet `10.31.20.11` als DNS; fuer den laufenden Cluster muss dieser DNS oder ein anderer DNS die OpenShift-Namen ebenfalls aufloesen.
+Default fuer das aktuelle Lab:
 
-## rack.conf
+```bash
+OCP_CHANNEL="stable-4.20"
+BASE_DOMAIN="lernvirt.test"
+MACHINE_NETWORK_CIDR="10.31.20.0/24"
+INSTALL_DISK="/dev/nvme0n1"
+DNS_SERVER="10.31.20.11"
+```
 
-Nach der Vorbereitung nur den Zielrechner zuordnen:
+`install-openshift-sno.sh` laedt den passenden OpenShift Installer und bestimmt damit automatisch die passende RHCOS-PXE-Version (`openshift-install coreos print-stream-json`). nginx wird nicht veraendert.
+
+## 2. SNO in rack.conf zuordnen
+
+Das dritte Feld ist der OpenShift-Clustername:
 
 ```bash
 HOSTS=(
-    "*|cna|"
-    "AA:BB:CC:DD:EE:FF|openshift-sno|"
+    "*|ubuntu|"
+    "80:ee:73:ef:0d:e9|openshift-sno|hf01"
+    "80:ee:73:ef:03:b3|openshift-sno|hf02"
 )
 ```
 
-Danach:
+Aktivieren:
 
 ```bash
 sudo /srv/tftp/bin/pxe-update
-sudo /srv/tftp/bin/pxe-show
 ```
 
-`pxe-update` immer mit `sudo` ausfuehren, da es Dateien unter `/srv/tftp/grub` erzeugt.
+Danach PXE-Boot des Zielsystems. Es ist kein weiterer Befehl auf dem PXE-Server erforderlich.
 
-Nun den Zielserver per PXE booten. Nach erfolgreicher Installation erkennt `openshift-sno.cfg` den lokalen RHCOS-EFI-Bootloader und bootet beim naechsten PXE-Start lokal statt erneut zu installieren.
+## 3. DHCP/DNS
 
-## Installation beobachten
+Die erste RHCOS-Live-Phase verwendet DHCP. Deshalb sollte jeder SNO eine DHCP-Reservation besitzen. Die dabei erhaltene Adresse wird vom Zielsystem automatisch als statische RHCOS-Konfiguration fuer die Installation uebernommen.
+
+Fuer `hf01` mit `10.31.20.15` muessen vor dem Boot mindestens folgende DNS-Namen auf `10.31.20.15` zeigen:
+
+```text
+api.hf01.lernvirt.test
+api-int.hf01.lernvirt.test
+*.apps.hf01.lernvirt.test
+```
+
+Das Zielsystem prueft diese Records vor dem Erzeugen der SNO-Ignition. Damit wird vermieden, dass ein Cluster mit der falschen DHCP-Adresse bootstrappt.
+
+## 4. Ablauf auf dem Zielserver
+
+Der Vorgang laeuft ohne Bedienung:
+
+```text
+PXE/RHCOS Live
+ -> Clustername aus rack.conf VARIANT lesen
+ -> eigene IP / Interface / Gateway erkennen
+ -> DNS pruefen
+ -> install-config.yaml lokal in /run erzeugen
+ -> openshift-install create single-node-ignition-config
+ -> eigene kubeconfig + kubeadmin-password in die SNO-Ignition aufnehmen
+ -> aktuelle Netzkonfiguration in das RHCOS-PXE-initramfs uebernehmen
+ -> kexec in die clusterbezogene Bootstrap-in-Place-Phase
+ -> OpenShift bootstrappt sich selbst
+ -> RHCOS wird auf INSTALL_DISK geschrieben
+ -> Reboot von lokaler Disk
+```
+
+Nach erfolgreicher Installation erkennt `openshift-sno.cfg` den lokalen RHCOS EFI-Bootloader und bootet beim naechsten PXE-Start standardmaessig von der lokalen Platte.
+
+## 5. Zugriff auf dem installierten SNO
+
+SSH erfolgt mit dem in `/etc/lernvirt/lerncloud.pub` hinterlegten Key:
 
 ```bash
-sudo /srv/tftp/bin/openshift-sno-wait bootstrap
-sudo /srv/tftp/bin/openshift-sno-wait install
+ssh core@10.31.20.15
+sudo -i
 ```
 
-Status:
+Die lokale Admin-kubeconfig liegt auf dem SNO unter:
 
-```bash
-sudo /srv/tftp/bin/openshift-sno-wait status
+```text
+/root/.kube/config
 ```
 
-Nach `Install complete!`:
+Beim Root-Login wird `KUBECONFIG` automatisch darauf gesetzt. Der `oc` Client wird vom fertigen SNO einmalig vom PXE-Server nach `/var/lib/lernvirt/bin/oc` geladen; `/usr/local/bin/oc` ist ein Wrapper darauf.
+
+Pruefung:
 
 ```bash
 sudo -i
-export KUBECONFIG=/opt/openshift-sno/install/auth/kubeconfig
-/opt/openshift-sno/bin/oc get nodes
-/opt/openshift-sno/bin/oc get co
+oc get nodes
+oc get co
+cat /root/kubeadmin-password
 ```
 
-Console:
+Console fuer `hf01`:
 
 ```text
-https://console-openshift-console.apps.ocp.lernvirt.test
+https://console-openshift-console.apps.hf01.lernvirt.test
 ```
 
-Kubeadmin-Passwort:
+Fuer `hf02` entsprechend:
+
+```text
+https://console-openshift-console.apps.hf02.lernvirt.test
+```
+
+## 6. Fehlerdiagnose in der ersten PXE-Phase
+
+Die generische Live-Ignition hinterlegt den SSH-Key fuer `core`. Solange die Maschine noch in der ersten RHCOS-Live-Phase ist:
 
 ```bash
-sudo cat /opt/openshift-sno/install/auth/kubeadmin-password
+ssh core@<dhcp-ip>
+sudo journalctl -u lernvirt-openshift-sno.service -f
 ```
 
-## Statisches Netzwerk (optional)
+Auf der lokalen Konsole werden dieselben Meldungen ausgegeben.
 
-Falls DHCP nicht verwendet werden soll, in `/srv/tftp/config/openshift-sno.conf` setzen:
+## Sicherheit
 
-```bash
-SNO_NETWORK_MODE="static"
-SNO_INTERFACE="eno1"
-SNO_MAC="AA:BB:CC:DD:EE:FF"
-SNO_PREFIX="24"
-SNO_GATEWAY="10.31.20.1"
-SNO_DNS="10.31.20.11"
-```
-
-Bei geaenderter Cluster-/Netzwerkkonfiguration werden vorhandene PKI-/Agent-Artefakte aus Sicherheitsgruenden nicht stillschweigend ersetzt. Fuer eine bewusste Neuinstallation:
-
-```bash
-sudo OCP_FORCE=1 ./install-openshift-sno.sh
-```
-
-## Hinweis zu `oc`
-
-`openshift-install agent create pxe-files` ruft intern den `oc`-Client auf. Das Installationsscript installiert deshalb `oc` zusammen mit `openshift-install` nach `/opt/openshift-sno/bin` und nimmt dieses Verzeichnis fuer den gesamten Lauf in `PATH` auf.
-
-
-
-## Netzwerk fuer dieses Lab
-
-Der SNO-Knoten soll fest `10.31.20.15` verwenden. Deshalb ist die Beispielkonfiguration nun statisch:
-
-```bash
-SNO_NETWORK_MODE="static"
-SNO_INTERFACE="enp2s0"
-SNO_PREFIX="24"
-SNO_GATEWAY="auto"
-SNO_DNS="10.31.20.11"
-```
-
-`SNO_MAC` wird aus `rack.conf` erkannt, wenn genau ein Host dem Stack `openshift-sno` zugeordnet ist. `SNO_GATEWAY="auto"` uebernimmt das IPv4-Default-Gateway des PXE-Servers.
-
-Wenn bereits PXE-Artefakte mit DHCP erzeugt wurden, muss die Konfiguration neu erzeugt werden:
-
-```bash
-sudo OCP_FORCE=1 ./install-openshift-sno.sh
-```
-
-Beim Boot muss der Agent danach `10.31.20.15` anzeigen. Wenn dort eine andere Adresse steht und gleichzeitig `The rendezvous host is at 10.31.20.15` erscheint, ist die Netzwerkkonfiguration noch falsch.
-
-RHCOS hat kein Root-Passwort fuer die Konsolenanmeldung. Fuer Diagnose per SSH wird der in `SSH_KEY_FILE` hinterlegte Public Key verwendet; die Anmeldung erfolgt als Benutzer `core` mit dem passenden privaten Key.
+Pull Secret, OpenShift Installer und Client werden im internen PXE-Netz per HTTP bereitgestellt. Das entspricht der bestehenden HTTP-PXE-Infrastruktur, bedeutet aber, dass das PXE-Netz als vertrauenswuerdig behandelt werden muss.
