@@ -82,6 +82,9 @@ Ein einfacher zusätzlicher Stack besteht aus einer GRUB-Konfiguration unter:
 
 Der Stack kann `VARIANT` aus der Host-Regel verwenden und Kernel, Initramfs oder weitere Daten über TFTP bzw. HTTP laden. Für Plattformen mit zusätzlichen generierten Konfigurationen kann ein eigener Installer oder eine Erweiterung von `pxe-update` erforderlich sein.
 
+Beispiele:
+* [Cloud-native Advanced](https://gitlab.com/ch-tbz-wb/Stud/CnA/-/tree/main/0_Organisatorisches/Infrastruktur/pxe-stack)
+* [GNS3](https://gitlab.com/ch-tbz-wb/Stud/nwa/-/tree/main/0_Organisatorisches/Infrastruktur/pxe-stack)
 
 ## Alpine / BusyBox Boot Tools
 
