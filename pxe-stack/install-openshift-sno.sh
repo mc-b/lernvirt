@@ -139,8 +139,6 @@ CLUSTER_HOST_PREFIX="${CLUSTER_HOST_PREFIX}"
 SERVICE_NETWORK_CIDR="${SERVICE_NETWORK_CIDR}"
 INSTALL_DISK="${INSTALL_DISK}"
 DNS_SERVER="${DNS_SERVER}"
-REQUIRE_DNS="${REQUIRE_DNS:-1}"
-DNS_WAIT_SECONDS="${DNS_WAIT_SECONDS:-300}"
 OCP_VERSION="${OCP_VERSION}"
 EOF_CONF
 chmod 0644 "$HTTP_CONFIG/openshift-sno.conf"
@@ -289,4 +287,4 @@ printf '  HTTP       : http://%s/openshift-sno/\n' "$PXE_SERVER"
 printf '  OpenShift  : %s\n' "$OCP_VERSION"
 printf '\nBeispiel rack.conf:\n'
 printf '  "80:ee:73:ef:0d:e9|openshift-sno|hf01"\n'
-printf '\nPro SNO muessen DNS/API/Apps bereits auf dessen DHCP-reservierte IP zeigen.\n'
+printf '\nDas Zielsystem erzeugt die fuer die Installation benoetigten OpenShift-Namen lokal in /etc/hosts.\n'

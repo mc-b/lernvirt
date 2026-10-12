@@ -56,19 +56,24 @@ sudo /srv/tftp/bin/pxe-update
 
 Danach PXE-Boot des Zielsystems. Es ist kein weiterer Befehl auf dem PXE-Server erforderlich.
 
-## 3. DHCP/DNS
+## 3. DHCP und lokale Namensaufloesung
 
 Die erste RHCOS-Live-Phase verwendet DHCP. Deshalb sollte jeder SNO eine DHCP-Reservation besitzen. Die dabei erhaltene Adresse wird vom Zielsystem automatisch als statische RHCOS-Konfiguration fuer die Installation uebernommen.
 
-Fuer `hf01` mit `10.31.20.15` muessen vor dem Boot mindestens folgende DNS-Namen auf `10.31.20.15` zeigen:
+Das Zielsystem wartet **nicht** auf externe DNS-Eintraege. Vor dem Erzeugen der SNO-Ignition schreibt `openshift-sno-install.sh` die fuer Bootstrap und die bekannten OpenShift-Systemrouten benoetigten Namen lokal nach `/etc/hosts`, zum Beispiel fuer `terra5` mit `10.31.20.15`:
 
 ```text
-api.hf01.lernvirt.test
-api-int.hf01.lernvirt.test
-*.apps.hf01.lernvirt.test
+10.31.20.15 api.terra5.lernvirt.test
+10.31.20.15 api-int.terra5.lernvirt.test
+10.31.20.15 console-openshift-console.apps.terra5.lernvirt.test
+10.31.20.15 oauth-openshift.apps.terra5.lernvirt.test
+10.31.20.15 downloads-openshift-console.apps.terra5.lernvirt.test
+10.31.20.15 canary-openshift-ingress-canary.apps.terra5.lernvirt.test
 ```
 
-Das Zielsystem prueft diese Records vor dem Erzeugen der SNO-Ignition. Damit wird vermieden, dass ein Cluster mit der falschen DHCP-Adresse bootstrappt.
+Dieselbe `/etc/hosts` wird in die erzeugte SNO-Ignition aufgenommen und steht damit auch nach der Installation auf dem SNO zur Verfuegung.
+
+Wichtig: `/etc/hosts` kann keine Wildcards. Beliebige spaetere OpenShift-Routes unter `*.apps.<cluster>.<baseDomain>` sind damit nur auf dem SNO selbst dann erreichbar, wenn der konkrete Name ebenfalls in `/etc/hosts` eingetragen wird. Fuer externe Clients bleibt eine externe DNS-Loesung fuer `*.apps...` erforderlich.
 
 ## 4. Ablauf auf dem Zielserver
 
@@ -78,7 +83,7 @@ Der Vorgang laeuft ohne Bedienung:
 PXE/RHCOS Live
  -> Clustername aus rack.conf VARIANT lesen
  -> eigene IP / Interface / Gateway erkennen
- -> DNS pruefen
+ -> lokale OpenShift-Namen in /etc/hosts eintragen
  -> install-config.yaml lokal in /run erzeugen
  -> openshift-install create single-node-ignition-config
  -> eigene kubeconfig + kubeadmin-password in die SNO-Ignition aufnehmen

@@ -19,13 +19,6 @@ INSTALL_DISK="/dev/nvme0n1"
 # DNS, den der installierte SNO verwenden soll.
 DNS_SERVER="10.31.20.11"
 
-# Vor der Installation werden diese Records geprueft:
-#   api.<cluster>.<baseDomain>
-#   api-int.<cluster>.<baseDomain>
-#   test.apps.<cluster>.<baseDomain>
-# Alle muessen auf die aktuelle IPv4-Adresse des Zielsystems zeigen.
-REQUIRE_DNS="1"
-DNS_WAIT_SECONDS="300"
 
 # Vorhandene lernvirt Credentials.
 PULL_SECRET_FILE="/etc/lernvirt/pull-secret.json"

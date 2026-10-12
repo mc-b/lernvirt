@@ -64,8 +64,6 @@ source "$CONFIG_FILE"
 : "${SERVICE_NETWORK_CIDR:?SERVICE_NETWORK_CIDR fehlt}"
 : "${INSTALL_DISK:?INSTALL_DISK fehlt}"
 : "${DNS_SERVER:?DNS_SERVER fehlt}"
-: "${REQUIRE_DNS:=1}"
-: "${DNS_WAIT_SECONDS:=300}"
 
 fetch "$HTTP_BASE/config/pull-secret.json" "$PULL_SECRET" 0600
 fetch "$HTTP_BASE/config/ssh-key.pub" "$SSH_KEY" 0600
@@ -140,37 +138,38 @@ if [[ "$DRY_RUN" != "1" ]]; then
     command -v kexec >/dev/null 2>&1 || fail "kexec fehlt im RHCOS Live-System."
 fi
 
-resolve4() {
-    getent ahostsv4 "$1" 2>/dev/null | awk '$1 ~ /^[0-9.]+$/ {print $1; exit}'
-}
+ensure_local_hosts() {
+    local hosts_file="${LERNVIRT_HOSTS_FILE_OVERRIDE:-/etc/hosts}"
+    local begin="# BEGIN lernvirt-openshift-sno"
+    local end="# END lernvirt-openshift-sno"
+    local fqdn="${NODE_HOSTNAME}.${CLUSTER_NAME}.${BASE_DOMAIN}"
+    local tmp="${RUN_ROOT}/hosts.tmp"
 
-wait_for_dns() {
-    [[ "$REQUIRE_DNS" == "1" ]] || { warn "DNS-Pruefung ist deaktiviert."; return 0; }
-    local api="api.${CLUSTER_NAME}.${BASE_DOMAIN}"
-    local api_int="api-int.${CLUSTER_NAME}.${BASE_DOMAIN}"
-    local apps="test.apps.${CLUSTER_NAME}.${BASE_DOMAIN}"
-    local end=$((SECONDS + DNS_WAIT_SECONDS)) a b c
+    [[ -e "$hosts_file" ]] || touch "$hosts_file"
 
-    while :; do
-        a="$(resolve4 "$api" || true)"
-        b="$(resolve4 "$api_int" || true)"
-        c="$(resolve4 "$apps" || true)"
-        if [[ "$a" == "$SNO_IP" && "$b" == "$SNO_IP" && "$c" == "$SNO_IP" ]]; then
-            log "DNS ist korrekt: API/API-int/*.apps -> ${SNO_IP}"
-            return 0
-        fi
-        if (( SECONDS >= end )); then
-            printf '\nErwartete DNS Records:\n' >&2
-            printf '  api.%s.%s      -> %s\n' "$CLUSTER_NAME" "$BASE_DOMAIN" "$SNO_IP" >&2
-            printf '  api-int.%s.%s  -> %s\n' "$CLUSTER_NAME" "$BASE_DOMAIN" "$SNO_IP" >&2
-            printf '  *.apps.%s.%s   -> %s\n\n' "$CLUSTER_NAME" "$BASE_DOMAIN" "$SNO_IP" >&2
-            fail "DNS ist nach ${DNS_WAIT_SECONDS}s nicht korrekt (aktuell: api=${a:-?}, api-int=${b:-?}, apps=${c:-?})."
-        fi
-        log "Warte auf DNS fuer ${CLUSTER_NAME}.${BASE_DOMAIN} ..."
-        sleep 10
-    done
+    awk -v begin="$begin" -v end="$end" '
+        $0 == begin {skip=1; next}
+        $0 == end   {skip=0; next}
+        !skip       {print}
+    ' "$hosts_file" > "$tmp"
+
+    cat >> "$tmp" <<EOF_HOSTS
+$begin
+${SNO_IP} ${NODE_HOSTNAME} ${fqdn}
+${SNO_IP} api.${CLUSTER_NAME}.${BASE_DOMAIN}
+${SNO_IP} api-int.${CLUSTER_NAME}.${BASE_DOMAIN}
+${SNO_IP} console-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
+${SNO_IP} oauth-openshift.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
+${SNO_IP} downloads-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
+${SNO_IP} canary-openshift-ingress-canary.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
+${SNO_IP} test.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
+$end
+EOF_HOSTS
+
+    install -m 0644 "$tmp" "$hosts_file"
+    log "Lokale OpenShift-Namen in ${hosts_file} eingetragen."
 }
-wait_for_dns
+ensure_local_hosts
 
 WORK="$RUN_ROOT/work"
 rm -rf "$WORK"
@@ -250,6 +249,20 @@ fi
 EOF_FETCH
 )
 FETCH_OC_URL="$(data_url_text "$FETCH_OC")"
+HOSTS_TEXT=$(cat <<EOF_HOSTS
+127.0.0.1 localhost localhost.localdomain
+::1 localhost localhost.localdomain localhost6 localhost6.localdomain6
+${SNO_IP} ${NODE_HOSTNAME} ${NODE_HOSTNAME}.${CLUSTER_NAME}.${BASE_DOMAIN}
+${SNO_IP} api.${CLUSTER_NAME}.${BASE_DOMAIN}
+${SNO_IP} api-int.${CLUSTER_NAME}.${BASE_DOMAIN}
+${SNO_IP} console-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
+${SNO_IP} oauth-openshift.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
+${SNO_IP} downloads-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
+${SNO_IP} canary-openshift-ingress-canary.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
+${SNO_IP} test.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
+EOF_HOSTS
+)
+HOSTS_URL="$(data_url_text "$HOSTS_TEXT")"
 CLIENT_UNIT=$(cat <<'EOF_UNIT'
 [Unit]
 Description=lernvirt OpenShift CLI
@@ -275,8 +288,10 @@ jq \
   --arg ocwrap "$OC_WRAPPER_URL" \
   --arg fetchoc "$FETCH_OC_URL" \
   --arg unit "$CLIENT_UNIT" \
+  --arg hosts "$HOSTS_URL" \
   '.storage = (.storage // {}) |
    .storage.files = ((.storage.files // []) + [
+     {"path":"/etc/hosts","mode":420,"overwrite":true,"contents":{"source":$hosts}},
      {"path":"/root/.kube/config","mode":384,"overwrite":true,"contents":{"source":$kcfg}},
      {"path":"/root/kubeadmin-password","mode":384,"overwrite":true,"contents":{"source":$kpass}},
      {"path":"/var/lib/lernvirt/cluster.env","mode":384,"overwrite":true,"contents":{"source":$cenv}},
