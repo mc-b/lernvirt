@@ -1,0 +1,34 @@
+# lernvirt OpenShift Single Node (SNO)
+# PXE-Basis: /srv/tftp/config/rack.conf
+
+OCP_CHANNEL="stable-4.20"
+CLUSTER_NAME="ocp"
+BASE_DOMAIN="lernvirt.test"
+
+# PXE-/DNS-Server und SNO-Ziel
+PXE_SERVER="10.31.20.11"
+SNO_IP="10.31.20.15"
+MACHINE_NETWORK_CIDR="10.31.20.0/24"
+SNO_HOSTNAME="sno"
+
+# Standard: DHCP. Die Adresse SNO_IP muss per DHCP/Reservation am Ziel ankommen.
+# Der PXE-Boot setzt SNO_DNS zusaetzlich als Resolver.
+SNO_NETWORK_MODE="dhcp"
+SNO_DNS="10.31.20.11"
+
+# Optional fuer statische Agent-Netzwerkkonfiguration:
+# SNO_NETWORK_MODE="static"
+# SNO_INTERFACE="eno1"
+# SNO_MAC="80:EE:73:EF:0D:E9"
+# SNO_PREFIX="24"
+# SNO_GATEWAY="10.31.20.1"
+# SNO_DNS="10.31.20.11"
+
+# Bei DHCP optional: wenn SNO_MAC gesetzt ist (oder bereits genau eine
+# rack.conf-Regel fuer openshift-sno existiert), wird INSTALL_DISK als
+# rootDeviceHint in agent-config.yaml gesetzt.
+INSTALL_DISK="/dev/nvme0n1"
+
+OCP_DIR="/opt/openshift-sno"
+PULL_SECRET_FILE="/etc/lernvirt/pull-secret.json"
+SSH_KEY_FILE="/etc/lernvirt/lerncloud.pub"
