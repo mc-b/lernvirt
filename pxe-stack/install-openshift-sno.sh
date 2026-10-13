@@ -78,7 +78,6 @@ install -d -m 0755 "$CACHE_DIR" "$TFTP_SNO" "$HTTP_SNO" "$HTTP_BIN" "$HTTP_CONFI
 
 CLIENT_BASE="${OCP_CLIENT_BASE:-https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${OCP_CHANNEL}}"
 INSTALLER_URL="${OPENSHIFT_INSTALL_URL:-${CLIENT_BASE}/openshift-install-linux.tar.gz}"
-OC_URL="${OC_URL:-${CLIENT_BASE}/openshift-client-linux.tar.gz}"
 
 download_file() {
     local url="$1" dst="$2" part="${2}.part"
@@ -95,11 +94,8 @@ cleanup() { rm -rf "$TMP"; }
 trap cleanup EXIT
 
 download_file "$INSTALLER_URL" "$CACHE_DIR/openshift-install-linux.tar.gz"
-download_file "$OC_URL" "$CACHE_DIR/openshift-client-linux.tar.gz"
 tar -xzf "$CACHE_DIR/openshift-install-linux.tar.gz" -C "$TMP"
-tar -xzf "$CACHE_DIR/openshift-client-linux.tar.gz" -C "$TMP"
 [[ -x "$TMP/openshift-install" ]] || fail "openshift-install fehlt im Archiv."
-[[ -x "$TMP/oc" ]] || fail "oc fehlt im Archiv."
 
 INSTALLER="$TMP/openshift-install"
 OCP_VERSION="$($INSTALLER version | awk '/^openshift-install / {print $2; exit}')"
@@ -125,7 +121,6 @@ install -m 0644 "$CACHE_DIR/rhcos-live-kernel" "$HTTP_SNO/rhcos-live-kernel"
 install -m 0644 "$CACHE_DIR/rhcos-live-initramfs.img" "$HTTP_SNO/rhcos-live-initramfs.img"
 install -m 0644 "$CACHE_DIR/rhcos-live-rootfs.img" "$HTTP_SNO/rhcos-live-rootfs.img"
 install -m 0755 "$TMP/openshift-install" "$HTTP_BIN/openshift-install"
-install -m 0755 "$TMP/oc" "$HTTP_BIN/oc"
 install -m 0755 "$SCRIPT_DIR/target/openshift-sno-install.sh" "$HTTP_SCRIPTS/openshift-sno-install.sh"
 install -m 0644 "$PULL_SECRET_FILE" "$HTTP_CONFIG/pull-secret.json"
 install -m 0644 "$SSH_KEY_FILE" "$HTTP_CONFIG/ssh-key.pub"

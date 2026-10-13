@@ -37,7 +37,6 @@ CONFIG_FILE="$RUN_ROOT/openshift-sno.conf"
 PULL_SECRET="$RUN_ROOT/pull-secret.json"
 SSH_KEY="$RUN_ROOT/ssh-key.pub"
 INSTALLER="$RUN_ROOT/bin/openshift-install"
-OC_BIN="$RUN_ROOT/bin/oc"
 
 fetch() {
     local src="$1" dst="$2" mode="${3:-0644}"
@@ -68,7 +67,6 @@ source "$CONFIG_FILE"
 fetch "$HTTP_BASE/config/pull-secret.json" "$PULL_SECRET" 0600
 fetch "$HTTP_BASE/config/ssh-key.pub" "$SSH_KEY" 0600
 fetch "$HTTP_BASE/bin/openshift-install" "$INSTALLER" 0755
-fetch "$HTTP_BASE/bin/oc" "$OC_BIN" 0755
 export PATH="$RUN_ROOT/bin:$PATH"
 
 jq -e '.auths and (.auths|type=="object")' "$PULL_SECRET" >/dev/null || fail "Pull Secret ist ungueltig."
@@ -138,24 +136,19 @@ if [[ "$DRY_RUN" != "1" ]]; then
     command -v kexec >/dev/null 2>&1 || fail "kexec fehlt im RHCOS Live-System."
 fi
 
-ensure_local_hosts() {
-    local hosts_file="${LERNVIRT_HOSTS_FILE_OVERRIDE:-/etc/hosts}"
-    local begin="# BEGIN lernvirt-openshift-sno"
-    local end="# END lernvirt-openshift-sno"
-    local fqdn="${NODE_HOSTNAME}.${CLUSTER_NAME}.${BASE_DOMAIN}"
-    local tmp="${RUN_ROOT}/hosts.tmp"
+data_url_file() {
+    printf 'data:text/plain;charset=utf-8;base64,%s' "$(base64 -w0 < "$1")"
+}
+data_url_text() {
+    printf 'data:text/plain;charset=utf-8;base64,%s' "$(printf '%s' "$1" | base64 -w0)"
+}
 
-    [[ -e "$hosts_file" ]] || touch "$hosts_file"
-
-    awk -v begin="$begin" -v end="$end" '
-        $0 == begin {skip=1; next}
-        $0 == end   {skip=0; next}
-        !skip       {print}
-    ' "$hosts_file" > "$tmp"
-
-    cat >> "$tmp" <<EOF_HOSTS
-$begin
-${SNO_IP} ${NODE_HOSTNAME} ${fqdn}
+# IPv4-only Lab: localhost absichtlich nur auf 127.0.0.1 aufloesen. OpenShift
+# bindet den Bootstrap-API-Server hier an tcp4; damit vermeiden wir ::1-Zugriffe.
+HOSTS_TEXT=$(cat <<EOF_HOSTS
+127.0.0.1 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1 localhost6 localhost6.localdomain6
+${SNO_IP} ${NODE_HOSTNAME} ${NODE_HOSTNAME}.${CLUSTER_NAME}.${BASE_DOMAIN}
 ${SNO_IP} api.${CLUSTER_NAME}.${BASE_DOMAIN}
 ${SNO_IP} api-int.${CLUSTER_NAME}.${BASE_DOMAIN}
 ${SNO_IP} console-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
@@ -163,9 +156,43 @@ ${SNO_IP} oauth-openshift.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
 ${SNO_IP} downloads-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
 ${SNO_IP} canary-openshift-ingress-canary.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
 ${SNO_IP} test.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
-$end
 EOF_HOSTS
+)
+HOSTNAME_TEXT="${NODE_HOSTNAME}"
+CLUSTER_ENV=$(cat <<EOF_CLUSTER_ENV
+CLUSTER_NAME=${CLUSTER_NAME}
+BASE_DOMAIN=${BASE_DOMAIN}
+SNO_IP=${SNO_IP}
+PXE_SERVER=${PXE_SERVER}
+EOF_CLUSTER_ENV
+)
+PROFILE_TEXT=$(cat <<'EOF_PROFILE'
+if [ "$(id -u)" -eq 0 ] && [ -r /root/.kube/config ]; then
+    export KUBECONFIG=/root/.kube/config
+fi
+EOF_PROFILE
+)
 
+HOSTS_URL="$(data_url_text "$HOSTS_TEXT")"
+HOSTNAME_URL="$(data_url_text "$HOSTNAME_TEXT")"
+CLUSTER_ENV_URL="$(data_url_text "$CLUSTER_ENV")"
+PROFILE_URL="$(data_url_text "$PROFILE_TEXT")"
+
+# Die erste Live-Phase und die zweite Bootstrap-Live-Phase muessen denselben
+# Hostnamen verwenden. Der finale Hostname wird zusaetzlich als MachineConfig
+# und spaeter direkt in master.ign verankert.
+if [[ "$DRY_RUN" != "1" ]]; then
+    if command -v hostnamectl >/dev/null 2>&1; then
+        hostnamectl set-hostname "$NODE_HOSTNAME"
+    else
+        hostname "$NODE_HOSTNAME"
+    fi
+fi
+
+ensure_local_hosts() {
+    local hosts_file="${LERNVIRT_HOSTS_FILE_OVERRIDE:-/etc/hosts}"
+    local tmp="${RUN_ROOT}/hosts.tmp"
+    printf '%s\n' "$HOSTS_TEXT" > "$tmp"
     install -m 0644 "$tmp" "$hosts_file"
     log "Lokale OpenShift-Namen in ${hosts_file} eingetragen."
 }
@@ -208,6 +235,48 @@ sshKey: '$(yaml_sq "$ssh_key")'
 EOF_INSTALL
 chmod 0600 "$WORK/install-config.yaml"
 
+# Day-1 MachineConfig: Hostname und lokale Namensaufloesung muessen Teil der
+# gerenderten Master-Konfiguration sein. Nur die Live-Ignition zu patchen reicht
+# bei Bootstrap-in-Place nicht fuer den Zustand nach dem Disk-Reboot.
+log "Erzeuge OpenShift-Manifeste fuer persistente SNO-Anpassungen."
+"$INSTALLER" --dir "$WORK" create manifests --log-level=info
+mkdir -p "$WORK/openshift"
+cat > "$WORK/openshift/99-master-lernvirt-sno.yaml" <<EOF_MC
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  name: 99-master-lernvirt-sno
+  labels:
+    machineconfiguration.openshift.io/role: master
+spec:
+  config:
+    ignition:
+      version: 3.4.0
+    storage:
+      files:
+      - path: /etc/hostname
+        mode: 420
+        overwrite: true
+        contents:
+          source: ${HOSTNAME_URL}
+      - path: /etc/hosts
+        mode: 420
+        overwrite: true
+        contents:
+          source: ${HOSTS_URL}
+      - path: /var/lib/lernvirt/cluster.env
+        mode: 384
+        overwrite: true
+        contents:
+          source: ${CLUSTER_ENV_URL}
+      - path: /etc/profile.d/lernvirt-openshift.sh
+        mode: 420
+        overwrite: true
+        contents:
+          source: ${PROFILE_URL}
+EOF_MC
+chmod 0600 "$WORK/openshift/99-master-lernvirt-sno.yaml"
+
 log "Erzeuge cluster-spezifische SNO Ignition lokal auf dem Zielsystem."
 "$INSTALLER" --dir "$WORK" create single-node-ignition-config --log-level=info
 
@@ -218,108 +287,108 @@ KUBEADMIN_FILE="$WORK/auth/kubeadmin-password"
 [[ -s "$KUBECONFIG_FILE" ]] || fail "auth/kubeconfig fehlt."
 [[ -s "$KUBEADMIN_FILE" ]] || fail "auth/kubeadmin-password fehlt."
 
-# Die BIP-Logik nimmt die urspruengliche Live-Ignition in die finale Master-
-# Ignition auf. Deshalb legen wir lokale Admin-Artefakte und einen kleinen
-# Client-Downloader in dieselbe Ignition. Auf dem installierten SNO stehen damit
-# /root/.kube/config und /root/kubeadmin-password zur Verfuegung.
-data_url_file() {
-    printf 'data:text/plain;charset=utf-8;base64,%s' "$(base64 -w0 < "$1")"
-}
-data_url_text() {
-    printf 'data:text/plain;charset=utf-8;base64,%s' "$(printf '%s' "$1" | base64 -w0)"
-}
-
 KCFG_URL="$(data_url_file "$KUBECONFIG_FILE")"
 KPASS_URL="$(data_url_file "$KUBEADMIN_FILE")"
-CLUSTER_ENV=$(cat <<EOF_CLUSTER_ENV
-CLUSTER_NAME=${CLUSTER_NAME}
-BASE_DOMAIN=${BASE_DOMAIN}
-SNO_IP=${SNO_IP}
-PXE_SERVER=${PXE_SERVER}
-EOF_CLUSTER_ENV
-)
-CLUSTER_ENV_URL="$(data_url_text "$CLUSTER_ENV")"
-PROFILE_TEXT=$(cat <<'EOF_PROFILE'
-if [ "$(id -u)" -eq 0 ]; then
-    if [ -r /root/.kube/config ]; then
-        export KUBECONFIG=/root/.kube/config
-    fi
-    if [ -d /var/lib/lernvirt/bin ]; then
-        export PATH=/var/lib/lernvirt/bin:$PATH
-    fi
-fi
-EOF_PROFILE
-)
-PROFILE_URL="$(data_url_text "$PROFILE_TEXT")"
-FETCH_OC=$(cat <<EOF_FETCH
+
+# Bootstrap-in-Place erzeugt /opt/openshift/master.ign erst waehrend bootkube.
+# Darum werden die lernvirt-Dateien direkt vor install-to-disk nochmals in genau
+# diese finale Ignition geschrieben. So sind sie nach dem Disk-Reboot garantiert
+# vorhanden; /usr/local/bin/oc wird bewusst nicht angefasst.
+PATCH_MASTER=$(cat <<EOF_PATCH_MASTER
 #!/usr/bin/env bash
 set -Eeuo pipefail
-install -d -m 0755 /var/lib/lernvirt/bin
-if [ ! -x /var/lib/lernvirt/bin/oc ]; then
-    curl -fL --retry 30 --retry-delay 10 http://${PXE_SERVER}/openshift-sno/bin/oc -o /var/lib/lernvirt/bin/oc.tmp
-    chmod 0755 /var/lib/lernvirt/bin/oc.tmp
-    mv -f /var/lib/lernvirt/bin/oc.tmp /var/lib/lernvirt/bin/oc
-fi
-EOF_FETCH
+MASTER="\${LERNVIRT_MASTER_IGN:-/opt/openshift/master.ign}"
+for _ in \$(seq 1 180); do
+    [[ -s "\$MASTER" ]] && break
+    sleep 2
+done
+[[ -s "\$MASTER" ]] || { echo "[lernvirt-master-ign] FEHLER: \$MASTER fehlt" >&2; exit 1; }
+TMP="\${MASTER}.lernvirt.tmp"
+jq \\
+  --arg hostname '${HOSTNAME_URL}' \\
+  --arg hosts '${HOSTS_URL}' \\
+  --arg kcfg '${KCFG_URL}' \\
+  --arg kpass '${KPASS_URL}' \\
+  --arg cenv '${CLUSTER_ENV_URL}' \\
+  --arg profile '${PROFILE_URL}' \\
+  '.storage = (.storage // {}) |
+   .storage.files = ([ (.storage.files // [])[] |
+      select(.path != "/etc/hostname" and
+             .path != "/etc/hosts" and
+             .path != "/root/.kube/config" and
+             .path != "/root/kubeadmin-password" and
+             .path != "/var/lib/lernvirt/cluster.env" and
+             .path != "/etc/profile.d/lernvirt-openshift.sh")
+    ] + [
+      {"path":"/etc/hostname","mode":420,"overwrite":true,"contents":{"source":\$hostname}},
+      {"path":"/etc/hosts","mode":420,"overwrite":true,"contents":{"source":\$hosts}},
+      {"path":"/root/.kube/config","mode":384,"overwrite":true,"contents":{"source":\$kcfg}},
+      {"path":"/root/kubeadmin-password","mode":384,"overwrite":true,"contents":{"source":\$kpass}},
+      {"path":"/var/lib/lernvirt/cluster.env","mode":384,"overwrite":true,"contents":{"source":\$cenv}},
+      {"path":"/etc/profile.d/lernvirt-openshift.sh","mode":420,"overwrite":true,"contents":{"source":\$profile}}
+    ])' "\$MASTER" > "\$TMP"
+jq -e --arg h '${NODE_HOSTNAME}' '
+  any(.storage.files[]?; .path == "/etc/hostname") and
+  any(.storage.files[]?; .path == "/etc/hosts") and
+  any(.storage.files[]?; .path == "/root/.kube/config")
+' "\$TMP" >/dev/null
+mv -f "\$TMP" "\$MASTER"
+echo "[lernvirt-master-ign] finale master.ign fuer ${NODE_HOSTNAME} erweitert"
+EOF_PATCH_MASTER
 )
-FETCH_OC_URL="$(data_url_text "$FETCH_OC")"
-HOSTS_TEXT=$(cat <<EOF_HOSTS
-127.0.0.1 localhost localhost.localdomain
-::1 localhost localhost.localdomain localhost6 localhost6.localdomain6
-${SNO_IP} ${NODE_HOSTNAME} ${NODE_HOSTNAME}.${CLUSTER_NAME}.${BASE_DOMAIN}
-${SNO_IP} api.${CLUSTER_NAME}.${BASE_DOMAIN}
-${SNO_IP} api-int.${CLUSTER_NAME}.${BASE_DOMAIN}
-${SNO_IP} console-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
-${SNO_IP} oauth-openshift.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
-${SNO_IP} downloads-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
-${SNO_IP} canary-openshift-ingress-canary.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
-${SNO_IP} test.apps.${CLUSTER_NAME}.${BASE_DOMAIN}
-EOF_HOSTS
-)
-HOSTS_URL="$(data_url_text "$HOSTS_TEXT")"
-CLIENT_UNIT=$(cat <<'EOF_UNIT'
+PATCH_MASTER_URL="$(data_url_text "$PATCH_MASTER")"
+PATCH_MASTER_UNIT=$(cat <<'EOF_PATCH_UNIT'
 [Unit]
-Description=lernvirt OpenShift CLI
-Wants=network-online.target
-After=network-online.target
+Description=lernvirt final SNO master Ignition patch
+Requires=bootkube.service
+After=bootkube.service
+Before=install-to-disk.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/sbin/lernvirt-fetch-oc
+ExecStart=/usr/local/sbin/lernvirt-patch-master-ign
 RemainAfterExit=yes
 
 [Install]
-WantedBy=multi-user.target
-EOF_UNIT
+RequiredBy=install-to-disk.service
+EOF_PATCH_UNIT
 )
 
 PATCHED="$WORK/bootstrap-in-place-for-live-iso-lernvirt.ign"
 jq \
+  --arg hostname "$HOSTNAME_URL" \
+  --arg hosts "$HOSTS_URL" \
   --arg kcfg "$KCFG_URL" \
   --arg kpass "$KPASS_URL" \
   --arg cenv "$CLUSTER_ENV_URL" \
   --arg profile "$PROFILE_URL" \
-  --arg fetchoc "$FETCH_OC_URL" \
-  --arg unit "$CLIENT_UNIT" \
-  --arg hosts "$HOSTS_URL" \
+  --arg patchmaster "$PATCH_MASTER_URL" \
+  --arg patchunit "$PATCH_MASTER_UNIT" \
   '.storage = (.storage // {}) |
    .storage.files = ((.storage.files // []) + [
+     {"path":"/etc/hostname","mode":420,"overwrite":true,"contents":{"source":$hostname}},
      {"path":"/etc/hosts","mode":420,"overwrite":true,"contents":{"source":$hosts}},
      {"path":"/root/.kube/config","mode":384,"overwrite":true,"contents":{"source":$kcfg}},
      {"path":"/root/kubeadmin-password","mode":384,"overwrite":true,"contents":{"source":$kpass}},
      {"path":"/var/lib/lernvirt/cluster.env","mode":384,"overwrite":true,"contents":{"source":$cenv}},
      {"path":"/etc/profile.d/lernvirt-openshift.sh","mode":420,"overwrite":true,"contents":{"source":$profile}},
-     {"path":"/usr/local/sbin/lernvirt-fetch-oc","mode":493,"overwrite":true,"contents":{"source":$fetchoc}}
+     {"path":"/usr/local/sbin/lernvirt-patch-master-ign","mode":493,"overwrite":true,"contents":{"source":$patchmaster}}
    ]) |
    .systemd = (.systemd // {}) |
    .systemd.units = ((.systemd.units // []) + [
-     {"name":"lernvirt-openshift-client.service","enabled":true,"contents":$unit}
+     {"name":"lernvirt-patch-master-ign.service","enabled":true,"contents":$patchunit}
    ])' "$BIP" > "$PATCHED"
-jq -e '.ignition.version and (.storage.files|length > 0)' "$PATCHED" >/dev/null || fail "Gepatchte Ignition ist ungueltig."
+jq -e '
+  .ignition.version and
+  any(.storage.files[]?; .path == "/etc/hostname") and
+  any(.storage.files[]?; .path == "/etc/hosts") and
+  any(.storage.files[]?; .path == "/usr/local/sbin/lernvirt-patch-master-ign") and
+  any(.systemd.units[]?; .name == "lernvirt-patch-master-ign.service")
+' "$PATCHED" >/dev/null || fail "Gepatchte Ignition ist ungueltig."
 
 # Netzwerk des PXE-Live-Systems als statisches NM-Keyfile fuer Bootstrap und
-# installiertes RHCOS uebernehmen. coreos-installer --network-keyfile traegt
-# dieses Profil in Live- und Zielsystem ein.
+# installiertes RHCOS uebernehmen. coreos-installer pxe customize uebernimmt
+# dieses Profil in das cluster-spezifische Live-initramfs.
 NMFILE="$WORK/openshift-sno.nmconnection"
 cat > "$NMFILE" <<EOF_NM
 [connection]
