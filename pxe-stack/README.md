@@ -39,6 +39,7 @@ Die vorhandenen Installationspfade sind auf eigene Dokumente verteilt:
 |---|---|---|
 | `ubuntu` | Ubuntu Server Autoinstall (user-data) | [UBUNTU.md](UBUNTU.md) |
 | `cna-control`, `cna-control-full` | Modul Cloud-native & Advanced | [UBUNTU.md](UBUNTU.md) und [CNA](https://gitlab.com/ch-tbz-wb/Stud/CnA/-/tree/main/0_Organisatorisches/Infrastruktur/pxe-stack) |
+| `gns3` | Modul Netzwerktechnologien und Netzwerkarchitekturen | [UBUNTU.md](UBUNTU.md) und [NWA](https://gitlab.com/ch-tbz-wb/Stud/NWA/-/tree/main/0_Organisatorisches/Infrastruktur/pxe-stack) |
 | `reset` | Reset HW (user-data-reset), z.B. nach OpenShift Installation | [UBUNTU.md](UBUNTU.md) |
 | `suse` | openSUSE Leap mit RKE2/Rancher-Bootstrap | [SUSE.md](SUSE.md) |
 | `harvester` | SUSE Harvester | [HARVESTER.md](HARVESTER.md) |
