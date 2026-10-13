@@ -136,11 +136,9 @@ if [[ "$DRY_RUN" != "1" ]]; then
     command -v kexec >/dev/null 2>&1 || fail "kexec fehlt im RHCOS Live-System."
 fi
 
-data_url_file() {
-    printf 'data:text/plain;charset=utf-8;base64,%s' "$(base64 -w0 < "$1")"
-}
-data_url_text() {
-    printf 'data:text/plain;charset=utf-8;base64,%s' "$(printf '%s' "$1" | base64 -w0)"
+data_url_text_nl() {
+    # Ignition-Dateien mit abschliessendem Newline erzeugen.
+    printf 'data:text/plain;charset=utf-8;base64,%s' "$(printf '%s\n' "$1" | base64 -w0)"
 }
 
 # IPv4-only Lab: localhost absichtlich nur auf 127.0.0.1 aufloesen. OpenShift
@@ -167,20 +165,28 @@ PXE_SERVER=${PXE_SERVER}
 EOF_CLUSTER_ENV
 )
 PROFILE_TEXT=$(cat <<'EOF_PROFILE'
-if [ "$(id -u)" -eq 0 ] && [ -r /root/.kube/config ]; then
-    export KUBECONFIG=/root/.kube/config
+if [ "$(id -u)" -eq 0 ]; then
+    if [ -r /etc/kubernetes/kubeconfig ]; then
+        export KUBECONFIG=/etc/kubernetes/kubeconfig
+    elif [ -r /etc/kubernetes/bootstrap-secrets/kubeconfig ]; then
+        export KUBECONFIG=/etc/kubernetes/bootstrap-secrets/kubeconfig
+    fi
 fi
 EOF_PROFILE
 )
+BOOTKUBE_CONSOLE_DROPIN=$(cat <<'EOF_BOOTKUBE_DROPIN'
+[Service]
+StandardOutput=journal+console
+StandardError=journal+console
+EOF_BOOTKUBE_DROPIN
+)
 
-HOSTS_URL="$(data_url_text "$HOSTS_TEXT")"
-HOSTNAME_URL="$(data_url_text "$HOSTNAME_TEXT")"
-CLUSTER_ENV_URL="$(data_url_text "$CLUSTER_ENV")"
-PROFILE_URL="$(data_url_text "$PROFILE_TEXT")"
+HOSTS_URL="$(data_url_text_nl "$HOSTS_TEXT")"
+HOSTNAME_URL="$(data_url_text_nl "$HOSTNAME_TEXT")"
+CLUSTER_ENV_URL="$(data_url_text_nl "$CLUSTER_ENV")"
+PROFILE_URL="$(data_url_text_nl "$PROFILE_TEXT")"
 
-# Die erste Live-Phase und die zweite Bootstrap-Live-Phase muessen denselben
-# Hostnamen verwenden. Der finale Hostname wird zusaetzlich als MachineConfig
-# und spaeter direkt in master.ign verankert.
+# Erste und zweite Live-Phase verwenden denselben Hostnamen.
 if [[ "$DRY_RUN" != "1" ]]; then
     if command -v hostnamectl >/dev/null 2>&1; then
         hostnamectl set-hostname "$NODE_HOSTNAME"
@@ -235,9 +241,9 @@ sshKey: '$(yaml_sq "$ssh_key")'
 EOF_INSTALL
 chmod 0600 "$WORK/install-config.yaml"
 
-# Day-1 MachineConfig: Hostname und lokale Namensaufloesung muessen Teil der
-# gerenderten Master-Konfiguration sein. Nur die Live-Ignition zu patchen reicht
-# bei Bootstrap-in-Place nicht fuer den Zustand nach dem Disk-Reboot.
+# Persistente Anpassungen ausschliesslich als Day-1 MachineConfig. Das ist der
+# vom Installer vorgesehene Weg; keine eigenen Abhaengigkeiten an
+# install-to-disk.service oder bootkube.service erzeugen.
 log "Erzeuge OpenShift-Manifeste fuer persistente SNO-Anpassungen."
 "$INSTALLER" --dir "$WORK" create manifests --log-level=info
 mkdir -p "$WORK/openshift"
@@ -274,6 +280,15 @@ spec:
         overwrite: true
         contents:
           source: ${PROFILE_URL}
+    systemd:
+      units:
+      - name: bootkube.service
+        dropins:
+        - name: 10-lernvirt-console.conf
+          contents: |
+            [Service]
+            StandardOutput=journal+console
+            StandardError=journal+console
 EOF_MC
 chmod 0600 "$WORK/openshift/99-master-lernvirt-sno.yaml"
 
@@ -281,109 +296,41 @@ log "Erzeuge cluster-spezifische SNO Ignition lokal auf dem Zielsystem."
 "$INSTALLER" --dir "$WORK" create single-node-ignition-config --log-level=info
 
 BIP="$WORK/bootstrap-in-place-for-live-iso.ign"
-KUBECONFIG_FILE="$WORK/auth/kubeconfig"
-KUBEADMIN_FILE="$WORK/auth/kubeadmin-password"
 [[ -s "$BIP" ]] || fail "bootstrap-in-place-for-live-iso.ign fehlt."
-[[ -s "$KUBECONFIG_FILE" ]] || fail "auth/kubeconfig fehlt."
-[[ -s "$KUBEADMIN_FILE" ]] || fail "auth/kubeadmin-password fehlt."
 
-KCFG_URL="$(data_url_file "$KUBECONFIG_FILE")"
-KPASS_URL="$(data_url_file "$KUBEADMIN_FILE")"
-
-# Bootstrap-in-Place erzeugt /opt/openshift/master.ign erst waehrend bootkube.
-# Darum werden die lernvirt-Dateien direkt vor install-to-disk nochmals in genau
-# diese finale Ignition geschrieben. So sind sie nach dem Disk-Reboot garantiert
-# vorhanden; /usr/local/bin/oc wird bewusst nicht angefasst.
-PATCH_MASTER=$(cat <<EOF_PATCH_MASTER
-#!/usr/bin/env bash
-set -Eeuo pipefail
-MASTER="\${LERNVIRT_MASTER_IGN:-/opt/openshift/master.ign}"
-for _ in \$(seq 1 180); do
-    [[ -s "\$MASTER" ]] && break
-    sleep 2
-done
-[[ -s "\$MASTER" ]] || { echo "[lernvirt-master-ign] FEHLER: \$MASTER fehlt" >&2; exit 1; }
-TMP="\${MASTER}.lernvirt.tmp"
-jq \\
-  --arg hostname '${HOSTNAME_URL}' \\
-  --arg hosts '${HOSTS_URL}' \\
-  --arg kcfg '${KCFG_URL}' \\
-  --arg kpass '${KPASS_URL}' \\
-  --arg cenv '${CLUSTER_ENV_URL}' \\
-  --arg profile '${PROFILE_URL}' \\
-  '.storage = (.storage // {}) |
-   .storage.files = ([ (.storage.files // [])[] |
-      select(.path != "/etc/hostname" and
-             .path != "/etc/hosts" and
-             .path != "/root/.kube/config" and
-             .path != "/root/kubeadmin-password" and
-             .path != "/var/lib/lernvirt/cluster.env" and
-             .path != "/etc/profile.d/lernvirt-openshift.sh")
-    ] + [
-      {"path":"/etc/hostname","mode":420,"overwrite":true,"contents":{"source":\$hostname}},
-      {"path":"/etc/hosts","mode":420,"overwrite":true,"contents":{"source":\$hosts}},
-      {"path":"/root/.kube/config","mode":384,"overwrite":true,"contents":{"source":\$kcfg}},
-      {"path":"/root/kubeadmin-password","mode":384,"overwrite":true,"contents":{"source":\$kpass}},
-      {"path":"/var/lib/lernvirt/cluster.env","mode":384,"overwrite":true,"contents":{"source":\$cenv}},
-      {"path":"/etc/profile.d/lernvirt-openshift.sh","mode":420,"overwrite":true,"contents":{"source":\$profile}}
-    ])' "\$MASTER" > "\$TMP"
-jq -e --arg h '${NODE_HOSTNAME}' '
-  any(.storage.files[]?; .path == "/etc/hostname") and
-  any(.storage.files[]?; .path == "/etc/hosts") and
-  any(.storage.files[]?; .path == "/root/.kube/config")
-' "\$TMP" >/dev/null
-mv -f "\$TMP" "\$MASTER"
-echo "[lernvirt-master-ign] finale master.ign fuer ${NODE_HOSTNAME} erweitert"
-EOF_PATCH_MASTER
-)
-PATCH_MASTER_URL="$(data_url_text "$PATCH_MASTER")"
-PATCH_MASTER_UNIT=$(cat <<'EOF_PATCH_UNIT'
-[Unit]
-Description=lernvirt final SNO master Ignition patch
-Requires=bootkube.service
-After=bootkube.service
-Before=install-to-disk.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/lernvirt-patch-master-ign
-RemainAfterExit=yes
-
-[Install]
-RequiredBy=install-to-disk.service
-EOF_PATCH_UNIT
-)
-
+# Die zweite Live-Phase braucht Hostname und /etc/hosts sofort. Wir erweitern
+# nur die Live-Ignition und greifen nicht in die BIP-Service-Reihenfolge ein.
 PATCHED="$WORK/bootstrap-in-place-for-live-iso-lernvirt.ign"
 jq \
   --arg hostname "$HOSTNAME_URL" \
   --arg hosts "$HOSTS_URL" \
-  --arg kcfg "$KCFG_URL" \
-  --arg kpass "$KPASS_URL" \
   --arg cenv "$CLUSTER_ENV_URL" \
   --arg profile "$PROFILE_URL" \
-  --arg patchmaster "$PATCH_MASTER_URL" \
-  --arg patchunit "$PATCH_MASTER_UNIT" \
+  --arg console "$BOOTKUBE_CONSOLE_DROPIN" \
   '.storage = (.storage // {}) |
-   .storage.files = ((.storage.files // []) + [
-     {"path":"/etc/hostname","mode":420,"overwrite":true,"contents":{"source":$hostname}},
-     {"path":"/etc/hosts","mode":420,"overwrite":true,"contents":{"source":$hosts}},
-     {"path":"/root/.kube/config","mode":384,"overwrite":true,"contents":{"source":$kcfg}},
-     {"path":"/root/kubeadmin-password","mode":384,"overwrite":true,"contents":{"source":$kpass}},
-     {"path":"/var/lib/lernvirt/cluster.env","mode":384,"overwrite":true,"contents":{"source":$cenv}},
-     {"path":"/etc/profile.d/lernvirt-openshift.sh","mode":420,"overwrite":true,"contents":{"source":$profile}},
-     {"path":"/usr/local/sbin/lernvirt-patch-master-ign","mode":493,"overwrite":true,"contents":{"source":$patchmaster}}
-   ]) |
+   .storage.files = ([ (.storage.files // [])[] |
+      select(.path != "/etc/hostname" and
+             .path != "/etc/hosts" and
+             .path != "/var/lib/lernvirt/cluster.env" and
+             .path != "/etc/profile.d/lernvirt-openshift.sh")
+    ] + [
+      {"path":"/etc/hostname","mode":420,"overwrite":true,"contents":{"source":$hostname}},
+      {"path":"/etc/hosts","mode":420,"overwrite":true,"contents":{"source":$hosts}},
+      {"path":"/var/lib/lernvirt/cluster.env","mode":384,"overwrite":true,"contents":{"source":$cenv}},
+      {"path":"/etc/profile.d/lernvirt-openshift.sh","mode":420,"overwrite":true,"contents":{"source":$profile}}
+    ]) |
    .systemd = (.systemd // {}) |
-   .systemd.units = ((.systemd.units // []) + [
-     {"name":"lernvirt-patch-master-ign.service","enabled":true,"contents":$patchunit}
-   ])' "$BIP" > "$PATCHED"
+   .systemd.units = ((.systemd.units // []) |
+     map(if .name == "bootkube.service" then
+       .dropins = ([ (.dropins // [])[] | select(.name != "10-lernvirt-console.conf") ] +
+                   [{"name":"10-lernvirt-console.conf","contents":$console}])
+     else . end))' "$BIP" > "$PATCHED"
+
 jq -e '
   .ignition.version and
   any(.storage.files[]?; .path == "/etc/hostname") and
   any(.storage.files[]?; .path == "/etc/hosts") and
-  any(.storage.files[]?; .path == "/usr/local/sbin/lernvirt-patch-master-ign") and
-  any(.systemd.units[]?; .name == "lernvirt-patch-master-ign.service")
+  any(.systemd.units[]?; .name == "bootkube.service" and any(.dropins[]?; .name == "10-lernvirt-console.conf"))
 ' "$PATCHED" >/dev/null || fail "Gepatchte Ignition ist ungueltig."
 
 # Netzwerk des PXE-Live-Systems als statisches NM-Keyfile fuer Bootstrap und
