@@ -555,6 +555,7 @@ autoconnect=true
 
 [ethernet]
 mac-address=${MAC}
+wake-on-lan=magic
 
 [ipv4]
 address1=${SNO_IP}/${PREFIX},${GATEWAY}

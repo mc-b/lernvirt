@@ -368,6 +368,10 @@ BOOTSTRAP_HEAD
 log() { printf '[lernvirt-rke2] %s %s\n' "$(date -Iseconds)" "$*"; }
 
 hostnamectl set-hostname "$NODE_HOSTNAME"
+
+PRIMARY_IF="$(ip -4 route show default | awk '/default/ {print $5; exit}')"
+ethtool -s "$PRIMARY_IF" wol g || true
+
 mkdir -p /etc/rancher/rke2 /var/lib/lernvirt /etc/sysctl.d /opt/rke2/bin
 
 # Wicked kann die von RKE2 gesetzten Forwarding-Werte sonst zurücksetzen.
@@ -392,7 +396,7 @@ systemctl disable --now firewalld.service 2>/dev/null || true
 # Benötigte Werkzeuge sicherstellen.
 zypper --non-interactive --gpg-auto-import-keys refresh || true
 zypper --non-interactive install --no-recommends curl ca-certificates apparmor-parser iptables tar gzip || \
-    zypper --non-interactive install curl ca-certificates apparmor-parser iptables tar gzip
+    zypper --non-interactive install curl ca-certificates apparmor-parser iptables tar gzip ethtool
 
 for cmd in curl tar gzip sha256sum awk sed grep mountpoint; do
     command -v "$cmd" >/dev/null 2>&1 || { log "Fehlendes Werkzeug: $cmd"; exit 1; }
