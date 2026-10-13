@@ -43,7 +43,8 @@ Die vorhandenen Installationspfade sind auf eigene Dokumente verteilt:
 | `reset` | Reset HW (user-data-reset), z.B. nach OpenShift Installation | [UBUNTU.md](UBUNTU.md) |
 | `suse` | openSUSE Leap mit RKE2/Rancher-Bootstrap | [SUSE.md](SUSE.md) |
 | `harvester` | SUSE Harvester | [HARVESTER.md](HARVESTER.md) |
-| `openshift` | Red Hat OpenShift / RHCOS | [OPENSHIFT.md](OPENSHIFT.md) |
+| `openshift-sno` | Red Hat OpenShift / RHCOS Single Node | [OPENSHIFT-SNO.md](OPENSHIFT-SNO.md) |
+| `openshift` | Red Hat OpenShift / RHCOS Cluster | [OPENSHIFT.md](OPENSHIFT.md) |
 
 ## Host-Zuordnung mit `rack.conf`
 
