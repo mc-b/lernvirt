@@ -166,8 +166,8 @@ EOF_CLUSTER_ENV
 )
 PROFILE_TEXT=$(cat <<'EOF_PROFILE'
 if [ "$(id -u)" -eq 0 ]; then
-    if [ -r /etc/kubernetes/kubeconfig ]; then
-        export KUBECONFIG=/etc/kubernetes/kubeconfig
+    if [ -r /etc/kubernetes/static-pod-resources/kube-apiserver-certs/secrets/node-kubeconfigs/localhost.kubeconfig ]; then
+        export KUBECONFIG=/etc/kubernetes/static-pod-resources/kube-apiserver-certs/secrets/node-kubeconfigs/localhost.kubeconfig
     elif [ -r /etc/kubernetes/bootstrap-secrets/kubeconfig ]; then
         export KUBECONFIG=/etc/kubernetes/bootstrap-secrets/kubeconfig
     fi
