@@ -181,10 +181,210 @@ StandardError=journal+console
 EOF_BOOTKUBE_DROPIN
 )
 
+# Nach dem ersten Disk-Reboot richtet der Node selbst einen kleinen CoreDNS-Dienst
+# fuer seine Cluster-Zone ein. Der OpenShift DNS Operator leitet nur diese Zone an
+# diesen Dienst weiter. Dadurch funktionieren api/api-int und beliebige *.apps
+# intern ohne externen Wildcard-DNS und ohne Aenderung am PXE-Server.
+SNO_DNS_SCRIPT=$(cat <<'EOF_SNO_DNS_SCRIPT'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+log() { printf '[lernvirt-sno-dns] %s\n' "$*"; }
+
+CLUSTER_ENV="${LERNVIRT_CLUSTER_ENV:-/var/lib/lernvirt/cluster.env}"
+ADMIN_KUBECONFIG="${LERNVIRT_KUBECONFIG:-/etc/kubernetes/static-pod-resources/kube-apiserver-certs/secrets/node-kubeconfigs/localhost.kubeconfig}"
+OC="${LERNVIRT_OC:-/bin/oc}"
+
+[[ -r "$CLUSTER_ENV" ]] || { log "Fehlt: $CLUSTER_ENV"; exit 1; }
+# shellcheck disable=SC1090
+source "$CLUSTER_ENV"
+: "${CLUSTER_NAME:?CLUSTER_NAME fehlt}"
+: "${BASE_DOMAIN:?BASE_DOMAIN fehlt}"
+: "${SNO_IP:?SNO_IP fehlt}"
+
+export KUBECONFIG="$ADMIN_KUBECONFIG"
+
+# Der Admin-Kubeconfig wird erst erzeugt, wenn die finale kube-apiserver-Revision
+# vorhanden ist. Bis dahin laeuft dieser One-Shot parallel zum Bootstrap weiter.
+ready=0
+for _ in $(seq 1 360); do
+    if [[ -x "$OC" && -r "$ADMIN_KUBECONFIG" ]] && \
+       "$OC" get --raw=/readyz >/dev/null 2>&1; then
+        ready=1
+        break
+    fi
+    sleep 10
+done
+[[ "$ready" == 1 ]] || { log "API/Admin-Kubeconfig nach 60 Minuten nicht bereit."; exit 1; }
+
+ZONE="${CLUSTER_NAME}.${BASE_DOMAIN}"
+NAMESPACE=lernvirt-sno-dns
+SERVER_NAME=lernvirt-sno
+
+# Exakt das CoreDNS-Image des laufenden OpenShift DNS verwenden. Damit wird kein
+# zusaetzliches externes Image oder Binary benoetigt.
+DNS_IMAGE=""
+for _ in $(seq 1 360); do
+    DNS_IMAGE="$("$OC" -n openshift-dns get daemonset dns-default \
+        -o jsonpath='{.spec.template.spec.containers[?(@.name=="dns")].image}' 2>/dev/null || true)"
+    [[ -n "$DNS_IMAGE" ]] && break
+    sleep 10
+done
+[[ -n "$DNS_IMAGE" ]] || { log "CoreDNS-Image konnte nach 60 Minuten nicht ermittelt werden."; exit 1; }
+
+log "Richte interne Zone ${ZONE} -> ${SNO_IP} ein."
+"$OC" apply -f - <<EOF_DNS_OBJECTS
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${NAMESPACE}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: ${NAMESPACE}
+data:
+  Corefile: |
+    ${ZONE}:5353 {
+        errors
+        template IN A {
+            answer "{{ .Name }} 30 IN A ${SNO_IP}"
+        }
+        template IN AAAA {
+            rcode NOERROR
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coredns
+  namespace: ${NAMESPACE}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lernvirt-sno-dns
+  template:
+    metadata:
+      labels:
+        app: lernvirt-sno-dns
+    spec:
+      dnsPolicy: Default
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: coredns
+        image: ${DNS_IMAGE}
+        imagePullPolicy: IfNotPresent
+        args:
+        - -conf
+        - /etc/coredns/Corefile
+        ports:
+        - name: dns-udp
+          containerPort: 5353
+          protocol: UDP
+        - name: dns-tcp
+          containerPort: 5353
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 5m
+            memory: 16Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - name: config
+          mountPath: /etc/coredns
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: coredns
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coredns
+  namespace: ${NAMESPACE}
+spec:
+  selector:
+    app: lernvirt-sno-dns
+  ports:
+  - name: dns-udp
+    port: 5353
+    targetPort: 5353
+    protocol: UDP
+  - name: dns-tcp
+    port: 5353
+    targetPort: 5353
+    protocol: TCP
+EOF_DNS_OBJECTS
+
+"$OC" -n "$NAMESPACE" rollout status deployment/coredns --timeout=5m
+DNS_SERVICE_IP="$("$OC" -n "$NAMESPACE" get service coredns -o jsonpath='{.spec.clusterIP}')"
+[[ -n "$DNS_SERVICE_IP" && "$DNS_SERVICE_IP" != None ]] || { log "DNS Service-IP fehlt."; exit 1; }
+UPSTREAM="${DNS_SERVICE_IP}:5353"
+
+# Idempotent und ohne fremde DNS-Server zu ueberschreiben. Ein vorhandener
+# lernvirt-Eintrag wird auf die aktuelle Service-IP aktualisiert.
+server_index="$("$OC" get dns.operator.openshift.io/default \
+    -o go-template='{{range $i, $s := .spec.servers}}{{if eq $s.name "lernvirt-sno"}}{{$i}}{{end}}{{end}}' \
+    2>/dev/null || true)"
+entry=$(printf '{"name":"%s","zones":["%s"],"forwardPlugin":{"policy":"Sequential","upstreams":["%s"]}}' \
+    "$SERVER_NAME" "$ZONE" "$UPSTREAM")
+
+if [[ -n "$server_index" ]]; then
+    patch=$(printf '[{"op":"replace","path":"/spec/servers/%s","value":%s}]' "$server_index" "$entry")
+else
+    first_server="$("$OC" get dns.operator.openshift.io/default \
+        -o jsonpath='{.spec.servers[0].name}' 2>/dev/null || true)"
+    if [[ -n "$first_server" ]]; then
+        patch=$(printf '[{"op":"add","path":"/spec/servers/-","value":%s}]' "$entry")
+    else
+        patch=$(printf '[{"op":"add","path":"/spec/servers","value":[%s]}]' "$entry")
+    fi
+fi
+"$OC" patch dns.operator.openshift.io/default --type=json -p "$patch"
+
+# Die DNS-DaemonSet-Rollout wird vom DNS Operator ausgeloest. Ein Fehler hier
+# beendet die Installation nicht; der Operator reconciliert weiter.
+"$OC" -n openshift-dns rollout status daemonset/dns-default --timeout=10m || true
+log "Interne OpenShift-Zone aktiv: ${ZONE} -> ${SNO_IP}"
+EOF_SNO_DNS_SCRIPT
+)
+SNO_DNS_UNIT=$(cat <<'EOF_SNO_DNS_UNIT'
+[Unit]
+Description=lernvirt SNO internal DNS bootstrap
+Wants=network-online.target
+After=network-online.target kubelet.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lernvirt-openshift-dns
+RemainAfterExit=yes
+Restart=on-failure
+RestartSec=30s
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
+EOF_SNO_DNS_UNIT
+)
+
 HOSTS_URL="$(data_url_text_nl "$HOSTS_TEXT")"
 HOSTNAME_URL="$(data_url_text_nl "$HOSTNAME_TEXT")"
 CLUSTER_ENV_URL="$(data_url_text_nl "$CLUSTER_ENV")"
 PROFILE_URL="$(data_url_text_nl "$PROFILE_TEXT")"
+SNO_DNS_SCRIPT_URL="$(data_url_text_nl "$SNO_DNS_SCRIPT")"
 
 # Erste und zweite Live-Phase verwenden denselben Hostnamen.
 if [[ "$DRY_RUN" != "1" ]]; then
@@ -280,6 +480,11 @@ spec:
         overwrite: true
         contents:
           source: ${PROFILE_URL}
+      - path: /usr/local/sbin/lernvirt-openshift-dns
+        mode: 493
+        overwrite: true
+        contents:
+          source: ${SNO_DNS_SCRIPT_URL}
     systemd:
       units:
       - name: bootkube.service
@@ -289,6 +494,10 @@ spec:
             [Service]
             StandardOutput=journal+console
             StandardError=journal+console
+      - name: lernvirt-openshift-dns.service
+        enabled: true
+        contents: |
+$(printf '%s\n' "$SNO_DNS_UNIT" | sed 's/^/          /')
 EOF_MC
 chmod 0600 "$WORK/openshift/99-master-lernvirt-sno.yaml"
 
