@@ -88,6 +88,20 @@ Beispiele:
 * [Cloud-native Advanced](https://gitlab.com/ch-tbz-wb/Stud/CnA/-/tree/main/0_Organisatorisches/Infrastruktur/pxe-stack)
 * [GNS3](https://gitlab.com/ch-tbz-wb/Stud/nwa/-/tree/main/0_Organisatorisches/Infrastruktur/pxe-stack)
 
+## lernvirt `autoinstall` Umgebungen als PXE-Boot zur Verfügung stellen
+
+```bash
+for prj in control min gui k8sws worker maas k3sws; do
+    curl -fsSL "https://raw.githubusercontent.com/mc-b/lernvirt/main/autoinstall/nocloud.${prj}/user-data" \
+        | sudo tee "/var/www/html/autoinstall/user-data-${prj}" >/dev/null
+
+    sudo tee "/srv/tftp/grub/stacks/${prj}.cfg" >/dev/null <<EOF
+set userdata="user-data-${prj}"
+source /srv/tftp/grub/stacks/_ubuntu-install.cfg
+EOF
+done
+```
+
 ## Alpine / BusyBox Boot Tools
 
 Mit `BOOT_TOOLS=1` stellt die PXE-Basis zusätzliche RAM-basierte Werkzeuge bereit. Sie installieren nichts auf die lokale Disk.
