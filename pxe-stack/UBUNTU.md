@@ -17,9 +17,6 @@ Die Architektur wird beim Boot durch GRUB erkannt. Kernel und Initramfs werden p
 | Stack | Autoinstall-Profil |
 |---|---|
 | `ubuntu` | `user-data` |
-| `cna` | `user-data-cna` |
-| `cna-full` | `user-data-cna-full` |
-| `platen` | `user-data-platen` |
 | `reset` | `user-data-reset` |
 
 Die Profile befinden sich unter:
@@ -35,7 +32,7 @@ Die gemeinsame Ubuntu-Bootlogik liegt in `_ubuntu-install.cfg`; die einzelnen St
 Beispiel für `cna`:
 
 ```bash
-curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | STACK=cna bash -
+curl -sfL https://raw.githubusercontent.com/mc-b/lernvirt/main/pxe-stack/install-pxe.sh | STACK=ubuntu bash -
 ```
 
 Alternativ wird die Zuordnung später in `/srv/tftp/config/rack.conf` gesetzt:
@@ -105,4 +102,4 @@ sudo pxe-update
 
 ## Neuinstallation mit `reset`
 
-Der Stack `reset` ignoriert bewusst einen vorhandenen lernvirt-Installationsmarker und startet erneut den Ubuntu-Autoinstall mit `user-data-reset`.
+Der Stack `reset` ignoriert bewusst einen vorhandenen lernvirt-Installationsmarker (`/boot/lernvirt-installed`) und startet erneut den Ubuntu-Autoinstall mit `user-data-reset`.
