@@ -5,16 +5,16 @@ vm:
 # WireGuard Clients. WireGuard erreichbar via Host
 wgClients:
   count: 3
-  endpointNode: 192.168.1.56
+  endpointNode: 10.31.20.51
   
 # Lokaler Image Cache vorhanden? 
 mirror:
   enabled: true
-  mirrorBaseUrl: http://192.168.1.56
+  mirrorBaseUrl: http://10.31.20.51
   
 # Cloud-init Datasource - fuer nfsclient.sh, mounted /data etc.  
 datasource:
-  serverIP: 192.168.1.56   
+  serverIP: 10.31.20.51
     
 # Bestimmung OS, Version und CPU Architektur  
 os:
