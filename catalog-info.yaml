@@ -1,0 +1,31 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: lernvirt
+  namespace: mc-b
+  tags:
+  - cloud-native
+  - education
+  - infrastructure-as-code
+  - kubernetes
+  - lerncloud
+  - lernvirt
+  - lerngns3
+  - lernmaas
+  - terraform
+  description: Das Projekt lernvirt ist eine lokale, reproduzierbare Lernumgebung auf Basis von Kubernetes und KubeVirt.
+  links:
+  - url: https://github.com/mc-b/lernvirt
+    title: Repository
+    icon: github
+  annotations:
+    github.com/project-slug: mc-b/lernvirt
+    backstage.io/source-location: url:https://github.com/mc-b/lernvirt
+    # backstage.io/techdocs-ref: url:https://github.com/mc-b/lernvirt
+spec:
+  type: website
+  lifecycle: production
+  owner: group:mc-b/mc-b
+  dependsOn:
+  - resource:mc-b/lerncloud
+  
