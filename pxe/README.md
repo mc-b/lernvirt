@@ -105,7 +105,7 @@ autoinstall:
 
 ---
 
-### 4. Client booten
+### 4. Client booten (Neuinstallation erzwingen)
 
 * PXE / Network Boot im BIOS aktivieren
 * Client starten
@@ -115,7 +115,7 @@ autoinstall:
 Oder
 * mittels ssh mit dem Client verbinden
 * `sudo rm /boot/lernvirt-installed`
-* `sudo reboot`
+* `sudo systemctl reboot --force --force`
 * Die Neuinstallation läuft vollständig automatisch
 
 ---

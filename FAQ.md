@@ -10,7 +10,7 @@ Der Befehl durchsucht das Subnetz und zeigt alle aktuell erreichbaren Geräte an
 
 > **Wie kann ich eine Neuinstallation der Bare Metal Geräte auslösen**
 
-Lösche auf jedem Gerät die Datei `/boot/lernvirt-installed` und führe einen Reboot aus. 
+Lösche auf jedem Gerät die Datei `rm -rf /boot/lernvirt-installed` und führe einen Reboot `sudo systemctl reboot --force --force` aus. 
 
 ### Neuinstallation aller Worker erzwingen
 
