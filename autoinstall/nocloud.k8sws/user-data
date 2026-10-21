@@ -34,28 +34,24 @@ autoinstall:
 
   # Diese Befehle laufen NOCH VOR dem Reboot am Ende der Installation
   late-commands:
+    - curtin in-target --target=/target -- touch /boot/lernvirt-installed
     - |
-      curtin in-target --target=/target -- bash -c '
-        set +e
-
-        if lspci -nn | grep -qiE "NVIDIA"
-        then
-          apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl gnupg2 linux-headers-generic
-
-          curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-          curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-            sed "s#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g" \
-            > /etc/apt/sources.list.d/nvidia-container-toolkit.list
-
-          apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y nvidia-driver-580 nvidia-utils-580
-          DEBIAN_FRONTEND=noninteractive apt-get install -y nvidia-container-toolkit
-        else
-          echo "No NVIDIA GPU detected, skipping NVIDIA driver/toolkit installation."
-        fi
-      '  
-    - curtin in-target --target=/target -- touch /boot/lernvirt-installed           
+      if lspci -nn | grep -qi NVIDIA; then
+        curtin in-target --target=/target -- bash -c '
+          set -x
+          apt-get update -y
+          # 1. Treiber via ubuntu-drivers installieren (falls noch nicht geschehen)
+          DEBIAN_FRONTEND=noninteractive ubuntu-drivers install --gpgpu
+          # 2. DYNAMISCHE VERSIONSERMITTLUNG (Sucht nach ii-Paketen mit dreistelligen Nummern wie 580)
+          VERSION=$(dpkg -l | grep "^ii" | grep -oP "nvidia-[a-z-]*\K[0-9]{3}(?=-server)" | head -n1)
+          # 3. Installation der exakt passenden Server-Utils erzwingen
+          if [ -n "$VERSION" ]; then
+            DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "nvidia-utils-${VERSION}-server"
+          else
+            echo "Fehler: Keine installierte NVIDIA-Versionsnummer im dpkg-Log gefunden!"
+          fi
+        '
+      fi           
 
   user-data:
     users:
@@ -81,8 +77,8 @@ autoinstall:
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/containers.sh | bash -        
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8s.sh | bash -
       - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/microk8saddons.sh | bash -
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/nvidia-gpu-operator.sh | bash -
-      - curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/intel-gpu-operator.sh | bash -      
+      - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/nvidia-gpu-operator.sh | bash -"
+      - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/refs/heads/main/services/intel-gpu-operator.sh | bash -"        
       - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/cert-manager.sh | bash -"         
       - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/jupyter-lab.sh | SKIP_LIBRARIES=false APPNAME=k8sws bash -"
       - runuser -l ubuntu -c "curl -sfL https://raw.githubusercontent.com/mc-b/lerncloud/main/services/cert-manager.sh | bash -"    
