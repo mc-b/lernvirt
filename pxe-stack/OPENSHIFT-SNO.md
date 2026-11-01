@@ -163,8 +163,62 @@ Die aktuelle URL kann mit `oc` abgefragt werden:
 oc whoami --show-console
 ```
 
-Und um das `kubeadmin` Password zu setzen Copy & Paste des Scriptinhaltes von [target/openshift-console.sh](target/openshift-console.sh).
+Und um das `kubeadmin` Password zu setzen Copy & Paste folgendes Script ausführen
 
+```bash
+set -euo pipefail
+
+export KUBECONFIG=/etc/kubernetes/static-pod-resources/kube-apiserver-certs/secrets/node-kubeconfigs/localhost.kubeconfig
+
+# Prüfen, ob kubeadmin noch vorhanden ist
+oc get secret kubeadmin -n kube-system >/dev/null
+
+# Neues Passwort im OpenShift-Stil erzeugen: xxxxx-xxxxx-xxxxx-xxxxx
+RAW="$(openssl rand -hex 10)"
+PASS="${RAW:0:5}-${RAW:5:5}-${RAW:10:5}-${RAW:15:5}"
+
+# bcrypt-Hash erzeugen; htpasswd kommt aus einem UBI-Container
+HASH="$(
+  podman run --rm \
+    --entrypoint /usr/bin/htpasswd \
+    registry.access.redhat.com/ubi9/httpd-24:latest \
+    -bnBC 10 kubeadmin "$PASS" |
+    cut -d: -f2 |
+    tr -d '\r\n'
+)"
+
+case "$HASH" in
+  '$2a$'*|'$2b$'*|'$2y$'*) ;;
+  *)
+    echo "FEHLER: Kein gültiger bcrypt-Hash erzeugt"
+    exit 1
+    ;;
+esac
+
+# Hash im kubeadmin-Secret ersetzen
+B64="$(printf '%s' "$HASH" | base64 -w0)"
+
+oc patch secret kubeadmin \
+  -n kube-system \
+  --type=merge \
+  -p "{\"data\":{\"kubeadmin\":\"${B64}\"}}"
+
+# Prüfen, ob der Hash gespeichert wurde
+SAVED="$(
+  oc get secret kubeadmin -n kube-system \
+    -o jsonpath='{.data.kubeadmin}' |
+    base64 -d
+)"
+
+test "$SAVED" = "$HASH"
+
+echo
+echo "----------------------------------------"
+echo "User:     kubeadmin"
+echo "Password: $PASS"
+echo "Console:  $(oc whoami --show-console)"
+echo "----------------------------------------"
+```
 
 ### Namensauflösung auf dem Admin-PC
 
